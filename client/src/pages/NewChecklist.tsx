@@ -21,6 +21,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 import bananaImg from "@assets/image_1772521947455.png";
 
@@ -367,11 +368,20 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
             </DialogTrigger>
             <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
               <div className="w-full h-full flex items-center justify-center p-4">
-                <img 
-                  src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&h=800&fit=crop"} 
-                  alt="Standard Guide Full" 
-                  className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl bg-white"
-                />
+                <TransformWrapper
+                  initialScale={1}
+                  minScale={1}
+                  maxScale={4}
+                  centerOnInit={true}
+                >
+                  <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+                    <img 
+                      src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&h=800&fit=crop"} 
+                      alt="Standard Guide Full" 
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto"
+                    />
+                  </TransformComponent>
+                </TransformWrapper>
               </div>
             </DialogContent>
           </Dialog>
