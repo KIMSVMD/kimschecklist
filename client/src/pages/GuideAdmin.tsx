@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import {
@@ -212,13 +212,18 @@ export default function GuideAdmin() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (!authLoading && !adminStatus?.isAdmin) {
+      setLocation('/admin/login');
+    }
+  }, [authLoading, adminStatus?.isAdmin, setLocation]);
+
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
   }
 
   if (!adminStatus?.isAdmin) {
-    setLocation('/admin/login');
-    return null;
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
   }
 
   const buildFormData = (data: ReturnType<typeof Object.assign>) => {

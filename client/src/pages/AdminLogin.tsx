@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAdminLogin, useAdminStatus } from "@/hooks/use-guides";
@@ -12,10 +12,11 @@ export default function AdminLogin() {
   const loginMutation = useAdminLogin();
   const { data: adminStatus } = useAdminStatus();
 
-  if (adminStatus?.isAdmin) {
-    setLocation('/admin/guides');
-    return null;
-  }
+  useEffect(() => {
+    if (adminStatus?.isAdmin) {
+      setLocation('/admin/guides');
+    }
+  }, [adminStatus?.isAdmin, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
