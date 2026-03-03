@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -10,6 +10,7 @@ export const checklists = pgTable("checklists", {
   status: text("status").notNull(), // 'excellent' | 'average' | 'poor'
   photoUrl: text("photo_url"),
   notes: text("notes"),
+  items: jsonb("items").$type<Record<string, string>>(), // { "위치": "excellent", "면적": "poor", ... }
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

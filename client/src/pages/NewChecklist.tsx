@@ -16,9 +16,11 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+import bananaImg from "@assets/image_1772520842321.png";
+
 const REGIONS = {
   '수도권': ['강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천'],
-  '지방': ['대전', '해운대', '괴정', '쇼핑', '수성점']
+  '지방': ['대전', '해운대', '괴정', '쇼핑', '수성']
 };
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
@@ -28,6 +30,23 @@ const PRODUCTS = {
   '수산': ['[견과]', '[간편식]'],
   '축산': ['[돈육]', '[한우]암소한우', '[한우]시즈닝 스테이크', '[수입육]', '[양념육]', '[계육]'],
   '공산': ['[직수입]', '[건기식]', '[공산행사장]']
+};
+
+const PRODUCT_GUIDES: Record<string, { image: string, points: string[], items: string[] }> = {
+  '[수입]바나나': {
+    image: bananaImg,
+    points: [
+      "상품: 바나나 3SKU(앵커/유기농/프리미엄)",
+      "위치: 입구 위치 고정화",
+      "면적: 앵커 60% / 유기농 20% / 프리미엄 20%",
+      "진열: ①앵커 -> 유기농 -> 프리미엄순",
+      "진열: ②후숙도 구분(덜익 -> 중강 -> 잘익)",
+      "진열: ③곡면 소도구 활용",
+      "연출: 잎 그래픽 바닥 시트",
+      "광고: 바나나 셀링"
+    ],
+    items: ["상품(3SKU)", "위치(입구고정)", "면적(60/20/20)", "진열(순서/후숙도/소도구)", "연출(바닥시트)", "광고(셀링)"]
+  }
 };
 
 export default function NewChecklist() {
@@ -41,10 +60,11 @@ export default function NewChecklist() {
     product: "",
     status: "",
     photoUrl: "",
-    notes: ""
+    notes: "",
+    items: {} as Record<string, string>
   });
 
-  const updateForm = (key: string, value: string) => {
+  const updateForm = (key: string, value: any) => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
@@ -275,20 +295,18 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
   };
 
   const submitForm = async () => {
-    if (!formData.status) {
-      toast({ title: "상태를 선택해주세요.", variant: "destructive" });
-      return;
-    }
+    const hasPoor = Object.values(formData.items).includes('poor');
+    const finalStatus = hasPoor ? 'poor' : 'excellent'; // Simplified logic for overall status
     
-    // Allow submission even without photo for robust field usage, but photoUrl is optional in schema anyway
     try {
       await createMutation.mutateAsync({
         branch: formData.branch,
         category: formData.category,
         product: formData.product,
-        status: formData.status,
+        status: finalStatus,
         photoUrl: formData.photoUrl || null,
         notes: formData.notes || null,
+        items: formData.items,
       });
       
       toast({ title: "제출 완료!", description: "점검이 성공적으로 등록되었습니다." });
@@ -297,6 +315,8 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
       toast({ title: "제출 실패", description: String(err), variant: "destructive" });
     }
   };
+
+  const guide = PRODUCT_GUIDES[formData.product];
 
   return (
     <motion.div 
@@ -315,24 +335,32 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
           <ImageIcon className="text-primary w-6 h-6" />
           <h3 className="text-xl font-bold">표준 진열 가이드</h3>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-2xl overflow-hidden aspect-square bg-muted/20 border border-white/10">
-            {/* landing page standard VM display guide fruits */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-2xl overflow-hidden aspect-video md:aspect-square bg-muted/20 border border-white/10">
             <img 
-              src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop" 
+              src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop"} 
               alt="Standard Guide" 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-white"
             />
           </div>
-          <div className="flex flex-col justify-center space-y-3">
-            <div className="flex items-start gap-2">
-              <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shrink-0">1</div>
-              <p className="text-sm font-medium leading-tight opacity-90">상품이 풍성해 보이도록 전진 진열</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shrink-0">2</div>
-              <p className="text-sm font-medium leading-tight opacity-90">시즌 소품 활용</p>
-            </div>
+          <div className="flex flex-col justify-start space-y-2 overflow-y-auto max-h-[300px] pr-2 scrollbar-thin scrollbar-thumb-white/20">
+            {guide?.points.map((point, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                <p className="text-sm font-medium leading-tight opacity-90">{point}</p>
+              </div>
+            )) || (
+              <>
+                <div className="flex items-start gap-2">
+                  <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shrink-0">1</div>
+                  <p className="text-sm font-medium leading-tight opacity-90">상품이 풍성해 보이도록 전진 진열</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shrink-0">2</div>
+                  <p className="text-sm font-medium leading-tight opacity-90">시즌 소품 활용</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -351,8 +379,8 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
           {/* Guide Overlay - 30% transparency */}
           <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply">
             <img 
-              src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=800&fit=crop" 
-              className="w-full h-full object-cover grayscale" 
+              src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=800&fit=crop"} 
+              className="w-full h-full object-contain bg-white grayscale" 
               alt="Guide Overlay" 
             />
           </div>
@@ -378,46 +406,34 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
         />
       </div>
 
-      {/* 3-Step Status Check */}
-      <div className="space-y-3">
-        <h3 className="text-xl font-bold text-secondary">진열 상태 평가</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <button 
-            onClick={() => updateForm('status', 'excellent')}
-            className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all active:scale-95 ${
-              formData.status === 'excellent' 
-              ? 'bg-blue-500 border-blue-600 text-white shadow-lg' 
-              : 'bg-white border-border text-muted-foreground hover:border-blue-200'
-            }`}
-          >
-            <CheckCircle2 className="w-12 h-12 mb-3" />
-            <span className="text-xl font-black">우수</span>
-          </button>
-
-          <button 
-            onClick={() => updateForm('status', 'average')}
-            className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all active:scale-95 ${
-              formData.status === 'average' 
-              ? 'bg-amber-500 border-amber-600 text-white shadow-lg' 
-              : 'bg-white border-border text-muted-foreground hover:border-amber-200'
-            }`}
-          >
-            <AlertTriangle className="w-12 h-12 mb-3" />
-            <span className="text-xl font-black">보통</span>
-          </button>
-
-          <button 
-            onClick={() => updateForm('status', 'poor')}
-            className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all active:scale-95 ${
-              formData.status === 'poor' 
-              ? 'bg-primary border-red-700 text-white shadow-lg' 
-              : 'bg-white border-border text-muted-foreground hover:border-primary/30'
-            }`}
-          >
-            <XOctagon className="w-12 h-12 mb-3" />
-            <span className="text-xl font-black">미흡</span>
-          </button>
-        </div>
+      {/* Per-item Status Check */}
+      <div className="space-y-6">
+        <h3 className="text-xl font-bold text-secondary">항목별 진열 상태 평가</h3>
+        {(guide?.items || ["기본 진열 상태"]).map((item) => (
+          <div key={item} className="space-y-3 p-4 bg-muted/30 rounded-2xl border border-border/50">
+            <h4 className="text-lg font-bold text-secondary">{item}</h4>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'excellent', label: '우수', icon: CheckCircle2, color: 'blue' },
+                { id: 'average', label: '보통', icon: AlertTriangle, color: 'amber' },
+                { id: 'poor', label: '미흡', icon: XOctagon, color: 'red' }
+              ].map((s) => (
+                <button 
+                  key={s.id}
+                  onClick={() => updateForm('items', { ...formData.items, [item]: s.id })}
+                  className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-all active:scale-95 ${
+                    formData.items[item] === s.id 
+                    ? `bg-${s.color === 'red' ? 'primary' : s.color + '-500'} border-${s.color === 'red' ? 'red-700' : s.color + '-600'} text-white shadow-md` 
+                    : `bg-white border-border text-muted-foreground hover:border-${s.color}-200`
+                  }`}
+                >
+                  <s.icon className="w-8 h-8 mb-1" />
+                  <span className="text-sm font-bold">{s.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Notes */}

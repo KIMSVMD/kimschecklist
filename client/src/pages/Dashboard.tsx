@@ -115,6 +115,20 @@ export default function Dashboard() {
                       </div>
                     </div>
 
+                    {item.items && Object.keys(item.items as object).length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {Object.entries(item.items as Record<string, string>).map(([name, status]) => (
+                          <span key={name} className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                            status === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
+                            status === 'average' ? 'bg-amber-50 border-amber-200 text-amber-600' :
+                            'bg-red-50 border-red-200 text-red-600'
+                          }`}>
+                            {name}: {status === 'excellent' ? '우수' : status === 'average' ? '보통' : '미흡'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     <p className="text-sm text-muted-foreground font-medium flex items-center gap-2 mt-4">
                       {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                     </p>
