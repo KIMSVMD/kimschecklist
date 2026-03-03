@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { products } from "@shared/schema";
-import { count } from "drizzle-orm";
+import { products, guides } from "@shared/schema";
+import { count, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
 const DEFAULT_PRODUCTS = [
@@ -36,7 +36,7 @@ const DEFAULT_PRODUCTS = [
 ];
 
 export async function seedProductsIfEmpty() {
-  // Ensure cleaning_inspections table exists in production
+  // 1. Ensure cleaning_inspections table exists
   try {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS cleaning_inspections (
@@ -53,7 +53,7 @@ export async function seedProductsIfEmpty() {
     console.error("[seed] Failed to ensure cleaning_inspections table:", err);
   }
 
-  // Seed default products if table is empty
+  // 2. Seed default products if table is empty
   try {
     const [{ value }] = await db.select({ value: count() }).from(products);
     if (value === 0) {
@@ -62,5 +62,42 @@ export async function seedProductsIfEmpty() {
     }
   } catch (err) {
     console.error("[seed] Failed to seed products:", err);
+  }
+
+  // 3. Normalize guide product names to match seeded products table format
+  // Fixes guides created when products table was empty (e.g. "[수입]바나나" → "[수입과일]바나나")
+  try {
+    const allProducts = await db.select().from(products);
+    const allGuides = await db.select().from(guides);
+
+    // Build valid product key set: "[groupName]productName" or "[groupName]"
+    const validKeys = new Set<string>();
+    for (const p of allProducts) {
+      if (p.productName) {
+        validKeys.add(`[${p.groupName}]${p.productName}`);
+      } else {
+        validKeys.add(`[${p.groupName}]`);
+      }
+    }
+
+    for (const guide of allGuides) {
+      if (validKeys.has(guide.product)) continue; // already correct
+
+      // Try to match by extracting the product name part after "]"
+      const match = guide.product.match(/^\[.*?\](.*)$/);
+      const rawName = match ? match[1] : null;
+
+      if (!rawName) continue;
+
+      // Find a product with the same productName
+      const candidate = allProducts.find(p => p.productName === rawName);
+      if (candidate) {
+        const correctedKey = `[${candidate.groupName}]${candidate.productName}`;
+        await db.update(guides).set({ product: correctedKey }).where(eq(guides.id, guide.id));
+        console.log(`[seed] Fixed guide #${guide.id}: "${guide.product}" → "${correctedKey}"`);
+      }
+    }
+  } catch (err) {
+    console.error("[seed] Failed to normalize guide product names:", err);
   }
 }
