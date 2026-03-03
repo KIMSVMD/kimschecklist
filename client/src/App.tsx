@@ -10,12 +10,14 @@ import NewChecklist from "./pages/NewChecklist";
 import Dashboard from "./pages/Dashboard";
 import AdminLogin from "./pages/AdminLogin";
 import GuideAdmin from "./pages/GuideAdmin";
+import EditChecklist from "./pages/EditChecklist";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/checklist/new" component={NewChecklist} />
+      <Route path="/checklist/edit/:id" component={EditChecklist} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/guides" component={GuideAdmin} />

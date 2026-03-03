@@ -64,6 +64,26 @@ export function useCreateChecklist() {
   });
 }
 
+export function useUpdateChecklist() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<z.infer<typeof api.checklists.create.input>> }) => {
+      const res = await fetch(`/api/checklists/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to update checklist');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+    },
+  });
+}
+
 export function useUploadPhoto() {
   return useMutation({
     mutationFn: async (file: File) => {

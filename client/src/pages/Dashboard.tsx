@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists } from "@/hooks/use-checklists";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Filter, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { Filter, Image as ImageIcon, AlertCircle, Pencil } from "lucide-react";
 import { motion } from "framer-motion";
 
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
@@ -139,6 +140,15 @@ export default function Dashboard() {
                         {item.notes}
                       </div>
                     )}
+
+                    <Link href={`/checklist/edit/${item.id}`} className="block mt-4">
+                      <button
+                        className="w-full py-3 rounded-2xl border-2 border-border bg-muted text-secondary font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:border-primary/40 hover:text-primary"
+                        data-testid={`button-edit-checklist-${item.id}`}
+                      >
+                        <Pencil className="w-5 h-5" /> 수정하기
+                      </button>
+                    </Link>
                   </div>
                 </motion.div>
               )
