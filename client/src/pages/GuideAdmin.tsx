@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   ChevronDown,
   ChevronUp,
+  BarChart3,
 } from "lucide-react";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
@@ -282,8 +283,14 @@ export default function GuideAdmin() {
     <Layout title="진열 가이드 관리" showBack={false}>
       <div className="flex flex-col h-full bg-background">
         {/* Header actions */}
-        <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-border">
-          <p className="text-muted-foreground text-sm">VMD 관리자 전용</p>
+        <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-border gap-3">
+          <a
+            href="/dashboard"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary font-bold text-sm active:scale-[0.97] transition-all border border-primary/20 hover:bg-primary/20"
+            data-testid="link-admin-dashboard"
+          >
+            <BarChart3 className="w-4 h-4" /> 관리자 대시보드
+          </a>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted text-secondary font-bold text-sm active:scale-[0.97] transition-all"

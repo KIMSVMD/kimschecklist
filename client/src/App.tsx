@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Home from "./pages/Home";
 import NewChecklist from "./pages/NewChecklist";
 import Dashboard from "./pages/Dashboard";
+import StaffDashboard from "./pages/StaffDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import GuideAdmin from "./pages/GuideAdmin";
 import EditChecklist from "./pages/EditChecklist";
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/checklist/new" component={NewChecklist} />
       <Route path="/checklist/edit/:id" component={EditChecklist} />
+      <Route path="/staff-dashboard" component={StaffDashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/guides" component={GuideAdmin} />

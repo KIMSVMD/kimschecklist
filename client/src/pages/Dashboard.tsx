@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
+import { useAdminStatus } from "@/hooks/use-guides";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2 } from "lucide-react";
+import { Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,6 +17,14 @@ export default function Dashboard() {
   const [filterCategory, setFilterCategory] = useState('전체');
   const { toast } = useToast();
   const deleteMutation = useDeleteChecklist();
+  const [, setLocation] = useLocation();
+  const { data: adminStatus, isLoading: authLoading } = useAdminStatus();
+
+  useEffect(() => {
+    if (!authLoading && !adminStatus?.isAdmin) {
+      setLocation("/admin/login");
+    }
+  }, [adminStatus, authLoading, setLocation]);
 
   const { data: checklists, isLoading } = useChecklists({
     branch: filterBranch !== '전체' ? filterBranch : undefined,
@@ -31,6 +40,18 @@ export default function Dashboard() {
       toast({ title: "삭제 실패", variant: "destructive" });
     }
   };
+
+  if (authLoading) {
+    return (
+      <Layout title="관리자 대시보드" showBack={true}>
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!adminStatus?.isAdmin) return null;
 
   return (
     <Layout title="관리자 대시보드" showBack={true}>
