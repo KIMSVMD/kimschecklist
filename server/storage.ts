@@ -1,38 +1,27 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { checklists, type Checklist, type InsertChecklist } from "@shared/schema";
+import { desc, eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getChecklists(): Promise<Checklist[]>;
+  getChecklist(id: number): Promise<Checklist | undefined>;
+  createChecklist(checklist: InsertChecklist): Promise<Checklist>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getChecklists(): Promise<Checklist[]> {
+    return await db.select().from(checklists).orderBy(desc(checklists.createdAt));
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getChecklist(id: number): Promise<Checklist | undefined> {
+    const [checklist] = await db.select().from(checklists).where(eq(checklists.id, id));
+    return checklist;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createChecklist(insertChecklist: InsertChecklist): Promise<Checklist> {
+    const [checklist] = await db.insert(checklists).values(insertChecklist).returning();
+    return checklist;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

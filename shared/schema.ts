@@ -1,18 +1,22 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+export const checklists = pgTable("checklists", {
+  id: serial("id").primaryKey(),
+  branch: text("branch").notNull(),
+  category: text("category").notNull(),
+  product: text("product").notNull(),
+  status: text("status").notNull(), // 'excellent' | 'average' | 'poor'
+  photoUrl: text("photo_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertChecklistSchema = createInsertSchema(checklists).omit({ 
+  id: true, 
+  createdAt: true 
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type InsertChecklist = z.infer<typeof insertChecklistSchema>;
+export type Checklist = typeof checklists.$inferSelect;
