@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklist, useUploadPhoto } from "@/hooks/use-checklists";
+import { useChecklist, useUploadPhoto, useUpdateChecklist } from "@/hooks/use-checklists";
 import { useGuideByProduct } from "@/hooks/use-guides";
-import { useUpdateChecklist } from "@/hooks/use-checklists";
 import { motion } from "framer-motion";
 import {
   Camera,
@@ -13,7 +12,8 @@ import {
   Image as ImageIcon,
   Loader2,
   MapPin,
-  Package,
+  Save,
+  LayoutDashboard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -38,6 +38,7 @@ export default function EditChecklist() {
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [items, setItems] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize form state once checklist loads
@@ -79,10 +80,10 @@ export default function EditChecklist() {
           items,
         },
       });
-      toast({ title: "수정 완료!", description: "점검 내용이 업데이트되었습니다." });
-      setLocation("/dashboard");
+      setLastSaved(new Date());
+      toast({ title: "저장 완료!", description: "계속 수정하거나 대시보드로 이동하세요." });
     } catch (err) {
-      toast({ title: "수정 실패", description: String(err), variant: "destructive" });
+      toast({ title: "저장 실패", description: String(err), variant: "destructive" });
     }
   };
 
@@ -243,17 +244,43 @@ export default function EditChecklist() {
           />
         </div>
 
-        {/* Submit */}
+        {/* Last saved indicator */}
+        {lastSaved && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-center gap-2 py-3 px-5 rounded-2xl bg-green-50 border border-green-200"
+          >
+            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+            <span className="text-green-700 font-bold text-base">
+              저장 완료 — {lastSaved.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </motion.div>
+        )}
+
+        {guideItems.length > 0 && !allItemsEvaluated && (
+          <p className="text-center text-sm text-muted-foreground">모든 평가 항목을 선택해주세요</p>
+        )}
+
+        {/* Save button */}
         <button
           onClick={handleSubmit}
           disabled={updateMutation.isPending || uploadMutation.isPending || !allItemsEvaluated}
-          className="w-full py-6 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-white font-black text-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-2"
+          className="w-full py-6 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-white font-black text-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-3"
         >
-          {updateMutation.isPending ? <Loader2 className="w-8 h-8 animate-spin" /> : "수정 완료"}
+          {updateMutation.isPending
+            ? <Loader2 className="w-8 h-8 animate-spin" />
+            : <><Save className="w-7 h-7" /> 저장하기</>
+          }
         </button>
-        {guideItems.length > 0 && !allItemsEvaluated && (
-          <p className="text-center text-sm text-muted-foreground -mt-4">모든 평가 항목을 선택해주세요</p>
-        )}
+
+        {/* Go to dashboard */}
+        <button
+          onClick={() => setLocation("/dashboard")}
+          className="w-full py-5 rounded-2xl border-2 border-border bg-white text-secondary font-bold text-xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:border-primary/40"
+        >
+          <LayoutDashboard className="w-6 h-6" /> 대시보드로 이동
+        </button>
       </div>
     </Layout>
   );
