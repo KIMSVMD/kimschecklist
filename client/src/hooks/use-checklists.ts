@@ -64,6 +64,22 @@ export function useCreateChecklist() {
   });
 }
 
+export function useDeleteChecklist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/checklists/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('삭제 실패');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+    },
+  });
+}
+
 export function useUpdateChecklist() {
   const queryClient = useQueryClient();
 

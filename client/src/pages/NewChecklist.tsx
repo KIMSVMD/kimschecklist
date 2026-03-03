@@ -283,7 +283,7 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
     const finalStatus = hasPoor ? 'poor' : hasAverage ? 'average' : 'excellent';
     
     try {
-      await createMutation.mutateAsync({
+      const created = await createMutation.mutateAsync({
         branch: formData.branch,
         category: formData.category,
         product: formData.product,
@@ -293,8 +293,8 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
         items: formData.items,
       });
       
-      toast({ title: "제출 완료!", description: "점검이 성공적으로 등록되었습니다." });
-      setLocation('/dashboard');
+      toast({ title: "제출 완료!", description: "수정이 필요하면 아래에서 변경하세요." });
+      setLocation(`/checklist/edit/${created.id}`);
     } catch (err) {
       toast({ title: "제출 실패", description: String(err), variant: "destructive" });
     }

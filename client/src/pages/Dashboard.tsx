@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklists } from "@/hooks/use-checklists";
+import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Filter, Image as ImageIcon, AlertCircle, Pencil } from "lucide-react";
+import { Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
 
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
 const BRANCHES = ['전체', '강서', '강남', '송파', '야탑', '분당', '대전', '해운대', '괴정']; // Simplified for filter
@@ -13,11 +14,23 @@ const BRANCHES = ['전체', '강서', '강남', '송파', '야탑', '분당', '�
 export default function Dashboard() {
   const [filterBranch, setFilterBranch] = useState('전체');
   const [filterCategory, setFilterCategory] = useState('전체');
+  const { toast } = useToast();
+  const deleteMutation = useDeleteChecklist();
 
   const { data: checklists, isLoading } = useChecklists({
     branch: filterBranch !== '전체' ? filterBranch : undefined,
     category: filterCategory !== '전체' ? filterCategory : undefined,
   });
+
+  const handleDelete = async (id: number, label: string) => {
+    if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: "삭제 완료", description: "점검 기록이 삭제되었습니다." });
+    } catch {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    }
+  };
 
   return (
     <Layout title="관리자 대시보드" showBack={true}>
@@ -141,14 +154,24 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    <Link href={`/checklist/edit/${item.id}`} className="block mt-4">
+                    <div className="flex gap-3 mt-4">
+                      <Link href={`/checklist/edit/${item.id}`} className="flex-1">
+                        <button
+                          className="w-full py-3 rounded-2xl border-2 border-border bg-muted text-secondary font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:border-primary/40 hover:text-primary"
+                          data-testid={`button-edit-checklist-${item.id}`}
+                        >
+                          <Pencil className="w-5 h-5" /> 수정
+                        </button>
+                      </Link>
                       <button
-                        className="w-full py-3 rounded-2xl border-2 border-border bg-muted text-secondary font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:border-primary/40 hover:text-primary"
-                        data-testid={`button-edit-checklist-${item.id}`}
+                        onClick={() => handleDelete(item.id, `${item.branch} ${item.product}`)}
+                        disabled={deleteMutation.isPending}
+                        className="py-3 px-5 rounded-2xl border-2 border-red-200 bg-red-50 text-red-500 font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 hover:border-red-400 disabled:opacity-50"
+                        data-testid={`button-delete-checklist-${item.id}`}
                       >
-                        <Pencil className="w-5 h-5" /> 수정하기
+                        <Trash2 className="w-5 h-5" /> 삭제
                       </button>
-                    </Link>
+                    </div>
                   </div>
                 </motion.div>
               )

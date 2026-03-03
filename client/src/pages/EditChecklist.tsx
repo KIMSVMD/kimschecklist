@@ -88,7 +88,7 @@ export default function EditChecklist() {
 
   if (checklistLoading) {
     return (
-      <Layout title="점검 수정" showBack={true}>
+      <Layout title="점검 수정하기" showBack={true}>
         <div className="flex items-center justify-center h-full">
           <Loader2 className="w-10 h-10 animate-spin text-primary" />
         </div>
@@ -98,7 +98,7 @@ export default function EditChecklist() {
 
   if (!checklist) {
     return (
-      <Layout title="점검 수정" showBack={true}>
+      <Layout title="점검 수정하기" showBack={true}>
         <div className="flex items-center justify-center h-full text-muted-foreground text-lg">
           점검 기록을 찾을 수 없습니다.
         </div>

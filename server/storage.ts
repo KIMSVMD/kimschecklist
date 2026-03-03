@@ -7,6 +7,7 @@ export interface IStorage {
   getChecklist(id: number): Promise<Checklist | undefined>;
   createChecklist(checklist: InsertChecklist): Promise<Checklist>;
   updateChecklist(id: number, data: Partial<InsertChecklist>): Promise<Checklist | undefined>;
+  deleteChecklist(id: number): Promise<void>;
   getGuides(): Promise<Guide[]>;
   getGuide(id: number): Promise<Guide | undefined>;
   getGuideByProduct(product: string): Promise<Guide | undefined>;
@@ -36,6 +37,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(checklists.id, id))
       .returning();
     return checklist;
+  }
+
+  async deleteChecklist(id: number): Promise<void> {
+    await db.delete(checklists).where(eq(checklists.id, id));
   }
 
   async getGuides(): Promise<Guide[]> {

@@ -161,6 +161,17 @@ export async function registerRoutes(
     res.json(checklist);
   });
 
+  app.delete('/api/checklists/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.deleteChecklist(id);
+      res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.put('/api/checklists/:id', async (req, res) => {
     try {
       const id = parseInt(req.params.id);
