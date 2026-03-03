@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto } from "@/hooks/use-checklists";
+import { useGuideByProduct } from "@/hooks/use-guides";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   MapPin, 
@@ -15,15 +16,12 @@ import {
   Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
 import { 
   Dialog,
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-
-import bananaImg from "@assets/image_1772521947455.png";
 
 const REGIONS = {
   '수도권': ['강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천'],
@@ -37,32 +35,6 @@ const PRODUCTS = {
   '수산': ['[견과]', '[간편식]'],
   '축산': ['[돈육]', '[한우]암소한우', '[한우]시즈닝 스테이크', '[수입육]', '[양념육]', '[계육]'],
   '공산': ['[직수입]', '[건기식]', '[공산행사장]']
-};
-
-const PRODUCT_GUIDES: Record<string, { image: string, points: string[], items: string[] }> = {
-  '[수입]바나나': {
-    image: bananaImg,
-    points: [
-      "상품: 바나나 3SKU(앵커/유기농/프리미엄)",
-      "위치: 입구 위치 고정화",
-      "면적: 앵커 60% / 유기농 20% / 프리미엄 20%",
-      "진열: ①앵커 -> 유기농 -> 프리미엄순",
-      "진열: ②후숙도 구분(덜익 -> 중강 -> 잘익)",
-      "진열: ③곡면 소도구 활용",
-      "연출: 잎 그래픽 바닥 시트",
-      "광고: 바나나 셀링"
-    ],
-    items: [
-      "상품: 바나나 3SKU(앵커/유기농/프리미엄)",
-      "위치: 입구 위치 고정화",
-      "면적: 앵커 60% / 유기농 20% / 프리미엄 20%",
-      "진열: ①앵커 -> 유기농 -> 프리미엄순",
-      "진열: ②후숙도 구분(덜익 -> 중강 -> 잘익)",
-      "진열: ③곡면 소도구 활용",
-      "연출: 잎 그래픽 바닥 시트",
-      "광고: 바나나 셀링"
-    ]
-  }
 };
 
 export default function NewChecklist() {
@@ -90,7 +62,6 @@ export default function NewChecklist() {
   return (
     <Layout title="새 점검 등록" showBack={true}>
       <div className="flex flex-col h-full bg-background relative">
-        {/* Progress Bar */}
         <div className="w-full bg-muted h-2">
           <motion.div 
             className="h-full bg-primary"
@@ -121,7 +92,7 @@ export default function NewChecklist() {
                 key="step3" 
                 category={formData.category}
                 selected={formData.product} 
-                onSelect={(v) => { updateForm('product', v); nextStep(); }} 
+                onSelect={(v) => { updateForm('product', v); updateForm('items', {}); nextStep(); }} 
               />
             )}
             {step === 4 && (
@@ -137,7 +108,6 @@ export default function NewChecklist() {
           </AnimatePresence>
         </div>
 
-        {/* Floating Back Button for steps > 1 */}
         {step > 1 && (
           <div className="p-4 bg-white/80 backdrop-blur-md border-t border-border/50">
             <button 
@@ -289,6 +259,7 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
   const uploadMutation = useUploadPhoto();
+  const { data: dbGuide, isLoading: guideLoading } = useGuideByProduct(formData.product);
   
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -296,12 +267,8 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Show instant local preview
     setLocalPreview(URL.createObjectURL(file));
-
     try {
-      // Upload to backend
       const url = await uploadMutation.mutateAsync(file);
       updateForm('photoUrl', url);
     } catch (err) {
@@ -312,7 +279,8 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
 
   const submitForm = async () => {
     const hasPoor = Object.values(formData.items).includes('poor');
-    const finalStatus = hasPoor ? 'poor' : 'excellent'; // Simplified logic for overall status
+    const hasAverage = Object.values(formData.items).includes('average');
+    const finalStatus = hasPoor ? 'poor' : hasAverage ? 'average' : 'excellent';
     
     try {
       await createMutation.mutateAsync({
@@ -332,7 +300,12 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
     }
   };
 
-  const guide = PRODUCT_GUIDES[formData.product];
+  const guideImage = dbGuide?.imageUrl || null;
+  const guidePoints: string[] = (dbGuide?.points as string[]) || [];
+  const guideItems: string[] = (dbGuide?.items as string[])?.filter(Boolean) || [];
+
+  const hasGuide = !!dbGuide;
+  const allItemsEvaluated = guideItems.length === 0 || guideItems.every(item => formData.items[item]);
 
   return (
     <motion.div 
@@ -346,66 +319,79 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
       </div>
 
       {/* Visual Guide Section */}
-      <div className="space-y-4">
-        <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <ImageIcon className="text-primary w-6 h-6" />
-            <h3 className="text-xl font-bold">표준 진열 가이드</h3>
-          </div>
-          
-          <Dialog>
-            <DialogTrigger asChild>
-              <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
-                <img 
-                  src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=450&fit=crop"} 
-                  alt="Standard Guide" 
-                  className="w-full h-full object-contain bg-white"
-                />
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm shadow-lg">클릭하여 확대</span>
-                </div>
-              </button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
-              <div className="w-full h-full flex items-center justify-center p-4">
-                <TransformWrapper
-                  initialScale={1}
-                  minScale={1}
-                  maxScale={4}
-                  centerOnInit={true}
-                >
-                  <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+      {guideLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : hasGuide ? (
+        <div className="space-y-4">
+          <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <ImageIcon className="text-primary w-6 h-6" />
+              <h3 className="text-xl font-bold">표준 진열 가이드</h3>
+            </div>
+            
+            {guideImage ? (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
                     <img 
-                      src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&h=800&fit=crop"} 
-                      alt="Standard Guide Full" 
-                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto"
+                      src={guideImage} 
+                      alt="Standard Guide" 
+                      className="w-full h-full object-contain bg-white"
                     />
-                  </TransformComponent>
-                </TransformWrapper>
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm shadow-lg">클릭하여 확대</span>
+                    </div>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
+                  <div className="w-full h-full flex items-center justify-center p-4">
+                    <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit={true}>
+                      <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+                        <img 
+                          src={guideImage} 
+                          alt="Standard Guide Full" 
+                          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto"
+                        />
+                      </TransformComponent>
+                    </TransformWrapper>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <div className="w-full rounded-2xl aspect-video bg-muted/20 border border-white/10 flex items-center justify-center">
+                <div className="text-center text-white/60">
+                  <ImageIcon className="w-10 h-10 mx-auto mb-2" />
+                  <p className="text-sm">이미지 없음</p>
+                </div>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Key Points Box - Separated and Scrollable */}
-        <div className="bg-muted/50 rounded-3xl border border-border p-5 space-y-3">
-          <h4 className="text-lg font-bold text-secondary flex items-center gap-2">
-            <div className="w-2 h-6 bg-primary rounded-full" />
-            진열 핵심 포인트
-          </h4>
-          <div className="overflow-y-auto max-h-[200px] pr-2 space-y-2.5 scrollbar-thin scrollbar-thumb-primary/20">
-            {(guide?.points || [
-              "상품이 풍성해 보이도록 전진 진열",
-              "시즌 소품 활용"
-            ]).map((point, i) => (
-              <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
-                <p className="text-base font-medium text-secondary leading-tight">{point}</p>
-              </div>
-            ))}
+            )}
           </div>
+
+          {guidePoints.length > 0 && (
+            <div className="bg-muted/50 rounded-3xl border border-border p-5 space-y-3">
+              <h4 className="text-lg font-bold text-secondary flex items-center gap-2">
+                <div className="w-2 h-6 bg-primary rounded-full" />
+                진열 핵심 포인트
+              </h4>
+              <div className="overflow-y-auto max-h-[200px] pr-2 space-y-2.5 scrollbar-thin scrollbar-thumb-primary/20">
+                {guidePoints.map((point, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
+                    <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                    <p className="text-base font-medium text-secondary leading-tight">{point}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="bg-muted/30 rounded-3xl border border-border p-6 text-center text-muted-foreground">
+          <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-40" />
+          <p className="text-base">이 상품의 진열 가이드가 아직 등록되지 않았습니다.</p>
+        </div>
+      )}
 
       {/* Photo Upload */}
       <div className="space-y-3">
@@ -418,14 +404,15 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
             <img src={localPreview} className="absolute inset-0 w-full h-full object-cover" alt="Preview" />
           ) : null}
           
-          {/* Guide Overlay - 30% transparency */}
-          <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply">
-            <img 
-              src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=800&fit=crop"} 
-              className="w-full h-full object-contain bg-white grayscale" 
-              alt="Guide Overlay" 
-            />
-          </div>
+          {guideImage && (
+            <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply">
+              <img 
+                src={guideImage} 
+                className="w-full h-full object-contain bg-white grayscale" 
+                alt="Guide Overlay" 
+              />
+            </div>
+          )}
 
           <div className={`relative z-10 flex flex-col items-center p-6 rounded-2xl backdrop-blur-sm ${localPreview ? 'bg-black/50 text-white' : 'bg-white/80 text-primary'}`}>
             {uploadMutation.isPending ? (
@@ -449,34 +436,34 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
       </div>
 
       {/* Per-item Status Check */}
-      <div className="space-y-6">
-        <h3 className="text-xl font-bold text-secondary">항목별 진열 상태 평가</h3>
-        {(guide?.items || ["기본 진열 상태"]).map((item) => (
-          <div key={item} className="space-y-3 p-4 bg-muted/30 rounded-2xl border border-border/50">
-            <h4 className="text-lg font-bold text-secondary">{item}</h4>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'excellent', label: '우수', icon: CheckCircle2, color: 'blue' },
-                { id: 'average', label: '보통', icon: AlertTriangle, color: 'amber' },
-                { id: 'poor', label: '미흡', icon: XOctagon, color: 'red' }
-              ].map((s) => (
-                <button 
-                  key={s.id}
-                  onClick={() => updateForm('items', { ...formData.items, [item]: s.id })}
-                  className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-all active:scale-95 ${
-                    formData.items[item] === s.id 
-                    ? `bg-${s.color === 'red' ? 'primary' : s.color + '-500'} border-${s.color === 'red' ? 'red-700' : s.color + '-600'} text-white shadow-md` 
-                    : `bg-white border-border text-muted-foreground hover:border-${s.color}-200`
-                  }`}
-                >
-                  <s.icon className="w-8 h-8 mb-1" />
-                  <span className="text-sm font-bold">{s.label}</span>
-                </button>
-              ))}
+      {guideItems.length > 0 && (
+        <div className="space-y-6">
+          <h3 className="text-xl font-bold text-secondary">항목별 진열 상태 평가</h3>
+          {guideItems.map((item) => (
+            <div key={item} className="space-y-3 p-4 bg-muted/30 rounded-2xl border border-border/50">
+              <h4 className="text-lg font-bold text-secondary">{item}</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'excellent', label: '우수', icon: CheckCircle2, active: 'bg-blue-500 border-blue-600 text-white shadow-md', inactive: 'bg-white border-border text-muted-foreground' },
+                  { id: 'average', label: '보통', icon: AlertTriangle, active: 'bg-amber-500 border-amber-600 text-white shadow-md', inactive: 'bg-white border-border text-muted-foreground' },
+                  { id: 'poor', label: '미흡', icon: XOctagon, active: 'bg-primary border-red-700 text-white shadow-md', inactive: 'bg-white border-border text-muted-foreground' }
+                ].map((s) => (
+                  <button 
+                    key={s.id}
+                    onClick={() => updateForm('items', { ...formData.items, [item]: s.id })}
+                    className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-all active:scale-95 ${
+                      formData.items[item] === s.id ? s.active : s.inactive
+                    }`}
+                  >
+                    <s.icon className="w-8 h-8 mb-1" />
+                    <span className="text-sm font-bold">{s.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Notes */}
       <div className="space-y-3">
@@ -492,12 +479,15 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
       {/* Submit Button */}
       <button 
         onClick={submitForm}
-        disabled={createMutation.isPending || uploadMutation.isPending || !formData.status}
+        disabled={createMutation.isPending || uploadMutation.isPending || !allItemsEvaluated}
         className="w-full py-6 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-white font-black text-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-2 mt-8"
       >
         {createMutation.isPending ? <Loader2 className="w-8 h-8 animate-spin" /> : "점검 완료 및 제출"}
       </button>
 
+      {guideItems.length > 0 && !allItemsEvaluated && (
+        <p className="text-center text-sm text-muted-foreground -mt-4">모든 평가 항목을 선택해주세요</p>
+      )}
     </motion.div>
   );
 }

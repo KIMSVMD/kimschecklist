@@ -8,6 +8,8 @@ import NotFound from "@/pages/not-found";
 import Home from "./pages/Home";
 import NewChecklist from "./pages/NewChecklist";
 import Dashboard from "./pages/Dashboard";
+import AdminLogin from "./pages/AdminLogin";
+import GuideAdmin from "./pages/GuideAdmin";
 
 function Router() {
   return (
@@ -15,7 +17,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/checklist/new" component={NewChecklist} />
       <Route path="/dashboard" component={Dashboard} />
-      {/* Fallback to 404 */}
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/guides" component={GuideAdmin} />
       <Route component={NotFound} />
     </Switch>
   );

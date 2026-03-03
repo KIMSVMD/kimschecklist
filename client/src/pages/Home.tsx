@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
-import { ClipboardCheck, BarChart3, ChevronRight, Store } from "lucide-react";
+import { ClipboardCheck, BarChart3, ChevronRight, Store, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Home() {
@@ -60,6 +60,25 @@ export default function Home() {
                 </div>
               </div>
               <ChevronRight className="w-8 h-8 text-muted-foreground" />
+            </motion.div>
+          </Link>
+
+          <Link href="/admin/login" className="block w-full">
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full bg-muted text-secondary rounded-3xl p-5 border-2 border-border flex items-center justify-between"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-white p-3 rounded-2xl">
+                  <Settings className="w-6 h-6 text-secondary" />
+                </div>
+                <div className="text-left">
+                  <h2 className="text-xl font-bold">진열 가이드 관리</h2>
+                  <p className="text-muted-foreground text-sm font-medium mt-0.5">VMD 관리자 전용</p>
+                </div>
+              </div>
+              <ChevronRight className="w-6 h-6 text-muted-foreground" />
             </motion.div>
           </Link>
         </div>
