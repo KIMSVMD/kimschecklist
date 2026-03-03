@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { checklists, guides, products, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct } from "@shared/schema";
-import { desc, eq, asc } from "drizzle-orm";
+import { checklists, guides, products, cleaningInspections, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning } from "@shared/schema";
+import { desc, eq, asc, gte, and } from "drizzle-orm";
 
 export interface IStorage {
   getChecklists(): Promise<Checklist[]>;
@@ -17,6 +17,9 @@ export interface IStorage {
   getProductsByCategory(category: string): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
   deleteProduct(id: number): Promise<void>;
+  getCleaningInspections(filters?: { branch?: string; date?: string }): Promise<CleaningInspection[]>;
+  createCleaningInspection(data: InsertCleaning): Promise<CleaningInspection>;
+  deleteCleaningInspection(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -90,6 +93,30 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProduct(id: number): Promise<void> {
     await db.delete(products).where(eq(products.id, id));
+  }
+
+  async getCleaningInspections(filters?: { branch?: string; date?: string }): Promise<CleaningInspection[]> {
+    let query = db.select().from(cleaningInspections).orderBy(desc(cleaningInspections.createdAt));
+    if (filters?.branch) {
+      const rows = await db.select().from(cleaningInspections)
+        .where(
+          filters.date
+            ? and(eq(cleaningInspections.branch, filters.branch), gte(cleaningInspections.createdAt, new Date(filters.date)))
+            : eq(cleaningInspections.branch, filters.branch)
+        )
+        .orderBy(desc(cleaningInspections.createdAt));
+      return rows;
+    }
+    return query;
+  }
+
+  async createCleaningInspection(data: InsertCleaning): Promise<CleaningInspection> {
+    const [row] = await db.insert(cleaningInspections).values(data).returning();
+    return row;
+  }
+
+  async deleteCleaningInspection(id: number): Promise<void> {
+    await db.delete(cleaningInspections).where(eq(cleaningInspections.id, id));
   }
 }
 

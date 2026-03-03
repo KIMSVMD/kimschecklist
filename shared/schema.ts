@@ -55,3 +55,22 @@ export const insertProductSchema = createInsertSchema(products).omit({
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
+
+// Cleaning inspection per zone per session
+export const cleaningInspections = pgTable("cleaning_inspections", {
+  id: serial("id").primaryKey(),
+  branch: text("branch").notNull(),
+  zone: text("zone").notNull(),
+  inspectionTime: text("inspection_time").notNull(), // 오픈 / 마감
+  items: jsonb("items").$type<Record<string, { status: string; photoUrl?: string | null; memo?: string | null }>>(),
+  overallStatus: text("overall_status").notNull(), // ok / issue
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCleaningSchema = createInsertSchema(cleaningInspections).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCleaning = z.infer<typeof insertCleaningSchema>;
+export type CleaningInspection = typeof cleaningInspections.$inferSelect;

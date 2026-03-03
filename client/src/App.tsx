@@ -12,6 +12,7 @@ import StaffDashboard from "./pages/StaffDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import GuideAdmin from "./pages/GuideAdmin";
 import EditChecklist from "./pages/EditChecklist";
+import CleaningChecklist from "./pages/CleaningChecklist";
 
 function Router() {
   return (
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/checklist/new" component={NewChecklist} />
       <Route path="/checklist/edit/:id" component={EditChecklist} />
       <Route path="/staff-dashboard" component={StaffDashboard} />
+      <Route path="/cleaning/new" component={CleaningChecklist} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/guides" component={GuideAdmin} />

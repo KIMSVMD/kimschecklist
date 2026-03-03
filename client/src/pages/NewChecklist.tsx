@@ -17,6 +17,7 @@ import {
   Loader2,
   ChevronRight,
   ChevronLeft,
+  Droplets,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -78,7 +79,8 @@ export default function NewChecklist() {
             {step === 2 && (
               <Step2Category 
                 key="step2" 
-                selected={formData.category} 
+                selected={formData.category}
+                branch={formData.branch}
                 onSelect={(v) => { updateForm('category', v); updateForm('product', ''); nextStep(); }} 
               />
             )}
@@ -165,7 +167,9 @@ function Step1Branch({ selected, onSelect }: { selected: string, onSelect: (v: s
   );
 }
 
-function Step2Category({ selected, onSelect }: { selected: string, onSelect: (v: string) => void }) {
+function Step2Category({ selected, branch, onSelect }: { selected: string, branch: string, onSelect: (v: string) => void }) {
+  const [, setLocation] = useLocation();
+
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
@@ -173,12 +177,36 @@ function Step2Category({ selected, onSelect }: { selected: string, onSelect: (v:
     >
       <div className="space-y-2">
         <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-          <Layers className="text-primary w-8 h-8" /> 대분류 선택
+          <Layers className="text-primary w-8 h-8" /> 점검 유형 선택
         </h2>
-        <p className="text-muted-foreground text-lg">어떤 카테고리인가요?</p>
+        <p className="text-muted-foreground text-lg">어떤 점검을 진행하나요?</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
+        {/* 청소 점검 (top, special) */}
+        <button
+          onClick={() => setLocation(`/cleaning/new?branch=${encodeURIComponent(branch)}`)}
+          className="flex items-center justify-between p-6 rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]"
+          data-testid="btn-cleaning-select"
+        >
+          <div className="flex items-center gap-4">
+            <div className="bg-white/20 p-3 rounded-2xl">
+              <Droplets className="w-8 h-8" />
+            </div>
+            <div className="text-left">
+              <h3 className="text-2xl font-black">매장 청소 점검</h3>
+              <p className="text-emerald-100 text-sm font-medium mt-0.5">입구 · 농산 · 축산 · 수산 · 공산</p>
+            </div>
+          </div>
+          <ChevronRight className="w-8 h-8 opacity-70" />
+        </button>
+
+        <div className="flex items-center gap-3 my-1">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-xs text-muted-foreground font-bold">VM 점검</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
         {CATEGORIES.map(cat => (
           <button
             key={cat}
