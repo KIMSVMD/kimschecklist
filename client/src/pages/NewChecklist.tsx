@@ -1,9 +1,3 @@
-import { 
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
@@ -21,6 +15,12 @@ import {
   Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+import { 
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import bananaImg from "@assets/image_1772520842321.png";
 
@@ -273,12 +273,6 @@ function Step3Product({ category, selected, onSelect }: { category: string, sele
     </motion.div>
   );
 }
-
-import { 
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, onSubmit: () => void }) {
   const [, setLocation] = useLocation();
