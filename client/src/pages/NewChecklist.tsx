@@ -1,3 +1,9 @@
+import { 
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
@@ -268,6 +274,12 @@ function Step3Product({ category, selected, onSelect }: { category: string, sele
   );
 }
 
+import { 
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, onSubmit: () => void }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -321,7 +333,7 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-      className="space-y-8 pb-10"
+      className="space-y-6 pb-10"
     >
       <div className="space-y-2 border-b-2 border-border pb-4">
         <h2 className="text-2xl font-black text-secondary">
@@ -330,37 +342,54 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
       </div>
 
       {/* Visual Guide Section */}
-      <div className="bg-secondary text-white rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center gap-2 mb-2">
-          <ImageIcon className="text-primary w-6 h-6" />
-          <h3 className="text-xl font-bold">표준 진열 가이드</h3>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-2xl overflow-hidden aspect-video md:aspect-square bg-muted/20 border border-white/10">
-            <img 
-              src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop"} 
-              alt="Standard Guide" 
-              className="w-full h-full object-contain bg-white"
-            />
+      <div className="space-y-4">
+        <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <ImageIcon className="text-primary w-6 h-6" />
+            <h3 className="text-xl font-bold">표준 진열 가이드</h3>
           </div>
-          <div className="flex flex-col justify-start space-y-2 overflow-y-auto max-h-[300px] pr-2 scrollbar-thin scrollbar-thumb-white/20">
-            {guide?.points.map((point, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <div className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
-                <p className="text-sm font-medium leading-tight opacity-90">{point}</p>
+          
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
+                <img 
+                  src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=450&fit=crop"} 
+                  alt="Standard Guide" 
+                  className="w-full h-full object-contain bg-white"
+                />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm shadow-lg">클릭하여 확대</span>
+                </div>
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
+              <div className="w-full h-full flex items-center justify-center p-4">
+                <img 
+                  src={guide?.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&h=800&fit=crop"} 
+                  alt="Standard Guide Full" 
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl bg-white"
+                />
               </div>
-            )) || (
-              <>
-                <div className="flex items-start gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shrink-0">1</div>
-                  <p className="text-sm font-medium leading-tight opacity-90">상품이 풍성해 보이도록 전진 진열</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shrink-0">2</div>
-                  <p className="text-sm font-medium leading-tight opacity-90">시즌 소품 활용</p>
-                </div>
-              </>
-            )}
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Key Points Box - Separated and Scrollable */}
+        <div className="bg-muted/50 rounded-3xl border border-border p-5 space-y-3">
+          <h4 className="text-lg font-bold text-secondary flex items-center gap-2">
+            <div className="w-2 h-6 bg-primary rounded-full" />
+            진열 핵심 포인트
+          </h4>
+          <div className="overflow-y-auto max-h-[200px] pr-2 space-y-2.5 scrollbar-thin scrollbar-thumb-primary/20">
+            {(guide?.points || [
+              "상품이 풍성해 보이도록 전진 진열",
+              "시즌 소품 활용"
+            ]).map((point, i) => (
+              <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
+                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                <p className="text-base font-medium text-secondary leading-tight">{point}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
