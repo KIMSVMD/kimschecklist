@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { checklists, guides, type Checklist, type InsertChecklist, type Guide, type InsertGuide } from "@shared/schema";
-import { desc, eq } from "drizzle-orm";
+import { checklists, guides, products, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct } from "@shared/schema";
+import { desc, eq, asc } from "drizzle-orm";
 
 export interface IStorage {
   getChecklists(): Promise<Checklist[]>;
@@ -14,6 +14,9 @@ export interface IStorage {
   createGuide(guide: InsertGuide): Promise<Guide>;
   updateGuide(id: number, guide: Partial<InsertGuide>): Promise<Guide | undefined>;
   deleteGuide(id: number): Promise<void>;
+  getProductsByCategory(category: string): Promise<Product[]>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  deleteProduct(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -72,6 +75,21 @@ export class DatabaseStorage implements IStorage {
 
   async deleteGuide(id: number): Promise<void> {
     await db.delete(guides).where(eq(guides.id, id));
+  }
+
+  async getProductsByCategory(category: string): Promise<Product[]> {
+    return await db.select().from(products)
+      .where(eq(products.category, category))
+      .orderBy(asc(products.groupName), asc(products.productName));
+  }
+
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    const [product] = await db.insert(products).values(insertProduct).returning();
+    return product;
+  }
+
+  async deleteProduct(id: number): Promise<void> {
+    await db.delete(products).where(eq(products.id, id));
   }
 }
 

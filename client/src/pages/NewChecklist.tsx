@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto } from "@/hooks/use-checklists";
 import { useGuideByProduct } from "@/hooks/use-guides";
+import { useProducts } from "@/hooks/use-products";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   MapPin, 
@@ -13,7 +14,9 @@ import {
   AlertTriangle, 
   XOctagon,
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -30,13 +33,6 @@ const REGIONS = {
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 
-const PRODUCTS = {
-  '농산': ['[시즌]딸기', '[시즌]만감류', '[시즌]오렌지', '[시즌]참외', '[시즌]수박', '[시즌]복숭아', '[시즌]사과', '[시즌]배', '[시즌]포도', '[시즌]감', '[시즌]감귤', '[데일리]토마토', '[데일리]사과', '[수입]바나나', '[수입]수입과일', '[수입]키위', '[채소]제주채소', '[양곡]'],
-  '수산': ['[견과]', '[간편식]'],
-  '축산': ['[돈육]', '[한우]암소한우', '[한우]시즈닝 스테이크', '[수입육]', '[양념육]', '[계육]'],
-  '공산': ['[직수입]', '[건기식]', '[공산행사장]']
-};
-
 export default function NewChecklist() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -46,7 +42,6 @@ export default function NewChecklist() {
     branch: "",
     category: "",
     product: "",
-    status: "",
     photoUrl: "",
     notes: "",
     items: {} as Record<string, string>
@@ -100,9 +95,7 @@ export default function NewChecklist() {
                 key="step4" 
                 formData={formData} 
                 updateForm={updateForm}
-                onSubmit={() => {
-                  toast({ title: "제출 중..." });
-                }}
+                onSubmit={() => {}}
               />
             )}
           </AnimatePresence>
@@ -112,9 +105,9 @@ export default function NewChecklist() {
           <div className="p-4 bg-white/80 backdrop-blur-md border-t border-border/50">
             <button 
               onClick={prevStep}
-              className="w-full py-4 rounded-2xl bg-muted text-secondary font-bold text-lg active:scale-[0.98] transition-all"
+              className="w-full py-4 rounded-2xl bg-muted text-secondary font-bold text-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
-              이전 단계
+              <ChevronLeft className="w-5 h-5" /> 이전 단계
             </button>
           </div>
         )}
@@ -208,48 +201,124 @@ function Step2Category({ selected, onSelect }: { selected: string, onSelect: (v:
 }
 
 function Step3Product({ category, selected, onSelect }: { category: string, selected: string, onSelect: (v: string) => void }) {
-  const products = category ? PRODUCTS[category as keyof typeof PRODUCTS] : [];
+  const { data: dbProducts = [], isLoading } = useProducts(category);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+
+  const groups = [...new Set(dbProducts.map(p => p.groupName))];
+
+  const handleGroupSelect = (group: string) => {
+    const subProducts = dbProducts.filter(p => p.groupName === group && p.productName);
+    if (subProducts.length === 0) {
+      onSelect(`[${group}]`);
+    } else {
+      setSelectedGroup(group);
+    }
+  };
+
+  const handleProductSelect = (productName: string) => {
+    onSelect(`[${selectedGroup}]${productName}`);
+  };
+
+  const subProductsForGroup = selectedGroup
+    ? dbProducts.filter(p => p.groupName === selectedGroup && p.productName)
+    : [];
 
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
       className="space-y-6"
     >
-      <div className="space-y-2">
-        <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-          <Package className="text-primary w-8 h-8" /> 세부상품 선택
-        </h2>
-        <p className="text-muted-foreground text-lg"><strong className="text-primary">{category}</strong> 카테고리의 상품입니다.</p>
-      </div>
+      {!selectedGroup ? (
+        <>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
+              <Package className="text-primary w-8 h-8" /> 상품 그룹 선택
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              <strong className="text-primary">{category}</strong> 그룹을 선택해주세요.
+            </p>
+          </div>
 
-      <div className="flex flex-col gap-3">
-        {products.map(prod => {
-          const match = prod.match(/\[(.*?)\](.*)/);
-          const tag = match ? match[1] : '';
-          const name = match ? match[2] : prod;
-
-          return (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>등록된 상품이 없습니다.<br />관리자에게 문의해주세요.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {groups.map(group => {
+                const hasSubProducts = dbProducts.some(p => p.groupName === group && p.productName);
+                return (
+                  <button
+                    key={group}
+                    onClick={() => handleGroupSelect(group)}
+                    className="flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/40 transition-all active:scale-[0.98] shadow-sm"
+                    data-testid={`button-group-${group}`}
+                  >
+                    <span className="text-2xl font-bold">{group}</span>
+                    <div className="flex items-center gap-2">
+                      {hasSubProducts && (
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg font-medium">
+                          {dbProducts.filter(p => p.groupName === group && p.productName).length}개
+                        </span>
+                      )}
+                      <ChevronRight className={`w-6 h-6 ${hasSubProducts ? 'text-muted-foreground' : 'text-primary'}`} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="space-y-2">
             <button
-              key={prod}
-              onClick={() => onSelect(prod)}
-              className={`flex items-center text-left p-5 min-h-[5rem] rounded-2xl border-2 transition-all active:scale-[0.98] ${
-                selected === prod 
-                ? 'border-primary bg-primary/5 text-secondary shadow-md' 
-                : 'border-border bg-white text-secondary hover:border-primary/30'
-              }`}
+              onClick={() => setSelectedGroup(null)}
+              className="flex items-center gap-2 text-primary font-bold text-base active:scale-95 transition-all"
             >
-              {tag && (
-                <span className={`px-3 py-1.5 rounded-lg text-sm font-bold mr-4 shrink-0 ${
-                  selected === prod ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-                }`}>
-                  {tag}
-                </span>
-              )}
-              <span className="text-2xl font-bold truncate leading-tight">{name}</span>
+              <ChevronLeft className="w-5 h-5" /> {selectedGroup} 다시 선택
             </button>
-          )
-        })}
-      </div>
+            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
+              <Package className="text-primary w-8 h-8" /> 세부 상품 선택
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              <strong className="text-primary">{selectedGroup}</strong>의 상품을 선택해주세요.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {subProductsForGroup.map(p => (
+              <button
+                key={p.id}
+                onClick={() => handleProductSelect(p.productName!)}
+                className={`flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 transition-all active:scale-[0.98] ${
+                  selected === `[${selectedGroup}]${p.productName}`
+                  ? 'border-primary bg-primary/5 text-secondary shadow-md'
+                  : 'border-border bg-white text-secondary hover:border-primary/30'
+                }`}
+                data-testid={`button-product-${p.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`px-3 py-1.5 rounded-lg text-sm font-bold shrink-0 ${
+                    selected === `[${selectedGroup}]${p.productName}`
+                    ? 'bg-primary text-white'
+                    : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {selectedGroup}
+                  </span>
+                  <span className="text-2xl font-bold">{p.productName}</span>
+                </div>
+                <ChevronRight className="w-6 h-6 text-muted-foreground shrink-0" />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -307,15 +376,18 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
   const hasGuide = !!dbGuide;
   const allItemsEvaluated = guideItems.length === 0 || guideItems.every(item => formData.items[item]);
 
+  const displayProduct = formData.product
+    ? formData.product.replace(/\[(.*?)\]/, (_, g: string) => g ? `${g} > ` : '')
+    : '';
+
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
       className="space-y-6 pb-10"
     >
-      <div className="space-y-2 border-b-2 border-border pb-4">
-        <h2 className="text-2xl font-black text-secondary">
-          {formData.branch} <span className="text-muted-foreground font-normal">|</span> {formData.product}
-        </h2>
+      <div className="space-y-1 border-b-2 border-border pb-4">
+        <p className="text-sm text-muted-foreground font-medium">{formData.branch}점 · {formData.category}</p>
+        <h2 className="text-2xl font-black text-secondary">{displayProduct || formData.product}</h2>
       </div>
 
       {/* Visual Guide Section */}

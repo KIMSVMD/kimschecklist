@@ -39,3 +39,19 @@ export const insertGuideSchema = createInsertSchema(guides).omit({
 
 export type InsertGuide = z.infer<typeof insertGuideSchema>;
 export type Guide = typeof guides.$inferSelect;
+
+export const products = pgTable("products", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull(),
+  groupName: text("group_name").notNull(),
+  productName: text("product_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertProductSchema = createInsertSchema(products).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Product = typeof products.$inferSelect;

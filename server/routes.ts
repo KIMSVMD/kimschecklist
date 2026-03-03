@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { insertGuideSchema } from "@shared/schema";
+import { insertGuideSchema, insertProductSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 import path from "path";
@@ -130,6 +130,43 @@ export async function registerRoutes(
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
       await storage.deleteGuide(id);
+      res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Product catalog routes (public read, admin write/delete)
+  app.get('/api/products', async (req, res) => {
+    try {
+      const category = req.query.category as string;
+      if (!category) return res.status(400).json({ message: "category required" });
+      const list = await storage.getProductsByCategory(category);
+      res.json(list);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post('/api/products', requireAdmin, async (req, res) => {
+    try {
+      const input = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(input);
+      res.status(201).json(product);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ message: err.errors[0].message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.delete('/api/products/:id', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      await storage.deleteProduct(id);
       res.status(204).send();
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });

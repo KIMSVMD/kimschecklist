@@ -9,6 +9,7 @@ import {
   useUpdateGuide,
   useDeleteGuide,
 } from "@/hooks/use-guides";
+import { useProducts, useCreateProduct, useDeleteProduct } from "@/hooks/use-products";
 import type { Guide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -22,16 +23,11 @@ import {
   ChevronDown,
   ChevronUp,
   BarChart3,
+  Package,
+  BookOpen,
 } from "lucide-react";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
-
-const PRODUCTS: Record<string, string[]> = {
-  '농산': ['[시즌]딸기', '[시즌]만감류', '[시즌]오렌지', '[시즌]참외', '[시즌]수박', '[시즌]복숭아', '[시즌]사과', '[시즌]배', '[시즌]포도', '[시즌]감', '[시즌]감귤', '[데일리]토마토', '[데일리]사과', '[수입]바나나', '[수입]수입과일', '[수입]키위', '[채소]제주채소', '[양곡]'],
-  '수산': ['[견과]', '[간편식]'],
-  '축산': ['[돈육]', '[한우]암소한우', '[한우]시즈닝 스테이크', '[수입육]', '[양념육]', '[계육]'],
-  '공산': ['[직수입]', '[건기식]', '[공산행사장]'],
-};
 
 type GuideFormData = {
   category: string;
@@ -62,9 +58,34 @@ function GuideForm({
     imageUrl: initial?.imageUrl || '',
   });
   const [previewUrl, setPreviewUrl] = useState<string>(initial?.imageUrl || '');
+  const [selectedGroup, setSelectedGroup] = useState<string>(() => {
+    if (initial?.product) {
+      const m = initial.product.match(/\[(.*?)\]/);
+      return m ? m[1] : '';
+    }
+    return '';
+  });
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const products = PRODUCTS[form.category] || [];
+  const { data: dbProducts = [] } = useProducts(form.category);
+
+  const groups = [...new Set(dbProducts.map(p => p.groupName))];
+  const subProducts = dbProducts.filter(p => p.groupName === selectedGroup && p.productName);
+
+  const handleGroupChange = (group: string) => {
+    setSelectedGroup(group);
+    const noSub = dbProducts.filter(p => p.groupName === group && !p.productName).length > 0;
+    const hasSub = dbProducts.filter(p => p.groupName === group && p.productName).length > 0;
+    if (noSub && !hasSub) {
+      setForm(f => ({ ...f, product: `[${group}]` }));
+    } else {
+      setForm(f => ({ ...f, product: '' }));
+    }
+  };
+
+  const handleProductChange = (productName: string) => {
+    setForm(f => ({ ...f, product: `[${selectedGroup}]${productName}` }));
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,33 +119,61 @@ function GuideForm({
     onSave(form);
   };
 
+  const currentProductName = form.product
+    ? form.product.replace(/\[.*?\]/, '') || selectedGroup
+    : '';
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 p-4 bg-muted/30 rounded-3xl border border-border">
-      <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="space-y-5 p-4 bg-muted/30 rounded-3xl border border-border">
+      <div className="space-y-2">
+        <label className="text-sm font-bold text-secondary">대분류</label>
+        <select
+          value={form.category}
+          onChange={e => { setForm(f => ({ ...f, category: e.target.value, product: '' })); setSelectedGroup(''); }}
+          className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
+          data-testid="select-guide-category"
+        >
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-secondary">대분류</label>
+          <label className="text-sm font-bold text-secondary">그룹</label>
           <select
-            value={form.category}
-            onChange={e => setForm(f => ({ ...f, category: e.target.value, product: '' }))}
+            value={selectedGroup}
+            onChange={e => handleGroupChange(e.target.value)}
             className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
-            data-testid="select-guide-category"
           >
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="">그룹 선택</option>
+            {groups.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-bold text-secondary">상품명</label>
-          <select
-            value={form.product}
-            onChange={e => setForm(f => ({ ...f, product: e.target.value }))}
-            className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
-            data-testid="select-guide-product"
-          >
-            <option value="">선택하세요</option>
-            {products.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <label className="text-sm font-bold text-secondary">세부상품</label>
+          {subProducts.length > 0 ? (
+            <select
+              value={currentProductName}
+              onChange={e => handleProductChange(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
+              data-testid="select-guide-product"
+            >
+              <option value="">상품 선택</option>
+              {subProducts.map(p => <option key={p.id} value={p.productName!}>{p.productName}</option>)}
+            </select>
+          ) : (
+            <div className="w-full px-4 py-3 rounded-xl border-2 border-border/50 bg-muted text-muted-foreground text-base">
+              {selectedGroup ? '단일 상품' : '그룹 먼저 선택'}
+            </div>
+          )}
         </div>
       </div>
+
+      {form.product && (
+        <div className="px-4 py-2 bg-primary/10 rounded-xl text-primary font-bold text-sm">
+          선택된 상품: <span className="font-black">{form.product}</span>
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="text-sm font-bold text-secondary">표준 진열 가이드 이미지</label>
@@ -199,6 +248,170 @@ function GuideForm({
   );
 }
 
+function ProductManager() {
+  const { toast } = useToast();
+  const [activeCategory, setActiveCategory] = useState('축산');
+  const [showForm, setShowForm] = useState(false);
+  const [newGroup, setNewGroup] = useState('');
+  const [newProduct, setNewProduct] = useState('');
+
+  const { data: products = [], isLoading } = useProducts(activeCategory);
+  const createMutation = useCreateProduct();
+  const deleteMutation = useDeleteProduct();
+
+  const groups = [...new Set(products.map(p => p.groupName))];
+
+  const handleAdd = async () => {
+    if (!newGroup.trim()) {
+      toast({ title: "그룹명을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    try {
+      await createMutation.mutateAsync({
+        category: activeCategory,
+        groupName: newGroup.trim(),
+        productName: newProduct.trim() || null,
+      });
+      toast({ title: "상품 추가 완료!" });
+      setNewGroup('');
+      setNewProduct('');
+      setShowForm(false);
+    } catch {
+      toast({ title: "추가 실패", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: number, label: string) => {
+    if (!confirm(`"${label}" 상품을 삭제하시겠습니까?`)) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: "삭제 완료" });
+    } catch {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Category tabs */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        {CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            className={`shrink-0 px-5 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 ${
+              activeCategory === cat ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Add button */}
+      {!showForm && (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full py-5 rounded-2xl border-2 border-dashed border-primary/40 text-primary font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-primary/5"
+          data-testid="button-add-product"
+        >
+          <Plus className="w-6 h-6" /> 상품 추가
+        </button>
+      )}
+
+      {/* Add form */}
+      {showForm && (
+        <div className="bg-muted/30 rounded-3xl border border-border p-5 space-y-4">
+          <h3 className="font-bold text-secondary text-lg">새 상품 추가 — {activeCategory}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-muted-foreground">그룹명 *</label>
+              <input
+                type="text"
+                placeholder="예: 한우, 수입과일"
+                value={newGroup}
+                onChange={e => setNewGroup(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
+                data-testid="input-new-group"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-muted-foreground">세부 상품명 (선택)</label>
+              <input
+                type="text"
+                placeholder="예: 망고, 암소한우"
+                value={newProduct}
+                onChange={e => setNewProduct(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
+                data-testid="input-new-product"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">세부 상품명을 비워두면 그룹 자체가 하나의 상품이 됩니다 (예: 양곡, 돈육)</p>
+          <div className="flex gap-3">
+            <button onClick={() => setShowForm(false)} className="flex-1 py-4 rounded-2xl bg-muted text-secondary font-bold">취소</button>
+            <button
+              onClick={handleAdd}
+              disabled={createMutation.isPending}
+              className="flex-1 py-4 rounded-2xl bg-primary text-white font-black flex items-center justify-center gap-2 disabled:opacity-50"
+              data-testid="button-save-product"
+            >
+              {createMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "추가"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Product list by group */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : groups.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground">등록된 상품이 없습니다.</div>
+      ) : (
+        <div className="space-y-4">
+          {groups.map(group => {
+            const groupProducts = products.filter(p => p.groupName === group);
+            return (
+              <div key={group} className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
+                <div className="px-4 py-3 bg-muted/50 border-b border-border flex items-center justify-between">
+                  <span className="font-black text-secondary text-base flex items-center gap-2">
+                    <span className="w-2 h-5 bg-primary rounded-full inline-block" />
+                    {group}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-medium">{groupProducts.length}개</span>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {groupProducts.map(p => (
+                    <div key={p.id} className="flex items-center justify-between px-4 py-3" data-testid={`row-product-${p.id}`}>
+                      <div>
+                        {p.productName ? (
+                          <span className="text-base font-bold text-secondary">{p.productName}</span>
+                        ) : (
+                          <span className="text-base font-bold text-muted-foreground italic">단일 상품 (그룹 = 상품)</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDelete(p.id, p.productName || group)}
+                        disabled={deleteMutation.isPending}
+                        className="p-2 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                        data-testid={`button-delete-product-${p.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GuideAdmin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -209,6 +422,7 @@ export default function GuideAdmin() {
   const updateMutation = useUpdateGuide();
   const deleteMutation = useDeleteGuide();
 
+  const [activeTab, setActiveTab] = useState<'guides' | 'products'>('guides');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -219,15 +433,11 @@ export default function GuideAdmin() {
     }
   }, [authLoading, adminStatus?.isAdmin, setLocation]);
 
-  if (authLoading) {
+  if (authLoading || !adminStatus?.isAdmin) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
   }
 
-  if (!adminStatus?.isAdmin) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
-  }
-
-  const buildFormData = (data: ReturnType<typeof Object.assign>) => {
+  const buildFormData = (data: any) => {
     const fd = new FormData();
     fd.append('category', data.category);
     fd.append('product', data.product);
@@ -280,16 +490,16 @@ export default function GuideAdmin() {
   };
 
   return (
-    <Layout title="진열 가이드 관리" showBack={false}>
+    <Layout title="관리자 메뉴" showBack={false}>
       <div className="flex flex-col h-full bg-background">
-        {/* Header actions */}
-        <div className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-border gap-3">
+        {/* Top bar */}
+        <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-border gap-3">
           <a
             href="/dashboard"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary font-bold text-sm active:scale-[0.97] transition-all border border-primary/20 hover:bg-primary/20"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary font-bold text-sm active:scale-[0.97] transition-all border border-primary/20"
             data-testid="link-admin-dashboard"
           >
-            <BarChart3 className="w-4 h-4" /> 관리자 대시보드
+            <BarChart3 className="w-4 h-4" /> 대시보드
           </a>
           <button
             onClick={handleLogout}
@@ -300,118 +510,144 @@ export default function GuideAdmin() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Add new button */}
-          {!showAddForm && (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="w-full py-5 rounded-2xl border-2 border-dashed border-primary/40 text-primary font-black text-xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-primary/5"
-              data-testid="button-add-guide"
-            >
-              <Plus className="w-7 h-7" /> 새 가이드 추가
-            </button>
-          )}
+        {/* Tab switcher */}
+        <div className="flex gap-1 p-3 bg-muted/50 border-b border-border">
+          <button
+            onClick={() => setActiveTab('guides')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
+              activeTab === 'guides' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+            }`}
+            data-testid="tab-guides"
+          >
+            <BookOpen className="w-5 h-5" /> 가이드 관리
+          </button>
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
+              activeTab === 'products' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+            }`}
+            data-testid="tab-products"
+          >
+            <Package className="w-5 h-5" /> 상품 관리
+          </button>
+        </div>
 
-          {showAddForm && (
-            <GuideForm
-              onSave={handleCreate}
-              onCancel={() => setShowAddForm(false)}
-              isPending={createMutation.isPending}
-            />
-          )}
-
-          {/* Guide list */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            </div>
-          ) : (guides || []).length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground text-lg">
-              등록된 가이드가 없습니다.<br />새 가이드를 추가해주세요.
-            </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {activeTab === 'products' ? (
+            <ProductManager />
           ) : (
-            <div className="space-y-4">
-              {(guides || []).map((guide: Guide) => (
-                <div
-                  key={guide.id}
-                  className="bg-white rounded-3xl border-2 border-border shadow-sm overflow-hidden"
-                  data-testid={`card-guide-${guide.id}`}
+            <>
+              {!showAddForm && (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="w-full py-5 rounded-2xl border-2 border-dashed border-primary/40 text-primary font-bold text-xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-primary/5"
+                  data-testid="button-add-guide"
                 >
-                  {editingId === guide.id ? (
-                    <div className="p-4">
-                      <GuideForm
-                        initial={{
-                          category: guide.category,
-                          product: guide.product,
-                          points: guide.points as string[],
-                          items: guide.items as string[],
-                          imageUrl: guide.imageUrl || '',
-                        }}
-                        onSave={(data) => handleUpdate(guide.id, data)}
-                        onCancel={() => setEditingId(null)}
-                        isPending={updateMutation.isPending}
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center p-4 gap-3">
-                        {guide.imageUrl && (
-                          <img
-                            src={guide.imageUrl}
-                            alt={guide.product}
-                            className="w-16 h-16 rounded-xl object-cover border border-border shrink-0"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${categoryColor[guide.category] || 'bg-muted text-secondary'}`}>
-                              {guide.category}
-                            </span>
-                          </div>
-                          <p className="text-lg font-black text-secondary truncate">{guide.product}</p>
-                          <p className="text-sm text-muted-foreground">평가항목 {(guide.items as string[]).filter(Boolean).length}개</p>
-                        </div>
-                        <div className="flex flex-col gap-2 shrink-0">
-                          <button
-                            onClick={() => setEditingId(guide.id)}
-                            className="p-2.5 rounded-xl bg-muted text-secondary hover:text-primary transition-colors"
-                            data-testid={`button-edit-guide-${guide.id}`}
-                          >
-                            <Pencil className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(guide.id, guide.product)}
-                            className="p-2.5 rounded-xl bg-muted text-secondary hover:text-red-500 transition-colors"
-                            data-testid={`button-delete-guide-${guide.id}`}
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
+                  <Plus className="w-7 h-7" /> 새 가이드 추가
+                </button>
+              )}
 
-                      <button
-                        onClick={() => setExpandedId(expandedId === guide.id ? null : guide.id)}
-                        className="w-full px-4 pb-3 flex items-center justify-between text-sm text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <span>핵심 포인트 보기</span>
-                        {expandedId === guide.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
+              {showAddForm && (
+                <GuideForm
+                  onSave={handleCreate}
+                  onCancel={() => setShowAddForm(false)}
+                  isPending={createMutation.isPending}
+                />
+              )}
 
-                      {expandedId === guide.id && (
-                        <div className="px-4 pb-4 space-y-1 border-t border-border pt-3">
-                          {(guide.points as string[]).filter(Boolean).map((point, i) => (
-                            <div key={i} className="flex items-start gap-2 text-sm">
-                              <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs shrink-0 mt-0.5">{i+1}</span>
-                              <span className="text-secondary">{point}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
+              {isLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-10 h-10 animate-spin text-primary" />
                 </div>
-              ))}
-            </div>
+              ) : (guides || []).length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground text-lg">
+                  등록된 가이드가 없습니다.<br />새 가이드를 추가해주세요.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {(guides || []).map((guide: Guide) => (
+                    <div
+                      key={guide.id}
+                      className="bg-white rounded-3xl border-2 border-border shadow-sm overflow-hidden"
+                      data-testid={`card-guide-${guide.id}`}
+                    >
+                      {editingId === guide.id ? (
+                        <div className="p-4">
+                          <GuideForm
+                            initial={{
+                              category: guide.category,
+                              product: guide.product,
+                              points: guide.points as string[],
+                              items: guide.items as string[],
+                              imageUrl: guide.imageUrl || '',
+                            }}
+                            onSave={(data) => handleUpdate(guide.id, data)}
+                            onCancel={() => setEditingId(null)}
+                            isPending={updateMutation.isPending}
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center p-4 gap-3">
+                            {guide.imageUrl && (
+                              <img
+                                src={guide.imageUrl}
+                                alt={guide.product}
+                                className="w-16 h-16 rounded-xl object-cover border border-border shrink-0"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${categoryColor[guide.category] || 'bg-muted text-secondary'}`}>
+                                  {guide.category}
+                                </span>
+                              </div>
+                              <p className="text-lg font-black text-secondary truncate">{guide.product}</p>
+                              <p className="text-sm text-muted-foreground">평가항목 {(guide.items as string[]).filter(Boolean).length}개</p>
+                            </div>
+                            <div className="flex flex-col gap-2 shrink-0">
+                              <button
+                                onClick={() => setEditingId(guide.id)}
+                                className="p-2.5 rounded-xl bg-muted text-secondary hover:text-primary transition-colors"
+                                data-testid={`button-edit-guide-${guide.id}`}
+                              >
+                                <Pencil className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(guide.id, guide.product)}
+                                className="p-2.5 rounded-xl bg-muted text-secondary hover:text-red-500 transition-colors"
+                                data-testid={`button-delete-guide-${guide.id}`}
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => setExpandedId(expandedId === guide.id ? null : guide.id)}
+                            className="w-full px-4 pb-3 flex items-center justify-between text-sm text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <span>핵심 포인트 보기</span>
+                            {expandedId === guide.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+
+                          {expandedId === guide.id && (
+                            <div className="px-4 pb-4 space-y-1 border-t border-border pt-3">
+                              {(guide.points as string[]).filter(Boolean).map((point, i) => (
+                                <div key={i} className="flex items-start gap-2 text-sm">
+                                  <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs shrink-0 mt-0.5">{i+1}</span>
+                                  <span className="text-secondary">{point}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
