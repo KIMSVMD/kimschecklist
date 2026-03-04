@@ -110,11 +110,9 @@ export default function CleaningChecklist() {
   const handlePhotoUpload = async (item: string, file: File) => {
     setUploadingItem(item);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/cleaning/upload", { method: "POST", body: fd, credentials: "include" });
-      const data = await res.json();
-      setItemData(prev => ({ ...prev, [item]: { ...prev[item], photoUrl: data.url } }));
+      const { uploadFile } = await import("@/lib/upload");
+      const objectPath = await uploadFile(file);
+      setItemData(prev => ({ ...prev, [item]: { ...prev[item], photoUrl: objectPath } }));
     } catch {
       toast({ title: "사진 업로드 실패", variant: "destructive" });
     } finally {

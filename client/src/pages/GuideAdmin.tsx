@@ -437,19 +437,25 @@ export default function GuideAdmin() {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
   }
 
-  const buildFormData = (data: any) => {
-    const fd = new FormData();
-    fd.append('category', data.category);
-    fd.append('product', data.product);
-    fd.append('points', JSON.stringify(data.points.filter((p: string) => p.trim())));
-    fd.append('items', JSON.stringify(data.items.filter((i: string) => i.trim())));
-    if (data.imageFile) fd.append('image', data.imageFile);
-    return fd;
+  const buildPayload = async (data: any) => {
+    let imageUrl = data.imageUrl || undefined;
+    if (data.imageFile) {
+      const { uploadFile } = await import("@/lib/upload");
+      imageUrl = await uploadFile(data.imageFile);
+    }
+    return {
+      category: data.category,
+      product: data.product,
+      points: data.points.filter((p: string) => p.trim()),
+      items: data.items.filter((i: string) => i.trim()),
+      imageUrl: imageUrl || null,
+    };
   };
 
   const handleCreate = async (data: any) => {
     try {
-      await createMutation.mutateAsync(buildFormData(data));
+      const payload = await buildPayload(data);
+      await createMutation.mutateAsync(payload);
       setShowAddForm(false);
       toast({ title: "가이드 추가 완료!" });
     } catch (err: any) {
@@ -459,7 +465,8 @@ export default function GuideAdmin() {
 
   const handleUpdate = async (id: number, data: any) => {
     try {
-      await updateMutation.mutateAsync({ id, formData: buildFormData(data) });
+      const payload = await buildPayload(data);
+      await updateMutation.mutateAsync({ id, payload });
       setEditingId(null);
       toast({ title: "가이드 수정 완료!" });
     } catch (err: any) {

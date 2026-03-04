@@ -4,27 +4,16 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { insertGuideSchema, insertProductSchema, insertCleaningSchema } from "@shared/schema";
 import { z } from "zod";
-import multer from "multer";
 import path from "path";
 import fs from "fs";
 import express from "express";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
+// Keep /uploads/ static serving for any older records
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
-
-const storage_config = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ storage: storage_config });
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if ((req.session as any).isAdmin) {
@@ -39,13 +28,8 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.use("/uploads", express.static(uploadDir));
 
-  app.post("/api/upload", upload.single("file"), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
-    const url = `/uploads/${req.file.filename}`;
-    res.json({ url });
-  });
+  // Register Replit Object Storage routes (/api/uploads/request-url and /objects/*)
+  registerObjectStorageRoutes(app);
 
   // Admin auth routes
   app.post(api.admin.login.path, (req, res) => {
@@ -87,15 +71,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post(api.guides.create.path, requireAdmin, upload.single("image"), async (req, res) => {
+  app.post(api.guides.create.path, requireAdmin, async (req, res) => {
     try {
-      let body = req.body;
-      if (typeof body.points === 'string') body.points = JSON.parse(body.points);
-      if (typeof body.items === 'string') body.items = JSON.parse(body.items);
-      if (req.file) {
-        body.imageUrl = `/uploads/${req.file.filename}`;
-      }
-      const input = insertGuideSchema.parse(body);
+      const input = insertGuideSchema.parse(req.body);
       const guide = await storage.createGuide(input);
       res.status(201).json(guide);
     } catch (err) {
@@ -107,17 +85,11 @@ export async function registerRoutes(
     }
   });
 
-  app.put('/api/guides/:id', requireAdmin, upload.single("image"), async (req, res) => {
+  app.put('/api/guides/:id', requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
-      let body = req.body;
-      if (typeof body.points === 'string') body.points = JSON.parse(body.points);
-      if (typeof body.items === 'string') body.items = JSON.parse(body.items);
-      if (req.file) {
-        body.imageUrl = `/uploads/${req.file.filename}`;
-      }
-      const guide = await storage.updateGuide(id, body);
+      const guide = await storage.updateGuide(id, req.body);
       if (!guide) return res.status(404).json({ message: "Guide not found" });
       res.json(guide);
     } catch (err) {
@@ -200,10 +172,6 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/cleaning/upload', upload.single("file"), (req, res) => {
-    if (!req.file) return res.status(400).json({ message: "No file" });
-    res.json({ url: `/uploads/${req.file.filename}` });
-  });
 
   app.delete('/api/cleaning/:id', requireAdmin, async (req, res) => {
     try {

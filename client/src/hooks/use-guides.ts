@@ -70,13 +70,22 @@ export function useAdminLogout() {
   });
 }
 
+type GuidePayload = {
+  category: string;
+  product: string;
+  points: string[];
+  items: string[];
+  imageUrl?: string | null;
+};
+
 export function useCreateGuide() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (formData: FormData) => {
+    mutationFn: async (payload: GuidePayload) => {
       const res = await fetch('/api/guides', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
         credentials: 'include',
       });
       if (!res.ok) {
@@ -94,10 +103,11 @@ export function useCreateGuide() {
 export function useUpdateGuide() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, formData }: { id: number; formData: FormData }) => {
+    mutationFn: async ({ id, payload }: { id: number; payload: Partial<GuidePayload> }) => {
       const res = await fetch(`/api/guides/${id}`, {
         method: 'PUT',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
         credentials: 'include',
       });
       if (!res.ok) {
