@@ -191,7 +191,20 @@ export default function CleaningChecklist() {
                     <MapPin className="w-4 h-4" />
                     {branch}점 청소 점검
                   </div>
-                  <h2 className="text-3xl font-black text-secondary">구역 선택</h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-3xl font-black text-secondary">구역 선택</h2>
+                    {(() => {
+                      const scored = Object.values(zoneScores).filter(v => v !== null) as number[];
+                      if (scored.length === 0) return null;
+                      const avg = Math.round(scored.reduce((a, b) => a + b, 0) / scored.length);
+                      return (
+                        <div className={`px-3 py-1.5 rounded-xl border font-black text-base ${scoreColor(avg)}`}
+                          data-testid="text-avg-score">
+                          평균 {avg}점
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <p className="text-muted-foreground text-lg">점검할 매장 구역을 선택하세요.</p>
                 </div>
 
