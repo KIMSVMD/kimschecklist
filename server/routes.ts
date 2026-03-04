@@ -97,6 +97,47 @@ export async function registerRoutes(
     }
   });
 
+  // Guide export: download all guides as JSON
+  app.get('/api/admin/guides/export', requireAdmin, async (req, res) => {
+    try {
+      const guideList = await storage.getGuides();
+      res.setHeader('Content-Disposition', 'attachment; filename="guides-export.json"');
+      res.json(guideList);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Guide import: upsert guides from JSON array (match by product key)
+  app.post('/api/admin/guides/import', requireAdmin, async (req, res) => {
+    try {
+      const incoming: any[] = req.body;
+      if (!Array.isArray(incoming)) return res.status(400).json({ message: "JSON 배열이 필요합니다" });
+      const existing = await storage.getGuides();
+      const existingMap = new Map(existing.map(g => [g.product, g.id]));
+      let created = 0, updated = 0;
+      for (const g of incoming) {
+        const payload = {
+          category: g.category,
+          product: g.product,
+          imageUrl: g.imageUrl ?? null,
+          points: Array.isArray(g.points) ? g.points : [],
+          items: Array.isArray(g.items) ? g.items : [],
+        };
+        if (existingMap.has(g.product)) {
+          await storage.updateGuide(existingMap.get(g.product)!, payload);
+          updated++;
+        } else {
+          await storage.createGuide(payload);
+          created++;
+        }
+      }
+      res.json({ created, updated, total: incoming.length });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.delete('/api/guides/:id', requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
