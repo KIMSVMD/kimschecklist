@@ -6,6 +6,7 @@ import { useAdminStatus } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { calcVMScore, calcCleaningScore, scoreColor } from "@/lib/scoring";
 import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
@@ -119,8 +120,19 @@ function VMTab() {
                         {item.branch}점 <span className="font-medium text-muted-foreground text-lg ml-1">| {item.product}</span>
                       </h3>
                     </div>
-                    <div className={`px-3 py-1.5 rounded-xl text-sm ${statusColors[item.status as keyof typeof statusColors]}`}>
-                      {statusLabels[item.status as keyof typeof statusLabels]}
+                    <div className="flex items-center gap-2">
+                      {item.items && Object.keys(item.items as object).length > 0 && (() => {
+                        const score = calcVMScore(item.items as Record<string, string>, item.photoUrl);
+                        return (
+                          <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(score)}`}
+                            data-testid={`text-score-${item.id}`}>
+                            {score}점
+                          </div>
+                        );
+                      })()}
+                      <div className={`px-3 py-1.5 rounded-xl text-sm ${statusColors[item.status as keyof typeof statusColors]}`}>
+                        {statusLabels[item.status as keyof typeof statusLabels]}
+                      </div>
                     </div>
                   </div>
 
@@ -349,8 +361,9 @@ function CleaningTab() {
                 <h3 className="text-lg font-black text-secondary">전체 점검 기록</h3>
                 {allRecords.map((record, i) => {
                   const items = record.items as Record<string, { status: string; memo?: string | null }> || {};
-                  const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
+                  const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue' || v.status === 'partial');
                   const isToday = new Date(record.createdAt).toISOString().split('T')[0] === today;
+                  const cleanScore = calcCleaningScore(items);
                   return (
                     <motion.div
                       key={record.id}
@@ -381,20 +394,28 @@ function CleaningTab() {
                           </p>
                           {issueItems.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {issueItems.map(([name]) => (
-                                <span key={name} className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-600 font-bold">{name}</span>
+                              {issueItems.map(([name, v]) => (
+                                <span key={name} className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${v.status === 'partial' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-red-50 border-red-200 text-red-600'}`}>{name}</span>
                               ))}
                             </div>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleDelete(record.id)}
-                          disabled={deleteMutation.isPending}
-                          className="p-2 rounded-xl bg-muted text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                          data-testid={`button-delete-cleaning-${record.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          {Object.keys(items).length > 0 && (
+                            <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(cleanScore)}`}
+                              data-testid={`text-cleaning-score-${record.id}`}>
+                              {cleanScore}점
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleDelete(record.id)}
+                            disabled={deleteMutation.isPending}
+                            className="p-2 rounded-xl bg-muted text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                            data-testid={`button-delete-cleaning-${record.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </motion.div>
                   );

@@ -26,6 +26,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { calcVMScore, scoreColor } from "@/lib/scoring";
 
 const REGIONS = {
   '수도권': ['강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천'],
@@ -538,7 +539,21 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
       {/* Per-item Status Check */}
       {guideItems.length > 0 && (
         <div className="space-y-6">
-          <h3 className="text-xl font-bold text-secondary">항목별 진열 상태 평가</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-secondary">항목별 진열 상태 평가</h3>
+            {guideItems.length > 0 && (() => {
+              const score = calcVMScore(formData.items, formData.photoUrl);
+              const evaluated = Object.keys(formData.items).length;
+              const total = guideItems.length + 1;
+              return (
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-black ${scoreColor(score)}`}
+                  data-testid="text-vm-score">
+                  <span className="text-lg">{score}점</span>
+                  <span className="text-xs font-normal opacity-70">{evaluated}/{total}</span>
+                </div>
+              );
+            })()}
+          </div>
           {guideItems.map((item) => (
             <div key={item} className="space-y-3 p-4 bg-muted/30 rounded-2xl border border-border/50">
               <h4 className="text-lg font-bold text-secondary">{item}</h4>
