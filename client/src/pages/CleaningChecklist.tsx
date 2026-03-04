@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useCreateCleaning } from "@/hooks/use-cleaning";
+import { useCreateCleaning, useCleaningInspections } from "@/hooks/use-cleaning";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -70,7 +70,7 @@ const ZONE_ITEMS: Record<string, string[]> = {
 };
 
 type ItemData = {
-  status: "ok" | "partial" | "issue" | null;
+  status: "ok" | "issue" | null;
   photoUrl?: string | null;
   memo?: string | null;
 };
@@ -93,7 +93,22 @@ export default function CleaningChecklist() {
 
   const currentItems = ZONE_ITEMS[selectedZone] || [];
   const allChecked = currentItems.every(item => itemData[item]?.status != null);
-  const issueCount = Object.values(itemData).filter(v => v.status === "issue" || v.status === "partial").length;
+  const issueCount = Object.values(itemData).filter(v => v.status === "issue").length;
+
+  // Today's zone scores for this branch
+  const today = new Date().toISOString().split('T')[0];
+  const { data: todayRecords = [] } = useCleaningInspections(branch ? { branch } : {});
+  const zoneScores: Record<string, number | null> = {};
+  ZONES.forEach(z => { zoneScores[z] = null; });
+  (todayRecords as any[]).filter(r => {
+    return new Date(r.createdAt).toISOString().split('T')[0] === today;
+  }).forEach(r => {
+    const items = r.items as Record<string, { status: string }> || {};
+    const score = calcCleaningScore(items);
+    if (zoneScores[r.zone] === null || score > (zoneScores[r.zone] ?? 0)) {
+      zoneScores[r.zone] = score;
+    }
+  });
 
   const handleZoneSelect = (zone: string) => {
     setSelectedZone(zone);
@@ -101,7 +116,7 @@ export default function CleaningChecklist() {
     setStep("items");
   };
 
-  const handleStatusSet = (item: string, status: "ok" | "partial" | "issue") => {
+  const handleStatusSet = (item: string, status: "ok" | "issue") => {
     setItemData(prev => ({
       ...prev,
       [item]: {
@@ -199,20 +214,30 @@ export default function CleaningChecklist() {
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  {ZONES.map(zone => (
-                    <button
-                      key={zone}
-                      onClick={() => handleZoneSelect(zone)}
-                      className="flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-emerald-400 hover:bg-emerald-50 transition-all active:scale-[0.98] shadow-sm"
-                      data-testid={`btn-zone-${zone}`}
-                    >
-                      <span className="text-2xl font-bold">{zone}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">{ZONE_ITEMS[zone]?.length || 0}개 항목</span>
-                        <ChevronRight className="w-6 h-6 text-muted-foreground" />
-                      </div>
-                    </button>
-                  ))}
+                  {ZONES.map(zone => {
+                    const zs = zoneScores[zone];
+                    return (
+                      <button
+                        key={zone}
+                        onClick={() => handleZoneSelect(zone)}
+                        className="flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-emerald-400 hover:bg-emerald-50 transition-all active:scale-[0.98] shadow-sm"
+                        data-testid={`btn-zone-${zone}`}
+                      >
+                        <span className="text-2xl font-bold">{zone}</span>
+                        <div className="flex items-center gap-3">
+                          {zs !== null ? (
+                            <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(zs)}`}
+                              data-testid={`score-zone-${zone}`}>
+                              {zs}점
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">{ZONE_ITEMS[zone]?.length || 0}개</span>
+                          )}
+                          <ChevronRight className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </motion.div>
             )}
@@ -234,9 +259,8 @@ export default function CleaningChecklist() {
 
                 {/* Legend + Score */}
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-3 text-xs font-bold">
+                  <div className="flex gap-4 text-xs font-bold">
                     <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="w-4 h-4" /> 이상없음</span>
-                    <span className="flex items-center gap-1 text-amber-500">△ 보통</span>
                     <span className="flex items-center gap-1 text-primary"><XCircle className="w-4 h-4" /> 문제있음</span>
                   </div>
                   {(() => {
@@ -268,62 +292,45 @@ export default function CleaningChecklist() {
                         className={`rounded-3xl border-2 overflow-hidden transition-all ${
                           status === "ok"
                             ? "border-emerald-300 bg-emerald-50"
-                            : status === "partial"
-                            ? "border-amber-300 bg-amber-50"
                             : status === "issue"
                             ? "border-primary bg-red-50"
                             : "border-border bg-white"
                         }`}
                         data-testid={`card-item-${idx}`}
                       >
-                        <div className="flex items-center justify-between p-4">
-                          <span className="text-lg font-bold text-secondary flex-1 mr-2">{item}</span>
-                          <div className="flex gap-2">
+                        <div className="flex items-center justify-between p-5">
+                          <span className="text-xl font-bold text-secondary">{item}</span>
+                          <div className="flex gap-3">
                             {/* OK ○ button */}
                             <button
                               onClick={() => handleStatusSet(item, "ok")}
-                              className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-all active:scale-95 ${
+                              className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 border-2 transition-all active:scale-95 ${
                                 status === "ok"
-                                  ? "bg-emerald-500 border-emerald-600 text-white shadow-md"
-                                  : "bg-white border-border text-muted-foreground"
+                                  ? "bg-emerald-500 border-emerald-600 text-white shadow-md shadow-emerald-200"
+                                  : "bg-white border-border text-muted-foreground hover:border-emerald-300"
                               }`}
                               data-testid={`btn-ok-${idx}`}
                             >
-                              <CheckCircle2 className="w-6 h-6" />
-                              <span className="text-[10px] font-bold">○</span>
-                            </button>
-                            {/* PARTIAL △ button */}
-                            <button
-                              onClick={() => handleStatusSet(item, "partial")}
-                              className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-all active:scale-95 ${
-                                status === "partial"
-                                  ? "bg-amber-400 border-amber-500 text-white shadow-md"
-                                  : "bg-white border-border text-muted-foreground"
-                              }`}
-                              data-testid={`btn-partial-${idx}`}
-                            >
-                              <span className="text-2xl leading-none font-black">△</span>
-                              <span className="text-[10px] font-bold">보통</span>
+                              <CheckCircle2 className="w-8 h-8" />
                             </button>
                             {/* ISSUE ✗ button */}
                             <button
                               onClick={() => handleStatusSet(item, "issue")}
-                              className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center gap-0.5 border-2 transition-all active:scale-95 ${
+                              className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 border-2 transition-all active:scale-95 ${
                                 status === "issue"
-                                  ? "bg-primary border-red-700 text-white shadow-md"
-                                  : "bg-white border-border text-muted-foreground"
+                                  ? "bg-primary border-red-700 text-white shadow-md shadow-red-200"
+                                  : "bg-white border-border text-muted-foreground hover:border-red-300"
                               }`}
                               data-testid={`btn-issue-${idx}`}
                             >
-                              <XCircle className="w-6 h-6" />
-                              <span className="text-[10px] font-bold">✗</span>
+                              <XCircle className="w-8 h-8" />
                             </button>
                           </div>
                         </div>
 
-                        {/* Detail panel (expands when partial or issue selected) */}
+                        {/* Detail panel (expands when issue selected) */}
                         <AnimatePresence>
-                          {(status === "issue" || status === "partial") && (
+                          {status === "issue" && (
                             <motion.div
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: "auto", opacity: 1 }}
@@ -331,9 +338,9 @@ export default function CleaningChecklist() {
                               transition={{ duration: 0.25 }}
                               className="overflow-hidden"
                             >
-                              <div className={`px-5 pb-5 space-y-3 border-t ${status === "partial" ? "border-amber-200" : "border-red-200"}`}>
-                                <p className={`text-sm font-bold pt-3 flex items-center gap-1.5 ${status === "partial" ? "text-amber-600" : "text-primary"}`}>
-                                  <AlertCircle className="w-4 h-4" /> {status === "partial" ? "보통 상세 기록" : "문제 상세 기록"}
+                              <div className="px-5 pb-5 space-y-3 border-t border-red-200">
+                                <p className="text-sm font-bold text-primary pt-3 flex items-center gap-1.5">
+                                  <AlertCircle className="w-4 h-4" /> 문제 상세 기록
                                 </p>
 
                                 {/* Photo */}
