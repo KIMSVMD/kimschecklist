@@ -4,12 +4,14 @@ import { desc, eq, asc, gte, and, sql } from "drizzle-orm";
 
 export type AdminNotification = {
   id: number;
-  replyId: number;
+  notifType: 'new_inspection' | 'reply';
   type: 'vm' | 'cleaning';
-  content: string;
-  photoUrl: string | null;
   createdAt: Date;
   branch: string;
+  // reply-only
+  replyId?: number;
+  content?: string | null;
+  photoUrl?: string | null;
   // vm
   checklistId?: number;
   product?: string;
@@ -213,6 +215,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAdminNotifications(): Promise<AdminNotification[]> {
+    // Staff replies — VM
     const vmReplies = await db
       .select({
         replyId: checklistReplies.id,
@@ -230,6 +233,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(checklistReplies.createdAt))
       .limit(100);
 
+    // Staff replies — cleaning
     const cleanReplies = await db
       .select({
         replyId: cleaningReplies.id,
@@ -247,19 +251,57 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(cleaningReplies.createdAt))
       .limit(100);
 
+    // New VM inspections
+    const newVM = await db
+      .select({
+        id: checklists.id,
+        branch: checklists.branch,
+        product: checklists.product,
+        category: checklists.category,
+        createdAt: checklists.createdAt,
+      })
+      .from(checklists)
+      .orderBy(desc(checklists.createdAt))
+      .limit(60);
+
+    // New cleaning inspections
+    const newCleaning = await db
+      .select({
+        id: cleaningInspections.id,
+        branch: cleaningInspections.branch,
+        zone: cleaningInspections.zone,
+        inspectionTime: cleaningInspections.inspectionTime,
+        createdAt: cleaningInspections.createdAt,
+      })
+      .from(cleaningInspections)
+      .orderBy(desc(cleaningInspections.createdAt))
+      .limit(60);
+
     const all: AdminNotification[] = [
       ...vmReplies.map((r, i) => ({
-        id: i, replyId: r.replyId, type: 'vm' as const,
+        id: i, replyId: r.replyId, notifType: 'reply' as const, type: 'vm' as const,
         content: r.content, photoUrl: r.photoUrl, createdAt: r.createdAt,
         branch: r.branch, checklistId: r.checklistId, product: r.product ?? undefined, category: r.category ?? undefined,
       })),
       ...cleanReplies.map((r, i) => ({
-        id: vmReplies.length + i, replyId: r.replyId, type: 'cleaning' as const,
+        id: vmReplies.length + i, replyId: r.replyId, notifType: 'reply' as const, type: 'cleaning' as const,
         content: r.content, photoUrl: r.photoUrl, createdAt: r.createdAt,
         branch: r.branch, cleaningId: r.cleaningId, zone: r.zone ?? undefined, inspectionTime: r.inspectionTime ?? undefined,
       })),
+      ...newVM.map((r, i) => ({
+        id: vmReplies.length + cleanReplies.length + i,
+        notifType: 'new_inspection' as const, type: 'vm' as const,
+        createdAt: r.createdAt, branch: r.branch, checklistId: r.id,
+        product: r.product ?? undefined, category: r.category ?? undefined,
+      })),
+      ...newCleaning.map((r, i) => ({
+        id: vmReplies.length + cleanReplies.length + newVM.length + i,
+        notifType: 'new_inspection' as const, type: 'cleaning' as const,
+        createdAt: r.createdAt, branch: r.branch, cleaningId: r.id,
+        zone: r.zone ?? undefined, inspectionTime: r.inspectionTime ?? undefined,
+      })),
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-     .slice(0, 60);
+     .slice(0, 120);
 
     return all;
   }

@@ -1,16 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, useCallback } from "react";
-
-const LS_KEY = "admin_notif_last_seen_at";
+import { useState, useCallback } from "react";
 
 export type AdminNotification = {
   id: number;
-  replyId: number;
-  type: "vm" | "cleaning";
-  content: string;
-  photoUrl: string | null;
+  notifType: 'new_inspection' | 'reply';
+  type: 'vm' | 'cleaning';
   createdAt: string;
   branch: string;
+  replyId?: number;
+  content?: string | null;
+  photoUrl?: string | null;
   checklistId?: number;
   product?: string;
   category?: string;
@@ -19,14 +18,18 @@ export type AdminNotification = {
   inspectionTime?: string;
 };
 
+const LS_KEY = 'admin_notif_last_seen_at';
+
+function getLastSeenAt(): string {
+  return localStorage.getItem(LS_KEY) ?? new Date(0).toISOString();
+}
+
 export function useAdminNotifications() {
+  const [lastSeenAt, setLastSeenAtState] = useState<string>(getLastSeenAt);
+
   const { data: notifications = [], isLoading, refetch } = useQuery<AdminNotification[]>({
     queryKey: ["/api/admin/notifications"],
     refetchInterval: 30_000,
-  });
-
-  const [lastSeenAt, setLastSeenAtState] = useState<string>(() => {
-    return localStorage.getItem(LS_KEY) ?? new Date(0).toISOString();
   });
 
   const unreadCount = notifications.filter(
