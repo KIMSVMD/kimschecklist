@@ -253,7 +253,7 @@ function VMTab() {
                           }`}>
                             {name}: {status === 'excellent' ? '우수' : status === 'average' ? '보통' : '미흡'}
                           </span>
-                          {status === 'poor' && (
+                          {(status === 'poor' || status === 'average') && (
                             <button
                               onClick={() => handleItemResolve(item.id, name)}
                               disabled={itemStatusMutation.isPending}
