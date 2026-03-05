@@ -11,7 +11,7 @@ import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
   MessageSquare, Send, CheckCheck, CornerDownRight,
-  ChevronLeft, ChevronRight, Calendar, Bell,
+  ChevronLeft, ChevronRight, Calendar,
 } from "lucide-react";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { VMCommentThread } from "@/components/VMCommentThread";
@@ -20,10 +20,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useSaveChecklistComment } from "@/hooks/use-checklists";
 import { useSaveCleaningComment } from "@/hooks/use-cleaning";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
-import { useAdminNotifications } from "@/hooks/use-notifications";
-import { NotificationPanel } from "@/components/NotificationPanel";
-
-type NavSignal = { type: 'vm' | 'cleaning'; branch: string; checklistId?: number; cleaningId?: number; date?: string } | null;
 
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
 const BRANCHES = ['전체', '강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천', '대전', '해운대', '괴정', '쇼핑', '수성'];
@@ -118,27 +114,10 @@ function AdminCommentInput({
   );
 }
 
-function VMTab({ navSignal, onNavConsumed }: { navSignal: NavSignal; onNavConsumed: () => void }) {
+function VMTab() {
   const [filterBranch, setFilterBranch] = useState('전체');
   const [filterCategory, setFilterCategory] = useState('전체');
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (navSignal?.type === 'vm') {
-      setFilterBranch(navSignal.branch);
-      onNavConsumed();
-      if (navSignal.checklistId) {
-        setTimeout(() => {
-          const el = document.getElementById(`vm-card-${navSignal.checklistId}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('ring-4', 'ring-primary/60', 'ring-offset-2');
-            setTimeout(() => el.classList.remove('ring-4', 'ring-primary/60', 'ring-offset-2'), 2500);
-          }
-        }, 400);
-      }
-    }
-  }, [navSignal]);
   const deleteMutation = useDeleteChecklist();
   const itemStatusMutation = useUpdateChecklistItemStatus();
 
@@ -355,7 +334,7 @@ function toLocalDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function CleaningTab({ navSignal, onNavConsumed }: { navSignal: NavSignal; onNavConsumed: () => void }) {
+function CleaningTab() {
   const todayStr = toLocalDateStr(new Date());
   const [filterBranch, setFilterBranch] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -363,24 +342,6 @@ function CleaningTab({ navSignal, onNavConsumed }: { navSignal: NavSignal; onNav
   const { toast } = useToast();
   const deleteMutation = useDeleteCleaning();
   const itemStatusMutation = useUpdateCleaningItemStatus();
-
-  useEffect(() => {
-    if (navSignal?.type === 'cleaning') {
-      setFilterBranch(navSignal.branch);
-      if (navSignal.date) setSelectedDate(navSignal.date);
-      onNavConsumed();
-      if (navSignal.cleaningId) {
-        setTimeout(() => {
-          const el = document.getElementById(`cleaning-card-${navSignal.cleaningId}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('ring-4', 'ring-emerald-400/60', 'ring-offset-2');
-            setTimeout(() => el.classList.remove('ring-4', 'ring-emerald-400/60', 'ring-offset-2'), 2500);
-          }
-        }, 400);
-      }
-    }
-  }, [navSignal]);
 
   const handleItemResolve = async (id: number, itemName: string) => {
     try {
@@ -798,22 +759,12 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { data: adminStatus, isLoading: authLoading } = useAdminStatus();
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
-  const [navSignal, setNavSignal] = useState<NavSignal>(null);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const { notifications, unreadCount, markAllRead, lastSeenAt } = useAdminNotifications();
 
   useEffect(() => {
     if (!authLoading && !adminStatus?.isAdmin) {
       setLocation("/admin/login");
     }
   }, [adminStatus, authLoading, setLocation]);
-
-  const handleNavFromNotif = (target: { type: 'vm' | 'cleaning'; branch: string; checklistId?: number; cleaningId?: number; date?: string }) => {
-    setActiveTab(target.type === 'vm' ? 'vm' : 'cleaning');
-    setNavSignal(target);
-    markAllRead();
-    setNotifOpen(false);
-  };
 
   if (authLoading) {
     return (
@@ -829,16 +780,9 @@ export default function Dashboard() {
 
   return (
     <Layout title="관리자 대시보드" showBack={true}>
-      <NotificationPanel
-        open={notifOpen}
-        onClose={() => setNotifOpen(false)}
-        notifications={notifications}
-        lastSeenAt={lastSeenAt}
-        onNavigate={handleNavFromNotif}
-      />
       <div className="flex flex-col h-full bg-background">
-        {/* Tab switcher + bell */}
-        <div className="flex gap-1 p-3 bg-muted/50 border-b border-border items-center">
+        {/* Tab switcher */}
+        <div className="flex gap-1 p-3 bg-muted/50 border-b border-border">
           <button
             onClick={() => setActiveTab('vm')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
@@ -857,25 +801,10 @@ export default function Dashboard() {
           >
             <Droplets className="w-5 h-5" /> 청소 점검
           </button>
-          {/* Notification bell */}
-          <button
-            onClick={() => { setNotifOpen(v => !v); if (!notifOpen) markAllRead(); }}
-            className="relative w-12 h-12 rounded-xl bg-white border border-border flex items-center justify-center shadow-sm active:scale-95 transition-all shrink-0"
-            data-testid="btn-notification-bell"
-          >
-            <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-white text-[11px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {activeTab === 'vm'
-            ? <VMTab navSignal={navSignal} onNavConsumed={() => setNavSignal(null)} />
-            : <CleaningTab navSignal={navSignal} onNavConsumed={() => setNavSignal(null)} />}
+          {activeTab === 'vm' ? <VMTab /> : <CleaningTab />}
         </div>
       </div>
     </Layout>
