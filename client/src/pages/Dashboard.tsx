@@ -350,14 +350,19 @@ function CleaningTab() {
 
   const todayStr = toLocalDateStr(new Date());
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const isToday = selectedDate === todayStr;
 
   const { data: allRecords = [], isLoading } = useCleaningInspections(
     filterBranch !== '전체' ? { branch: filterBranch } : {}
   );
 
-  // Records for the selected date
-  const dayRecords = allRecords.filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate);
+  // Records for the selected date, filtered by inspection time
+  const dayRecords = allRecords.filter(r => {
+    if (toLocalDateStr(new Date(r.createdAt)) !== selectedDate) return false;
+    if (filterTime !== '전체' && r.inspectionTime !== filterTime) return false;
+    return true;
+  });
 
   const goBack = () => {
     const d = new Date(selectedDate);
@@ -421,28 +426,52 @@ function CleaningTab() {
           </select>
         </div>
 
-        {/* Date navigator */}
-        <div className="flex items-center gap-2 bg-muted rounded-2xl p-1">
-          <button
-            onClick={goBack}
-            className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
-            data-testid="btn-date-prev"
-          >
-            <ChevronLeft className="w-5 h-5 text-secondary" />
-          </button>
-          <div className="flex-1 text-center">
-            <p className="font-black text-secondary text-base">
-              {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
-            </p>
+        {/* Date navigator + 오픈/마감 filter */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-muted rounded-2xl p-1 flex-1">
+            <button
+              onClick={goBack}
+              className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
+              data-testid="btn-date-prev"
+            >
+              <ChevronLeft className="w-5 h-5 text-secondary" />
+            </button>
+            <div className="flex-1 text-center">
+              <p className="font-black text-secondary text-base">
+                {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
+              </p>
+            </div>
+            <button
+              onClick={goForward}
+              disabled={isToday}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
+              data-testid="btn-date-next"
+            >
+              <ChevronRight className="w-5 h-5 text-secondary" />
+            </button>
           </div>
-          <button
-            onClick={goForward}
-            disabled={isToday}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
-            data-testid="btn-date-next"
-          >
-            <ChevronRight className="w-5 h-5 text-secondary" />
-          </button>
+
+          {/* 오픈 / 마감 toggle */}
+          <div className="flex bg-muted rounded-2xl p-1 gap-1 shrink-0">
+            {(['전체', '오픈', '마감'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setFilterTime(t)}
+                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  filterTime === t
+                    ? t === '오픈' ? 'bg-amber-400 text-white shadow-sm'
+                      : t === '마감' ? 'bg-secondary text-white shadow-sm'
+                      : 'bg-white text-secondary shadow-sm'
+                    : 'text-muted-foreground hover:text-secondary'
+                }`}
+                data-testid={`btn-filter-time-${t}`}
+              >
+                {t === '오픈' && <Sun className="w-3 h-3" />}
+                {t === '마감' && <Moon className="w-3 h-3" />}
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
