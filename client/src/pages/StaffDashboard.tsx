@@ -4,6 +4,7 @@ import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
 import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
+import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
@@ -238,14 +239,14 @@ export default function StaffDashboard() {
                       data-testid={`card-checklist-${item.id}`}
                     >
                       {item.photoUrl ? (
-                        <div className="w-full h-44 bg-muted relative">
+                        <PhotoThumbnail src={item.photoUrl} className="w-full h-44 bg-muted relative block">
                           <img src={item.photoUrl} alt="현장사진" className="w-full h-full object-cover" />
                           {isPoor && (
                             <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
                               <AlertCircle className="w-4 h-4" /> 미흡 — 조치 필요
                             </div>
                           )}
-                        </div>
+                        </PhotoThumbnail>
                       ) : (
                         <div className="w-full h-28 bg-muted/50 flex flex-col items-center justify-center text-muted-foreground border-b border-border/50">
                           <ImageIcon className="w-7 h-7 mb-1 opacity-40" />
@@ -364,7 +365,7 @@ export default function StaffDashboard() {
                 </div>
               ) : (
                 cleaningRecords.filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate).map((record, i) => {
-                  const items = (record.items as Record<string, { status: string; memo?: string | null }>) || {};
+                  const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null }>) || {};
                   const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
                   const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;
                   const isOk = record.overallStatus === 'ok';
@@ -415,7 +416,12 @@ export default function StaffDashboard() {
                             <p className="text-xs font-bold text-muted-foreground mb-2">문제 항목</p>
                             <div className="flex flex-wrap gap-1.5">
                               {issueItems.map(([name, v]) => (
-                                <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5">
+                                <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5 w-full">
+                                  {v.photoUrl && (
+                                    <PhotoThumbnail src={v.photoUrl} className="block mb-1.5">
+                                      <img src={v.photoUrl} alt={name} className="w-full h-24 object-cover rounded-lg" />
+                                    </PhotoThumbnail>
+                                  )}
                                   <span className="text-xs font-bold text-red-600">{name}</span>
                                   {v.memo && <p className="text-[10px] text-red-400 mt-0.5">{v.memo}</p>}
                                 </div>

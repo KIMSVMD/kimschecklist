@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { MessageSquare, CheckCheck, Send, Loader2, CornerDownRight, ShieldCheck, UserRound, Camera, Image as ImageIcon } from "lucide-react";
+import { MessageSquare, CheckCheck, Send, Loader2, CornerDownRight, ShieldCheck, UserRound, Camera } from "lucide-react";
+import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
@@ -145,11 +146,13 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
                   <div className={`flex-1 min-w-0 ${isAdminReply ? "" : "text-right"}`}>
                     <div className={`inline-block text-left rounded-2xl px-3 py-2.5 max-w-[85%] ${isAdminReply ? "bg-white border border-border shadow-sm" : "bg-emerald-500 text-white"}`}>
                       {(reply as any).photoUrl && (
-                        <img
-                          src={(reply as any).photoUrl}
-                          alt="첨부 사진"
-                          className="w-full max-w-[200px] rounded-xl mb-2 object-cover"
-                        />
+                        <PhotoThumbnail src={(reply as any).photoUrl} className="block mb-2">
+                          <img
+                            src={(reply as any).photoUrl}
+                            alt="첨부 사진"
+                            className="w-full max-w-[200px] rounded-xl object-cover"
+                          />
+                        </PhotoThumbnail>
                       )}
                       {reply.content !== "(사진 첨부)" && (
                         <p className={`text-sm font-medium leading-relaxed ${isAdminReply ? "text-secondary" : "text-white"}`}>

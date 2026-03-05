@@ -1,8 +1,10 @@
+import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PhotoLightbox } from "@/components/PhotoLightbox";
 import NotFound from "@/pages/not-found";
 
 import Home from "./pages/Home";
@@ -31,11 +33,19 @@ function Router() {
 }
 
 function App() {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    (window as any).__openLightbox = (src: string) => setLightboxSrc(src);
+    return () => { delete (window as any).__openLightbox; };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Router />
+        <PhotoLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
       </TooltipProvider>
     </QueryClientProvider>
   );

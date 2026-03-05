@@ -13,6 +13,7 @@ import {
   MessageSquare, Send, CheckCheck, CornerDownRight,
   ChevronLeft, ChevronRight, Calendar,
 } from "lucide-react";
+import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useSaveChecklistComment } from "@/hooks/use-checklists";
@@ -191,14 +192,14 @@ function VMTab() {
                 data-testid={`card-checklist-${item.id}`}
               >
                 {item.photoUrl ? (
-                  <div className="w-full h-48 bg-muted relative">
+                  <PhotoThumbnail src={item.photoUrl} className="w-full h-48 bg-muted relative block">
                     <img src={item.photoUrl} alt="Checklist" className="w-full h-full object-cover" />
                     {isPoor && (
                       <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
                         <AlertCircle className="w-4 h-4" /> 긴급 조치 요망
                       </div>
                     )}
-                  </div>
+                  </PhotoThumbnail>
                 ) : (
                   <div className="w-full h-32 bg-muted/50 flex flex-col items-center justify-center text-muted-foreground border-b border-border/50">
                     <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
@@ -490,7 +491,9 @@ function CleaningTab() {
                   >
                     <div className="flex gap-3 p-4">
                       {issue.photoUrl && (
-                        <img src={issue.photoUrl} className="w-20 h-20 rounded-xl object-cover shrink-0 border border-border" alt="Issue" />
+                        <PhotoThumbnail src={issue.photoUrl} className="w-20 h-20 shrink-0">
+                          <img src={issue.photoUrl} className="w-20 h-20 rounded-xl object-cover border border-border" alt="Issue" />
+                        </PhotoThumbnail>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
