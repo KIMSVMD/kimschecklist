@@ -125,13 +125,14 @@ export default function CleaningChecklist() {
   const allChecked = currentItems.every(item => itemData[item]?.status != null);
   const issueCount = Object.values(itemData).filter(v => v.status === "issue").length;
 
-  // Today's zone scores for this branch
+  // Today's zone scores for this branch — filtered by current inspectionTime
   const today = new Date().toISOString().split("T")[0];
   const { data: todayRecords = [] } = useCleaningInspections(branch ? { branch } : {});
   const zoneScores: Record<string, number | null> = {};
   ZONES.forEach(z => { zoneScores[z] = null; });
   (todayRecords as any[]).filter(r => {
-    return new Date(r.createdAt).toISOString().split("T")[0] === today;
+    return new Date(r.createdAt).toISOString().split("T")[0] === today
+      && r.inspectionTime === inspectionTime;
   }).forEach(r => {
     const items = r.items as Record<string, { status: string }> || {};
     const score = calcCleaningScore(items);
