@@ -417,6 +417,7 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
   const { data: dbGuide, isLoading: guideLoading } = useGuideByProduct(formData.product);
   
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [itemMemos, setItemMemos] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -436,6 +437,12 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
     const hasPoor = Object.values(formData.items).includes('poor');
     const hasAverage = Object.values(formData.items).includes('average');
     const finalStatus = hasPoor ? 'poor' : hasAverage ? 'average' : 'excellent';
+
+    // Append item memos to notes
+    const memoLines = Object.entries(itemMemos)
+      .filter(([, v]) => v.trim())
+      .map(([k, v]) => `[미흡] ${k}: ${v}`);
+    const combinedNotes = [formData.notes, ...memoLines].filter(Boolean).join('\n');
     
     try {
       const created = await createMutation.mutateAsync({
@@ -444,7 +451,7 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
         product: formData.product,
         status: finalStatus,
         photoUrl: formData.photoUrl || null,
-        notes: formData.notes || null,
+        notes: combinedNotes || null,
         items: formData.items,
       });
       
@@ -614,24 +621,41 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
           {guideItems.map((item) => (
             <div key={item} className="space-y-3 p-4 bg-muted/30 rounded-2xl border border-border/50">
               <h4 className="text-lg font-bold text-secondary">{item}</h4>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {[
                   { id: 'excellent', label: '우수', icon: CheckCircle2, active: 'bg-blue-500 border-blue-600 text-white shadow-md', inactive: 'bg-white border-border text-muted-foreground' },
-                  { id: 'average', label: '보통', icon: AlertTriangle, active: 'bg-amber-500 border-amber-600 text-white shadow-md', inactive: 'bg-white border-border text-muted-foreground' },
                   { id: 'poor', label: '미흡', icon: XOctagon, active: 'bg-primary border-red-700 text-white shadow-md', inactive: 'bg-white border-border text-muted-foreground' }
                 ].map((s) => (
                   <button 
                     key={s.id}
                     onClick={() => updateForm('items', { ...formData.items, [item]: s.id })}
-                    className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-all active:scale-95 ${
+                    className={`flex flex-col items-center justify-center py-5 rounded-xl border-2 transition-all active:scale-95 ${
                       formData.items[item] === s.id ? s.active : s.inactive
                     }`}
                   >
-                    <s.icon className="w-8 h-8 mb-1" />
-                    <span className="text-sm font-bold">{s.label}</span>
+                    <s.icon className="w-9 h-9 mb-1.5" />
+                    <span className="text-base font-bold">{s.label}</span>
                   </button>
                 ))}
               </div>
+              <AnimatePresence>
+                {formData.items[item] === 'poor' && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <textarea
+                      placeholder="미흡 이유를 기재해주세요..."
+                      value={itemMemos[item] || ''}
+                      onChange={e => setItemMemos(prev => ({ ...prev, [item]: e.target.value }))}
+                      className="w-full p-4 rounded-xl border-2 border-red-200 bg-white text-base focus:outline-none focus:border-primary transition-all resize-none h-20 mt-1"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ))}
         </div>

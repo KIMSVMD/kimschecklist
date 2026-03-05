@@ -173,8 +173,6 @@ export default function CleaningChecklist() {
       [item]: {
         ...prev[item],
         status,
-        photoUrl: status === "ok" ? null : prev[item]?.photoUrl,
-        memo: status === "ok" ? null : prev[item]?.memo,
       },
     }));
   };
@@ -411,6 +409,51 @@ export default function CleaningChecklist() {
                         </div>
 
                         <AnimatePresence>
+                          {status === "ok" && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="px-5 pb-4 border-t border-emerald-200">
+                                <p className="text-xs font-bold text-emerald-600 pt-3 mb-2 flex items-center gap-1">
+                                  <Camera className="w-3.5 h-3.5" /> 사진 첨부 (선택)
+                                </p>
+                                <button
+                                  onClick={() => fileRefs.current[item]?.click()}
+                                  className={`w-full h-20 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
+                                    data?.photoUrl ? "border-emerald-400 bg-emerald-50" : "border-emerald-200 bg-emerald-50/50"
+                                  }`}
+                                >
+                                  {uploadingItem === item ? (
+                                    <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                                  ) : data?.photoUrl ? (
+                                    <div className="relative w-full h-full">
+                                      <img src={data.photoUrl} className="w-full h-full object-cover rounded-xl" alt="Ok photo" />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
+                                        <span className="text-white text-xs font-bold">사진 변경</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <Camera className="w-5 h-5 text-emerald-400" />
+                                      <span className="text-xs font-medium text-emerald-500">사진 추가</span>
+                                    </>
+                                  )}
+                                </button>
+                                <input
+                                  ref={el => { fileRefs.current[item] = el; }}
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  className="hidden"
+                                  onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, f); }}
+                                />
+                              </div>
+                            </motion.div>
+                          )}
                           {status === "issue" && (
                             <motion.div
                               initial={{ height: 0, opacity: 0 }}
