@@ -375,6 +375,16 @@ export async function registerRoutes(
     }
   });
 
+  // Admin notifications — all staff replies across VM & cleaning
+  app.get('/api/admin/notifications', requireAdmin, async (req, res) => {
+    try {
+      const notifications = await storage.getAdminNotifications();
+      res.json(notifications);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Thread replies for VM checklist
   app.get('/api/checklists/:id/replies', async (req, res) => {
     try {

@@ -1,6 +1,24 @@
 import { db } from "./db";
 import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "@shared/schema";
-import { desc, eq, asc, gte, and } from "drizzle-orm";
+import { desc, eq, asc, gte, and, sql } from "drizzle-orm";
+
+export type AdminNotification = {
+  id: number;
+  replyId: number;
+  type: 'vm' | 'cleaning';
+  content: string;
+  photoUrl: string | null;
+  createdAt: Date;
+  branch: string;
+  // vm
+  checklistId?: number;
+  product?: string;
+  category?: string;
+  // cleaning
+  cleaningId?: number;
+  zone?: string;
+  inspectionTime?: string;
+};
 
 export interface IStorage {
   getChecklists(): Promise<Checklist[]>;
@@ -27,6 +45,7 @@ export interface IStorage {
   updateChecklistItemStatus(id: number, itemName: string, newStatus: string): Promise<Checklist | undefined>;
   getChecklistReplies(checklistId: number): Promise<ChecklistReply[]>;
   addChecklistReply(data: InsertChecklistReply): Promise<ChecklistReply>;
+  getAdminNotifications(): Promise<AdminNotification[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -191,6 +210,58 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cleaningInspections.id, id))
       .returning();
     return updated;
+  }
+
+  async getAdminNotifications(): Promise<AdminNotification[]> {
+    const vmReplies = await db
+      .select({
+        replyId: checklistReplies.id,
+        checklistId: checklistReplies.checklistId,
+        content: checklistReplies.content,
+        photoUrl: checklistReplies.photoUrl,
+        createdAt: checklistReplies.createdAt,
+        branch: checklists.branch,
+        product: checklists.product,
+        category: checklists.category,
+      })
+      .from(checklistReplies)
+      .innerJoin(checklists, eq(checklistReplies.checklistId, checklists.id))
+      .where(eq(checklistReplies.authorType, 'staff'))
+      .orderBy(desc(checklistReplies.createdAt))
+      .limit(100);
+
+    const cleanReplies = await db
+      .select({
+        replyId: cleaningReplies.id,
+        cleaningId: cleaningReplies.cleaningId,
+        content: cleaningReplies.content,
+        photoUrl: cleaningReplies.photoUrl,
+        createdAt: cleaningReplies.createdAt,
+        branch: cleaningInspections.branch,
+        zone: cleaningInspections.zone,
+        inspectionTime: cleaningInspections.inspectionTime,
+      })
+      .from(cleaningReplies)
+      .innerJoin(cleaningInspections, eq(cleaningReplies.cleaningId, cleaningInspections.id))
+      .where(eq(cleaningReplies.authorType, 'staff'))
+      .orderBy(desc(cleaningReplies.createdAt))
+      .limit(100);
+
+    const all: AdminNotification[] = [
+      ...vmReplies.map((r, i) => ({
+        id: i, replyId: r.replyId, type: 'vm' as const,
+        content: r.content, photoUrl: r.photoUrl, createdAt: r.createdAt,
+        branch: r.branch, checklistId: r.checklistId, product: r.product ?? undefined, category: r.category ?? undefined,
+      })),
+      ...cleanReplies.map((r, i) => ({
+        id: vmReplies.length + i, replyId: r.replyId, type: 'cleaning' as const,
+        content: r.content, photoUrl: r.photoUrl, createdAt: r.createdAt,
+        branch: r.branch, cleaningId: r.cleaningId, zone: r.zone ?? undefined, inspectionTime: r.inspectionTime ?? undefined,
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+     .slice(0, 60);
+
+    return all;
   }
 
   async updateChecklistItemStatus(id: number, itemName: string, newStatus: string): Promise<Checklist | undefined> {
