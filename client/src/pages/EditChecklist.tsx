@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklist, useUploadPhoto, useUpdateChecklist, useSaveChecklistComment, useConfirmChecklistComment } from "@/hooks/use-checklists";
+import { useChecklist, useUploadPhoto, useUpdateChecklist, useSaveChecklistComment, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
 import { useGuideByProduct, useAdminStatus } from "@/hooks/use-guides";
 import { motion } from "framer-motion";
 import {
@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Send,
   CheckCheck,
+  CornerDownRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -39,6 +40,7 @@ export default function EditChecklist() {
   const uploadMutation = useUploadPhoto();
   const saveCommentMutation = useSaveChecklistComment();
   const confirmMutation = useConfirmChecklistComment();
+  const replyMutation = useSaveChecklistReply();
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
@@ -47,6 +49,8 @@ export default function EditChecklist() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [commentText, setCommentText] = useState("");
   const [commentOpen, setCommentOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replyOpen, setReplyOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = !!adminStatus?.isAdmin;
@@ -80,6 +84,7 @@ export default function EditChecklist() {
       setItems((checklist.items as Record<string, string>) || {});
       setNotes(checklist.notes || "");
       setCommentText((checklist as any).adminComment || "");
+      setReplyText((checklist as any).staffReply || "");
     }
   }, [checklist]);
 
@@ -345,7 +350,7 @@ export default function EditChecklist() {
             </div>
             <p className="px-4 pb-3 text-secondary text-base font-medium leading-relaxed">{adminComment}</p>
             {!commentConfirmed && (
-              <div className="px-4 pb-4">
+              <div className="px-4 pb-3">
                 <button
                   onClick={handleConfirmComment}
                   disabled={confirmMutation.isPending}
@@ -355,6 +360,62 @@ export default function EditChecklist() {
                   {confirmMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCheck className="w-5 h-5" />}
                   확인했습니다
                 </button>
+              </div>
+            )}
+
+            {/* Reply section after confirming */}
+            {commentConfirmed && (
+              <div className="px-4 pb-4 border-t border-emerald-200 pt-3">
+                {(checklist as any)?.staffReply && !replyOpen ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-secondary/60">
+                      <CornerDownRight className="w-3.5 h-3.5" /> 내 답글
+                    </div>
+                    <p className="text-sm text-secondary bg-white rounded-xl px-3 py-2.5 border border-emerald-200">{(checklist as any).staffReply}</p>
+                    <button onClick={() => { setReplyText((checklist as any).staffReply || ""); setReplyOpen(true); }} className="text-xs font-bold text-emerald-600 underline underline-offset-2">수정하기</button>
+                  </div>
+                ) : replyOpen ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-secondary/60">
+                      <CornerDownRight className="w-3.5 h-3.5" /> 답글 작성
+                    </div>
+                    <textarea
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      placeholder="관리자 코멘트에 답글을 남기세요..."
+                      className="w-full rounded-xl border border-emerald-300 bg-white p-3 text-base text-secondary resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400/40 min-h-[5rem]"
+                      data-testid={`textarea-reply-edit-${id}`}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await replyMutation.mutateAsync({ id, staffReply: replyText });
+                            toast({ title: "답글이 전송됐습니다" });
+                            setReplyOpen(false);
+                          } catch {
+                            toast({ title: "전송 실패", variant: "destructive" });
+                          }
+                        }}
+                        disabled={replyMutation.isPending || !replyText.trim()}
+                        className="flex-1 py-3 rounded-xl bg-emerald-500 text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                        data-testid={`btn-send-reply-edit-${id}`}
+                      >
+                        {replyMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        전송
+                      </button>
+                      <button onClick={() => setReplyOpen(false)} className="px-4 py-3 rounded-xl bg-muted text-muted-foreground font-bold active:scale-[0.98]">취소</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setReplyOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-emerald-300 text-emerald-600 font-bold text-base hover:bg-emerald-100 active:scale-[0.98] transition-all"
+                    data-testid={`btn-open-reply-edit-${id}`}
+                  >
+                    <CornerDownRight className="w-4 h-4" /> 답글 남기기
+                  </button>
+                )}
               </div>
             )}
           </div>

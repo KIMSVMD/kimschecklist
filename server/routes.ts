@@ -300,6 +300,20 @@ export async function registerRoutes(
     }
   });
 
+  // Field staff reply to admin comment on checklist
+  app.patch('/api/checklists/:id/reply', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { staffReply } = req.body;
+      const result = await storage.updateChecklist(id, { staffReply: staffReply ?? null } as any);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Admin comment on cleaning inspection
   app.patch('/api/cleaning/:id/comment', requireAdmin, async (req, res) => {
     try {
@@ -320,6 +334,20 @@ export async function registerRoutes(
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
       const result = await storage.updateCleaningInspection(id, { commentConfirmed: true });
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Field staff reply to admin comment on cleaning inspection
+  app.patch('/api/cleaning/:id/reply', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { staffReply } = req.body;
+      const result = await storage.updateCleaningInspection(id, { staffReply: staffReply ?? null } as any);
       if (!result) return res.status(404).json({ message: "Not found" });
       res.json(result);
     } catch (err) {

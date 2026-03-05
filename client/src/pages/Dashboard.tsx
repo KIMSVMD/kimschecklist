@@ -10,7 +10,7 @@ import { calcVMScore, calcCleaningScore, scoreColor } from "@/lib/scoring";
 import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
-  MessageSquare, Send, CheckCheck,
+  MessageSquare, Send, CheckCheck, CornerDownRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -22,9 +22,9 @@ const BRANCHES = ['전체', '강서', '강남', '송파', '야탑', '분당', '�
 const ZONES = ['입구', '농산', '축산', '수산', '공산'];
 
 function AdminCommentInput({ 
-  id, type, existingComment, confirmed 
+  id, type, existingComment, confirmed, staffReply
 }: { 
-  id: number; type: 'vm' | 'cleaning'; existingComment?: string | null; confirmed?: boolean | null; 
+  id: number; type: 'vm' | 'cleaning'; existingComment?: string | null; confirmed?: boolean | null; staffReply?: string | null;
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -92,6 +92,17 @@ function AdminCommentInput({
             >
               취소
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Staff reply — shown to admin as read-only */}
+      {staffReply && (
+        <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 flex gap-2">
+          <CornerDownRight className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-0.5">현장직원 답글</p>
+            <p className="text-sm text-secondary">{staffReply}</p>
           </div>
         </div>
       )}
@@ -247,6 +258,7 @@ function VMTab() {
                     type="vm"
                     existingComment={(item as any).adminComment}
                     confirmed={(item as any).commentConfirmed}
+                    staffReply={(item as any).staffReply}
                   />
 
                   <div className="flex gap-3 mt-4">
@@ -511,6 +523,7 @@ function CleaningTab() {
                           type="cleaning"
                           existingComment={(record as any).adminComment}
                           confirmed={(record as any).commentConfirmed}
+                          staffReply={(record as any).staffReply}
                         />
                       </div>
                     </motion.div>

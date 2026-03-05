@@ -70,3 +70,21 @@ export function useConfirmCleaningComment() {
     },
   });
 }
+
+export function useSaveCleaningReply() {
+  return useMutation({
+    mutationFn: async ({ id, staffReply }: { id: number; staffReply: string }) => {
+      const res = await fetch(`/api/cleaning/${id}/reply`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staffReply }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('답글 저장 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaning"] });
+    },
+  });
+}

@@ -13,6 +13,7 @@ export const checklists = pgTable("checklists", {
   items: jsonb("items").$type<Record<string, string>>(),
   adminComment: text("admin_comment"),
   commentConfirmed: boolean("comment_confirmed").default(false),
+  staffReply: text("staff_reply"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -68,6 +69,7 @@ export const cleaningInspections = pgTable("cleaning_inspections", {
   overallStatus: text("overall_status").notNull(), // ok / issue
   adminComment: text("admin_comment"),
   commentConfirmed: boolean("comment_confirmed").default(false),
+  staffReply: text("staff_reply"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

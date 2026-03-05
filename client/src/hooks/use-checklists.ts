@@ -139,8 +139,29 @@ export function useConfirmChecklistComment() {
       if (!res.ok) throw new Error('확인 처리 실패');
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.checklists.get.path, id] });
+    },
+  });
+}
+
+export function useSaveChecklistReply() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, staffReply }: { id: number; staffReply: string }) => {
+      const res = await fetch(`/api/checklists/${id}/reply`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staffReply }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('답글 저장 실패');
+      return res.json();
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.checklists.get.path, id] });
     },
   });
 }

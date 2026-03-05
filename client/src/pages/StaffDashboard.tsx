@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklists, useDeleteChecklist, useConfirmChecklistComment } from "@/hooks/use-checklists";
-import { useCleaningInspections, useDeleteCleaning, useConfirmCleaningComment } from "@/hooks/use-cleaning";
+import { useChecklists, useDeleteChecklist, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
+import { useCleaningInspections, useDeleteCleaning, useConfirmCleaningComment, useSaveCleaningReply } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
   ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin,
   MessageSquare, CheckCheck, Loader2, Droplets, Sun, Moon, XCircle, BarChart3,
+  CornerDownRight, Send,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -27,8 +28,10 @@ export default function StaffDashboard() {
 
   const deleteMutation = useDeleteChecklist();
   const confirmVMMutation = useConfirmChecklistComment();
+  const replyVMMutation = useSaveChecklistReply();
   const deleteCleaningMutation = useDeleteCleaning();
   const confirmCleaningMutation = useConfirmCleaningComment();
+  const replyCleaningMutation = useSaveCleaningReply();
 
   const { data: checklists, isLoading: vmLoading } = useChecklists({
     branch: filterBranch || undefined,
@@ -261,8 +264,11 @@ export default function StaffDashboard() {
                           <AdminCommentBox
                             comment={(item as any).adminComment}
                             confirmed={(item as any).commentConfirmed}
+                            staffReply={(item as any).staffReply}
                             isPending={confirmVMMutation.isPending}
+                            isReplying={replyVMMutation.isPending}
                             onConfirm={() => handleConfirmVM(item.id)}
+                            onReply={reply => replyVMMutation.mutateAsync({ id: item.id, staffReply: reply }).then(() => toast({ title: "답글이 전송됐습니다" })).catch(() => toast({ title: "전송 실패", variant: "destructive" }))}
                             testId={`btn-confirm-comment-${item.id}`}
                           />
                         )}
@@ -377,8 +383,11 @@ export default function StaffDashboard() {
                           <AdminCommentBox
                             comment={(record as any).adminComment}
                             confirmed={(record as any).commentConfirmed}
+                            staffReply={(record as any).staffReply}
                             isPending={confirmCleaningMutation.isPending}
+                            isReplying={replyCleaningMutation.isPending}
                             onConfirm={() => handleConfirmCleaning(record.id)}
+                            onReply={reply => replyCleaningMutation.mutateAsync({ id: record.id, staffReply: reply }).then(() => toast({ title: "답글이 전송됐습니다" })).catch(() => toast({ title: "전송 실패", variant: "destructive" }))}
                             testId={`btn-confirm-cleaning-${record.id}`}
                           />
                         )}
@@ -405,12 +414,23 @@ export default function StaffDashboard() {
 }
 
 function AdminCommentBox({
-  comment, confirmed, isPending, onConfirm, testId,
+  comment, confirmed, staffReply, isPending, isReplying, onConfirm, onReply, testId,
 }: {
-  comment: string; confirmed: boolean | null; isPending: boolean; onConfirm: () => void; testId: string;
+  comment: string;
+  confirmed: boolean | null;
+  staffReply?: string | null;
+  isPending: boolean;
+  isReplying: boolean;
+  onConfirm: () => void;
+  onReply: (reply: string) => void;
+  testId: string;
 }) {
+  const [replyText, setReplyText] = useState(staffReply || "");
+  const [replyOpen, setReplyOpen] = useState(false);
+
   return (
     <div className={`rounded-2xl border-2 overflow-hidden ${confirmed ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+      {/* Admin comment header */}
       <div className="flex items-center gap-2 px-4 pt-3 pb-1">
         <MessageSquare className={`w-4 h-4 ${confirmed ? 'text-emerald-600' : 'text-amber-600'}`} />
         <span className={`text-xs font-black uppercase tracking-wide ${confirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -423,8 +443,10 @@ function AdminCommentBox({
         )}
       </div>
       <p className="px-4 pb-3 text-secondary text-sm font-medium leading-relaxed">{comment}</p>
+
+      {/* Confirm button (show until confirmed) */}
       {!confirmed && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-3">
           <button
             onClick={onConfirm}
             disabled={isPending}
@@ -434,6 +456,64 @@ function AdminCommentBox({
             {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-5 h-5" />}
             확인했습니다
           </button>
+        </div>
+      )}
+
+      {/* Staff reply section — show after confirming */}
+      {confirmed && (
+        <div className="px-4 pb-4 border-t border-emerald-200 pt-3">
+          {staffReply && !replyOpen ? (
+            /* Existing reply display */
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-secondary/60">
+                <CornerDownRight className="w-3.5 h-3.5" /> 내 답글
+              </div>
+              <p className="text-sm text-secondary bg-white rounded-xl px-3 py-2.5 border border-emerald-200">{staffReply}</p>
+              <button
+                onClick={() => { setReplyText(staffReply); setReplyOpen(true); }}
+                className="text-xs font-bold text-emerald-600 underline underline-offset-2"
+              >
+                수정하기
+              </button>
+            </div>
+          ) : replyOpen ? (
+            /* Reply editing mode */
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-secondary/60">
+                <CornerDownRight className="w-3.5 h-3.5" /> 답글 작성
+              </div>
+              <textarea
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                placeholder="관리자 코멘트에 답글을 남기세요..."
+                className="w-full rounded-xl border border-emerald-300 bg-white p-3 text-sm text-secondary resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400/40 min-h-[5rem]"
+                data-testid={`textarea-reply-${testId}`}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => { await onReply(replyText); setReplyOpen(false); }}
+                  disabled={isReplying || !replyText.trim()}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                  data-testid={`btn-send-reply-${testId}`}
+                >
+                  {isReplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  전송
+                </button>
+                <button onClick={() => setReplyOpen(false)} className="px-4 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
+                  취소
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* No reply yet — show write button */
+            <button
+              onClick={() => setReplyOpen(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 text-emerald-600 font-bold text-sm hover:bg-emerald-100 active:scale-[0.98] transition-all"
+              data-testid={`btn-open-reply-${testId}`}
+            >
+              <CornerDownRight className="w-4 h-4" /> 답글 남기기
+            </button>
+          )}
         </div>
       )}
     </div>
