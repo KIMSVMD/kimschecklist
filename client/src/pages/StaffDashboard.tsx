@@ -10,12 +10,13 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
   ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin,
-  CheckCheck, Loader2, Droplets, Sun, Moon, XCircle, BarChart3,
-  ChevronLeft, ChevronRight, Calendar,
+  CheckCheck, Droplets, Sun, Moon, XCircle, BarChart3,
+  ChevronLeft, ChevronRight, Calendar, Bell, X, MessageCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { calcVMScore, calcCleaningScore, scoreColor } from "@/lib/scoring";
+import { useStaffNotifications, type StaffNotification } from "@/hooks/use-notifications";
 
 const REGIONS: Record<string, string[]> = {
   '수도권': ['강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천'],
@@ -37,7 +38,9 @@ export default function StaffDashboard() {
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const [filterZone, setFilterZone] = useState('전체');
+  const [notifOpen, setNotifOpen] = useState(false);
   const { toast } = useToast();
+  const { notifications, unreadCount, dismiss, dismissAll, staffNotifKey } = useStaffNotifications(filterBranch);
 
   const isToday = selectedDate === todayStr;
   const selectedDateObj = new Date(selectedDate + 'T00:00:00');
@@ -74,6 +77,26 @@ export default function StaffDashboard() {
     } catch {
       toast({ title: "삭제 실패", variant: "destructive" });
     }
+  };
+
+  const handleNotifNavigate = (n: StaffNotification) => {
+    const key = staffNotifKey(n);
+    dismiss(key);
+    setNotifOpen(false);
+    const isVm = n.type === 'vm_comment' || n.type === 'vm_reply';
+    setActiveTab(isVm ? 'vm' : 'cleaning');
+    const cardId = isVm ? `staff-vm-card-${n.checklistId}` : `staff-cleaning-card-${n.cleaningId}`;
+    const scrollToCard = () => {
+      const el = document.getElementById(cardId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2500);
+        return true;
+      }
+      return false;
+    };
+    setTimeout(() => { if (!scrollToCard()) setTimeout(scrollToCard, 400); }, 300);
   };
 
   const handleDeleteCleaning = async (id: number) => {
@@ -163,12 +186,12 @@ export default function StaffDashboard() {
 
         {/* Filter header */}
         <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
-          {/* Branch selector */}
+          {/* Branch selector + notification bell */}
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-primary shrink-0" />
             <select
               value={filterBranch}
-              onChange={e => setFilterBranch(e.target.value)}
+              onChange={e => { setFilterBranch(e.target.value); setNotifOpen(false); }}
               className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-bold text-lg focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
               data-testid="select-staff-branch"
             >
@@ -180,6 +203,20 @@ export default function StaffDashboard() {
                 {REGIONS['지방'].map(b => <option key={b} value={b}>{b}점</option>)}
               </optgroup>
             </select>
+            {filterBranch && (
+              <button
+                onClick={() => setNotifOpen(o => !o)}
+                className="relative w-12 h-12 rounded-2xl bg-muted flex items-center justify-center shrink-0 active:scale-95 transition-all"
+                data-testid="btn-staff-notif-bell"
+              >
+                <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center px-1">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Tab switcher */}
@@ -300,6 +337,72 @@ export default function StaffDashboard() {
           )}
         </div>
 
+        {/* Staff Notification Panel */}
+        {notifOpen && filterBranch && (
+          <div className="sticky top-0 z-50 bg-white border-b border-border/50 shadow-xl max-h-[65vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-primary" />
+                <span className="font-black text-secondary text-base">{filterBranch}점 알림</span>
+                {unreadCount > 0 && (
+                  <span className="bg-primary text-white text-xs font-black px-2 py-0.5 rounded-full">{unreadCount}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={dismissAll}
+                    className="text-xs font-bold text-muted-foreground hover:text-secondary px-2 py-1 rounded-lg hover:bg-muted transition-all"
+                    data-testid="btn-staff-notif-dismiss-all"
+                  >
+                    모두 읽음
+                  </button>
+                )}
+                <button onClick={() => setNotifOpen(false)} className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center" data-testid="btn-staff-notif-close">
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground space-y-2">
+                  <Bell className="w-10 h-10 opacity-20" />
+                  <p className="font-medium text-sm">새 알림이 없습니다</p>
+                </div>
+              ) : (
+                notifications.map(n => {
+                  const key = staffNotifKey(n);
+                  const isVm = n.type === 'vm_comment' || n.type === 'vm_reply';
+                  const isComment = n.type === 'vm_comment' || n.type === 'cleaning_comment';
+                  return (
+                    <div key={key} className="flex items-start gap-3 p-4 border-b border-border/30 hover:bg-muted/40 transition-all" data-testid={`staff-notif-${key}`}>
+                      <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${isVm ? 'bg-primary/10' : 'bg-emerald-100'}`}>
+                        <MessageCircle className={`w-4 h-4 ${isVm ? 'text-primary' : 'text-emerald-600'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-muted-foreground mb-0.5">
+                          {isVm ? `VM · ${n.category} · ${n.product}` : `청소 · ${n.zone} · ${n.inspectionTime}`}
+                          {' · '}
+                          {isComment ? '관리자 피드백' : '관리자 답글'}
+                        </p>
+                        <p className="text-sm font-medium text-secondary leading-snug line-clamp-2">{n.content}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{format(new Date(n.createdAt), 'M월 d일 HH:mm', { locale: ko })}</p>
+                      </div>
+                      <button
+                        onClick={() => handleNotifNavigate(n)}
+                        className="shrink-0 px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-xs font-bold active:scale-95 transition-all"
+                        data-testid={`btn-staff-notif-view-${key}`}
+                      >
+                        보기
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
         {/* No branch selected */}
         {!filterBranch ? (
           <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground text-center space-y-3 p-6">
@@ -343,7 +446,8 @@ export default function StaffDashboard() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.04 }}
                       key={item.id}
-                      className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5
+                      id={`staff-vm-card-${item.id}`}
+                      className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5 transition-all
                         ${isPoor ? 'border-2 border-primary' : 'border border-border/50'}`}
                       data-testid={`card-checklist-${item.id}`}
                     >
@@ -538,7 +642,8 @@ export default function StaffDashboard() {
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.04 }}
-                        className={`bg-white rounded-3xl border-2 overflow-hidden shadow-lg shadow-black/5 ${
+                        id={`staff-cleaning-card-${record.id}`}
+                        className={`bg-white rounded-3xl border-2 overflow-hidden shadow-lg shadow-black/5 transition-all ${
                           isOk ? 'border-emerald-200' : 'border-red-200'
                         }`}
                         data-testid={`card-cleaning-staff-${record.id}`}

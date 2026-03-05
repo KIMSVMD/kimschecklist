@@ -2,6 +2,21 @@ import { db } from "./db";
 import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "@shared/schema";
 import { desc, eq, asc, gte, and, sql } from "drizzle-orm";
 
+export type StaffNotification = {
+  id: number;
+  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply';
+  createdAt: Date;
+  branch: string;
+  content?: string | null;
+  photoUrl?: string | null;
+  checklistId?: number;
+  product?: string;
+  category?: string;
+  cleaningId?: number;
+  zone?: string;
+  inspectionTime?: string;
+};
+
 export type AdminNotification = {
   id: number;
   notifType: 'new_inspection' | 'reply';
@@ -48,6 +63,7 @@ export interface IStorage {
   getChecklistReplies(checklistId: number): Promise<ChecklistReply[]>;
   addChecklistReply(data: InsertChecklistReply): Promise<ChecklistReply>;
   getAdminNotifications(): Promise<AdminNotification[]>;
+  getStaffNotifications(branch: string): Promise<StaffNotification[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -303,6 +319,118 @@ export class DatabaseStorage implements IStorage {
       })),
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
      .slice(0, 120);
+
+    return all;
+  }
+
+  async getStaffNotifications(branch: string): Promise<StaffNotification[]> {
+    // Admin comments on VM checklists
+    const vmWithComment = await db
+      .select({
+        id: checklists.id,
+        branch: checklists.branch,
+        product: checklists.product,
+        category: checklists.category,
+        adminComment: checklists.adminComment,
+        createdAt: checklists.createdAt,
+      })
+      .from(checklists)
+      .where(and(eq(checklists.branch, branch), sql`${checklists.adminComment} IS NOT NULL`))
+      .orderBy(desc(checklists.createdAt));
+
+    // Admin replies in VM checklist threads
+    const vmAdminReplies = await db
+      .select({
+        replyId: checklistReplies.id,
+        checklistId: checklistReplies.checklistId,
+        content: checklistReplies.content,
+        photoUrl: checklistReplies.photoUrl,
+        createdAt: checklistReplies.createdAt,
+        product: checklists.product,
+        category: checklists.category,
+        branch: checklists.branch,
+      })
+      .from(checklistReplies)
+      .innerJoin(checklists, eq(checklistReplies.checklistId, checklists.id))
+      .where(and(eq(checklists.branch, branch), eq(checklistReplies.authorType, 'admin')))
+      .orderBy(desc(checklistReplies.createdAt));
+
+    // Admin comments on cleaning inspections
+    const cleaningWithComment = await db
+      .select({
+        id: cleaningInspections.id,
+        branch: cleaningInspections.branch,
+        zone: cleaningInspections.zone,
+        inspectionTime: cleaningInspections.inspectionTime,
+        adminComment: cleaningInspections.adminComment,
+        createdAt: cleaningInspections.createdAt,
+      })
+      .from(cleaningInspections)
+      .where(and(eq(cleaningInspections.branch, branch), sql`${cleaningInspections.adminComment} IS NOT NULL`))
+      .orderBy(desc(cleaningInspections.createdAt));
+
+    // Admin replies in cleaning threads
+    const cleaningAdminReplies = await db
+      .select({
+        replyId: cleaningReplies.id,
+        cleaningId: cleaningReplies.cleaningId,
+        content: cleaningReplies.content,
+        photoUrl: cleaningReplies.photoUrl,
+        createdAt: cleaningReplies.createdAt,
+        zone: cleaningInspections.zone,
+        inspectionTime: cleaningInspections.inspectionTime,
+        branch: cleaningInspections.branch,
+      })
+      .from(cleaningReplies)
+      .innerJoin(cleaningInspections, eq(cleaningReplies.cleaningId, cleaningInspections.id))
+      .where(and(eq(cleaningInspections.branch, branch), eq(cleaningReplies.authorType, 'admin')))
+      .orderBy(desc(cleaningReplies.createdAt));
+
+    const all: StaffNotification[] = [
+      ...vmWithComment.map((r, i) => ({
+        id: i,
+        type: 'vm_comment' as const,
+        createdAt: r.createdAt,
+        branch: r.branch,
+        content: r.adminComment,
+        checklistId: r.id,
+        product: r.product ?? undefined,
+        category: r.category ?? undefined,
+      })),
+      ...vmAdminReplies.map((r, i) => ({
+        id: vmWithComment.length + i,
+        type: 'vm_reply' as const,
+        createdAt: r.createdAt,
+        branch: r.branch,
+        content: r.content,
+        photoUrl: r.photoUrl,
+        checklistId: r.checklistId,
+        product: r.product ?? undefined,
+        category: r.category ?? undefined,
+      })),
+      ...cleaningWithComment.map((r, i) => ({
+        id: vmWithComment.length + vmAdminReplies.length + i,
+        type: 'cleaning_comment' as const,
+        createdAt: r.createdAt,
+        branch: r.branch,
+        content: r.adminComment,
+        cleaningId: r.id,
+        zone: r.zone ?? undefined,
+        inspectionTime: r.inspectionTime ?? undefined,
+      })),
+      ...cleaningAdminReplies.map((r, i) => ({
+        id: vmWithComment.length + vmAdminReplies.length + cleaningWithComment.length + i,
+        type: 'cleaning_reply' as const,
+        createdAt: r.createdAt,
+        branch: r.branch,
+        content: r.content,
+        photoUrl: r.photoUrl,
+        cleaningId: r.cleaningId,
+        zone: r.zone ?? undefined,
+        inspectionTime: r.inspectionTime ?? undefined,
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+     .slice(0, 80);
 
     return all;
   }

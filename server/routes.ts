@@ -385,6 +385,18 @@ export async function registerRoutes(
     }
   });
 
+  // Staff notifications — admin feedback & replies for a specific branch
+  app.get('/api/staff/notifications', async (req, res) => {
+    try {
+      const branch = typeof req.query.branch === 'string' ? req.query.branch.trim() : '';
+      if (!branch) return res.status(400).json({ message: "branch required" });
+      const notifications = await storage.getStaffNotifications(branch);
+      res.json(notifications);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Thread replies for VM checklist
   app.get('/api/checklists/:id/replies', async (req, res) => {
     try {
