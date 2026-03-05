@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
@@ -22,16 +22,21 @@ const REGIONS: Record<string, string[]> = {
   '지방': ['대전', '해운대', '괴정', '쇼핑', '수성'],
 };
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
+const ZONES = ['입구', '농산', '수산', '축산', '공산'];
+
+function toLocalDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export default function StaffDashboard() {
-  const toLocalDateStr = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const todayStr = toLocalDateStr(new Date());
 
   const [filterBranch, setFilterBranch] = useState('');
   const [filterCategory, setFilterCategory] = useState('전체');
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
+  const [filterZone, setFilterZone] = useState('전체');
   const { toast } = useToast();
 
   const isToday = selectedDate === todayStr;
@@ -88,6 +93,70 @@ export default function StaffDashboard() {
   };
   const statusLabels = { excellent: '우수', average: '보통', poor: '미흡' };
 
+  // ── Cleaning stats for summary card ──
+  const relevantTimes = filterTime === '전체' ? ['오픈', '마감'] : [filterTime];
+  const relevantZones = filterZone === '전체' ? ZONES : [filterZone];
+  const totalSlots = relevantZones.length * relevantTimes.length;
+
+  const slotMap = useMemo(() => {
+    const map: Record<string, typeof cleaningRecords[0] | null> = {};
+    relevantZones.forEach(z => relevantTimes.forEach(t => { map[`${z}_${t}`] = null; }));
+    cleaningRecords
+      .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+      .forEach(r => {
+        const key = `${r.zone}_${r.inspectionTime}`;
+        if (key in map) {
+          if (!map[key] || new Date(r.createdAt) > new Date(map[key]!.createdAt)) {
+            map[key] = r;
+          }
+        }
+      });
+    return map;
+  }, [cleaningRecords, selectedDate, filterTime, filterZone]);
+
+  let completionScore = 0;
+  let completedSlotCount = 0;
+  const allIssues: { zone: string; item: string; time: string }[] = [];
+  Object.values(slotMap).forEach(record => {
+    if (record) {
+      completedSlotCount++;
+      const items = record.items as Record<string, { status: string }> || {};
+      const total = Object.keys(items).length;
+      const issueCount = Object.values(items).filter((v: any) => v.status === 'issue').length;
+      completionScore += total > 0 ? (total - issueCount) / total : 1;
+    }
+  });
+  const completionRate = totalSlots > 0 ? Math.round((completionScore / totalSlots) * 100) : 0;
+
+  cleaningRecords
+    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .filter(r => filterTime === '전체' || r.inspectionTime === filterTime)
+    .filter(r => filterZone === '전체' || r.zone === filterZone)
+    .forEach(r => {
+      if (r.items) {
+        Object.entries(r.items as Record<string, any>).forEach(([item, data]) => {
+          if (data.status === 'issue') allIssues.push({ zone: r.zone, item, time: r.inspectionTime });
+        });
+      }
+    });
+
+  // Zone status grid (latest per zone for selected date, no time filter for grid display)
+  const zoneStatus: Record<string, 'ok' | 'issue' | null> = {};
+  ZONES.forEach(z => { zoneStatus[z] = null; });
+  cleaningRecords
+    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .forEach(r => {
+      if (zoneStatus[r.zone] === null || r.overallStatus === 'issue') {
+        zoneStatus[r.zone] = r.overallStatus as 'ok' | 'issue';
+      }
+    });
+
+  // Filtered list shown in card list
+  const dayFilteredRecords = cleaningRecords
+    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .filter(r => filterTime === '전체' || r.inspectionTime === filterTime)
+    .filter(r => filterZone === '전체' || r.zone === filterZone);
+
   return (
     <Layout title="내 점검 목록" showBack={true}>
       <div className="flex flex-col h-full bg-background">
@@ -135,7 +204,7 @@ export default function StaffDashboard() {
             </button>
           </div>
 
-          {/* Category filter — only on VM tab */}
+          {/* Category filter — VM tab */}
           {activeTab === 'vm' && (
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
               {CATEGORIES.map(cat => (
@@ -154,29 +223,79 @@ export default function StaffDashboard() {
             </div>
           )}
 
-          {/* Date navigator — only on cleaning tab */}
+          {/* Date navigator + time filter — cleaning tab */}
           {activeTab === 'cleaning' && (
-            <div className="flex items-center gap-2 bg-muted rounded-2xl p-1">
-              <button
-                onClick={goBack}
-                className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
-                data-testid="btn-staff-date-prev"
-              >
-                <ChevronLeft className="w-5 h-5 text-secondary" />
-              </button>
-              <div className="flex-1 text-center">
-                <p className="font-black text-secondary text-sm">
-                  {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
-                </p>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-muted rounded-2xl p-1 flex-1">
+                <button
+                  onClick={goBack}
+                  className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
+                  data-testid="btn-staff-date-prev"
+                >
+                  <ChevronLeft className="w-5 h-5 text-secondary" />
+                </button>
+                <div className="flex-1 text-center">
+                  <p className="font-black text-secondary text-sm whitespace-nowrap">
+                    {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
+                  </p>
+                </div>
+                <button
+                  onClick={goForward}
+                  disabled={isToday}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
+                  data-testid="btn-staff-date-next"
+                >
+                  <ChevronRight className="w-5 h-5 text-secondary" />
+                </button>
               </div>
+              {/* 오픈 / 마감 toggle */}
+              <div className="flex bg-muted rounded-2xl p-1 gap-0.5 shrink-0">
+                {(['전체', '오픈', '마감'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setFilterTime(t)}
+                    className={`flex items-center gap-0.5 px-2 py-2 rounded-xl text-xs font-bold transition-all ${
+                      filterTime === t
+                        ? t === '오픈' ? 'bg-amber-400 text-white shadow-sm'
+                          : t === '마감' ? 'bg-secondary text-white shadow-sm'
+                          : 'bg-white text-secondary shadow-sm'
+                        : 'text-muted-foreground hover:text-secondary'
+                    }`}
+                    data-testid={`btn-staff-filter-time-${t}`}
+                  >
+                    {t === '오픈' && <Sun className="w-3 h-3" />}
+                    {t === '마감' && <Moon className="w-3 h-3" />}
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Zone filter — cleaning tab */}
+          {activeTab === 'cleaning' && (
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
               <button
-                onClick={goForward}
-                disabled={isToday}
-                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
-                data-testid="btn-staff-date-next"
+                onClick={() => setFilterZone('전체')}
+                className={`shrink-0 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
+                  filterZone === '전체' ? 'bg-emerald-500 text-white shadow-sm' : 'bg-muted text-muted-foreground'
+                }`}
+                data-testid="btn-staff-zone-전체"
               >
-                <ChevronRight className="w-5 h-5 text-secondary" />
+                전체
               </button>
+              {ZONES.map(z => (
+                <button
+                  key={z}
+                  onClick={() => setFilterZone(z)}
+                  className={`shrink-0 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
+                    filterZone === z ? 'bg-emerald-500 text-white shadow-sm' : 'bg-muted text-muted-foreground'
+                  }`}
+                  data-testid={`btn-staff-zone-${z}`}
+                >
+                  {z}
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -328,114 +447,172 @@ export default function StaffDashboard() {
                   <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin mb-4" />
                   불러오는 중...
                 </div>
-              ) : cleaningRecords.filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-3">
-                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                    <Calendar className="w-8 h-8 opacity-40" />
+              ) : (<>
+                {/* ── 오늘의 청소 점검 현황 카드 ── */}
+                <div className="bg-secondary text-white rounded-3xl p-5 shadow-xl">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Droplets className="w-6 h-6 text-emerald-400" />
+                    <h3 className="text-xl font-black">
+                      {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 청소 점검 현황
+                    </h3>
                   </div>
-                  <p className="font-medium text-lg">
-                    {isToday ? '오늘은' : format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
-                  </p>
-                  {!isToday && (
-                    <button onClick={() => setSelectedDate(todayStr)} className="text-sm font-bold text-emerald-600 underline underline-offset-2">
-                      오늘로 돌아가기
-                    </button>
-                  )}
-                  {isToday && (
-                    <Link href="/checklist/new">
-                      <button className="px-6 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-base">
-                        청소 점검 시작하기
-                      </button>
-                    </Link>
-                  )}
-                </div>
-              ) : (
-                cleaningRecords.filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate).map((record, i) => {
-                  const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null }>) || {};
-                  const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
-                  const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;
-                  const isOk = record.overallStatus === 'ok';
-                  return (
-                    <motion.div
-                      key={record.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                      className={`bg-white rounded-3xl border-2 overflow-hidden shadow-lg shadow-black/5 ${
-                        isOk ? 'border-emerald-200' : 'border-red-200'
-                      }`}
-                      data-testid={`card-cleaning-staff-${record.id}`}
-                    >
-                      {/* Header stripe */}
-                      <div className={`px-5 py-3 flex items-center justify-between ${isOk ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isOk ? 'bg-emerald-500' : 'bg-primary'}`}>
-                            {isOk
-                              ? <CheckCheck className="w-4 h-4 text-white" />
-                              : <XCircle className="w-4 h-4 text-white" />}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-black text-secondary text-lg">{record.zone}</span>
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isOk ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-primary'}`}>
-                                {isOk ? '정상' : '문제'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              {record.inspectionTime === '오픈' ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
-                              <span>{record.inspectionTime}</span>
-                              <span>·</span>
-                              <span>{format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}</span>
-                            </div>
-                          </div>
-                        </div>
-                        {cleanScore !== null && (
-                          <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(cleanScore)}`}>
-                            {cleanScore}점
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-5 space-y-3">
-                        {issueItems.length > 0 && (
-                          <div>
-                            <p className="text-xs font-bold text-muted-foreground mb-2">문제 항목</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {issueItems.map(([name, v]) => (
-                                <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5 w-full">
-                                  {v.photoUrl && (
-                                    <PhotoThumbnail src={v.photoUrl} className="block mb-1.5">
-                                      <img src={v.photoUrl} alt={name} className="w-full h-24 object-cover rounded-lg" />
-                                    </PhotoThumbnail>
-                                  )}
-                                  <span className="text-xs font-bold text-red-600">{name}</span>
-                                  {v.memo && <p className="text-[10px] text-red-400 mt-0.5">{v.memo}</p>}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <CleaningCommentThread
-                          cleaningId={record.id}
-                          adminComment={(record as any).adminComment}
-                          confirmed={(record as any).commentConfirmed}
-                          isAdmin={false}
-                        />
-
+                  <div className="flex gap-3 mb-5">
+                    <div className="flex-1 bg-white/10 rounded-2xl p-3 text-center">
+                      <p className="text-2xl font-black text-emerald-400">{completedSlotCount}<span className="text-sm text-white/60">/{totalSlots}</span></p>
+                      <p className="text-xs text-white/70 font-medium mt-0.5">점검 완료</p>
+                    </div>
+                    <div className="flex-1 bg-white/10 rounded-2xl p-3 text-center">
+                      <p className="text-2xl font-black text-primary">{allIssues.length}</p>
+                      <p className="text-xs text-white/70 font-medium mt-0.5">문제 발생</p>
+                    </div>
+                    <div className="flex-1 bg-white/10 rounded-2xl p-3 text-center">
+                      <p className="text-2xl font-black text-white">{completionRate}<span className="text-sm text-white/60">%</span></p>
+                      <p className="text-xs text-white/70 font-medium mt-0.5">완료율</p>
+                    </div>
+                  </div>
+                  {/* Zone status grid */}
+                  <div className="grid grid-cols-5 gap-2">
+                    {ZONES.map(zone => {
+                      const status = zoneStatus[zone];
+                      const isSelected = filterZone === zone || filterZone === '전체';
+                      return (
                         <button
-                          onClick={() => handleDeleteCleaning(record.id)}
-                          disabled={deleteCleaningMutation.isPending}
-                          className="w-full py-3 rounded-2xl border-2 border-red-200 bg-red-50 text-red-500 font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 disabled:opacity-50"
-                          data-testid={`button-delete-cleaning-staff-${record.id}`}
+                          key={zone}
+                          onClick={() => setFilterZone(zone === filterZone ? '전체' : zone)}
+                          className={`rounded-2xl p-2 text-center transition-all active:scale-95 border-2 ${
+                            status === null
+                              ? 'bg-white/10 border-white/10'
+                              : status === 'ok'
+                                ? 'bg-emerald-500/90 border-emerald-400'
+                                : 'bg-primary/80 border-primary/60'
+                          } ${!isSelected ? 'opacity-40' : ''}`}
+                          data-testid={`btn-staff-zone-grid-${zone}`}
                         >
-                          <Trash2 className="w-4 h-4" /> 삭제
+                          {status === 'ok' && <CheckCheck className="w-4 h-4 text-white mx-auto mb-0.5" />}
+                          {status === 'issue' && <XCircle className="w-4 h-4 text-white mx-auto mb-0.5" />}
+                          {status === null && <div className="w-4 h-4 mx-auto mb-0.5" />}
+                          <p className="text-xs font-black text-white">{zone}</p>
+                          {status !== null && (
+                            <div className="flex items-center justify-center gap-0.5 mt-0.5">
+                              <Sun className="w-2.5 h-2.5 text-white/70" />
+                              <span className="text-[9px] text-white/70">오픈</span>
+                            </div>
+                          )}
                         </button>
-                      </div>
-                    </motion.div>
-                  );
-                })
-              )
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── Record list ── */}
+                {dayFilteredRecords.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground space-y-3">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                      <Calendar className="w-8 h-8 opacity-40" />
+                    </div>
+                    <p className="font-medium text-lg text-center">
+                      {isToday ? '오늘은' : format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
+                    </p>
+                    {!isToday && (
+                      <button onClick={() => setSelectedDate(todayStr)} className="text-sm font-bold text-emerald-600 underline underline-offset-2">
+                        오늘로 돌아가기
+                      </button>
+                    )}
+                    {isToday && (
+                      <Link href={`/cleaning/new?branch=${filterBranch}`}>
+                        <button className="px-6 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-base">
+                          청소 점검 시작하기
+                        </button>
+                      </Link>
+                    )}
+                  </div>
+                ) : (
+                  dayFilteredRecords.map((record, i) => {
+                    const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null }>) || {};
+                    const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
+                    const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;
+                    const isOk = record.overallStatus === 'ok';
+                    return (
+                      <motion.div
+                        key={record.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                        className={`bg-white rounded-3xl border-2 overflow-hidden shadow-lg shadow-black/5 ${
+                          isOk ? 'border-emerald-200' : 'border-red-200'
+                        }`}
+                        data-testid={`card-cleaning-staff-${record.id}`}
+                      >
+                        <div className={`px-5 py-3 flex items-center justify-between ${isOk ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isOk ? 'bg-emerald-500' : 'bg-primary'}`}>
+                              {isOk
+                                ? <CheckCheck className="w-4 h-4 text-white" />
+                                : <XCircle className="w-4 h-4 text-white" />}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-secondary text-lg">{record.zone}</span>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isOk ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-primary'}`}>
+                                  {isOk ? '정상' : '문제'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                {record.inspectionTime === '오픈' ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+                                <span>{record.inspectionTime}</span>
+                                <span>·</span>
+                                <span>{format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}</span>
+                              </div>
+                            </div>
+                          </div>
+                          {cleanScore !== null && (
+                            <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(cleanScore)}`}>
+                              {cleanScore}점
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-5 space-y-3">
+                          {issueItems.length > 0 && (
+                            <div>
+                              <p className="text-xs font-bold text-muted-foreground mb-2">문제 항목</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {issueItems.map(([name, v]) => (
+                                  <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5 w-full">
+                                    {v.photoUrl && (
+                                      <PhotoThumbnail src={v.photoUrl} className="block mb-1.5">
+                                        <img src={v.photoUrl} alt={name} className="w-full h-24 object-cover rounded-lg" />
+                                      </PhotoThumbnail>
+                                    )}
+                                    <span className="text-xs font-bold text-red-600">{name}</span>
+                                    {v.memo && <p className="text-[10px] text-red-400 mt-0.5">{v.memo}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <CleaningCommentThread
+                            cleaningId={record.id}
+                            adminComment={(record as any).adminComment}
+                            confirmed={(record as any).commentConfirmed}
+                            isAdmin={false}
+                          />
+
+                          <button
+                            onClick={() => handleDeleteCleaning(record.id)}
+                            disabled={deleteCleaningMutation.isPending}
+                            className="w-full py-3 rounded-2xl border-2 border-red-200 bg-red-50 text-red-500 font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 disabled:opacity-50"
+                            data-testid={`button-delete-cleaning-staff-${record.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" /> 삭제
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })
+                )}
+              </>)
             )}
           </div>
         )}
@@ -443,4 +620,3 @@ export default function StaffDashboard() {
     </Layout>
   );
 }
-
