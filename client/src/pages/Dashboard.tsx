@@ -116,14 +116,14 @@ function AdminCommentInput({
   );
 }
 
-function VMTab({ highlightId }: { highlightId?: number }) {
+function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlightBranch?: string }) {
   const [filterBranch, setFilterBranch] = useState('전체');
   const [filterCategory, setFilterCategory] = useState('전체');
   const { toast } = useToast();
 
   useEffect(() => {
     if (!highlightId) return;
-    setFilterBranch('전체');
+    setFilterBranch(highlightBranch ?? '전체');
     setFilterCategory('전체');
     const timer = setTimeout(() => {
       const el = document.getElementById(`vm-card-${highlightId}`);
@@ -134,7 +134,7 @@ function VMTab({ highlightId }: { highlightId?: number }) {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [highlightId]);
+  }, [highlightId, highlightBranch]);
   const deleteMutation = useDeleteChecklist();
   const itemStatusMutation = useUpdateChecklistItemStatus();
 
@@ -351,7 +351,7 @@ function toLocalDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function CleaningTab({ highlightId, highlightDate }: { highlightId?: number; highlightDate?: string }) {
+function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highlightId?: number; highlightDate?: string; highlightBranch?: string }) {
   const todayStr = toLocalDateStr(new Date());
   const [filterBranch, setFilterBranch] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -360,19 +360,30 @@ function CleaningTab({ highlightId, highlightDate }: { highlightId?: number; hig
 
   useEffect(() => {
     if (!highlightId) return;
-    setFilterBranch('');
+    if (highlightBranch) setFilterBranch(highlightBranch);
     setFilterTime('전체');
     if (highlightDate) setSelectedDate(highlightDate);
-    const timer = setTimeout(() => {
+
+    const scrollToCard = () => {
       const el = document.getElementById(`cleaning-card-${highlightId}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('ring-2', 'ring-emerald-500', 'ring-offset-2');
         setTimeout(() => el.classList.remove('ring-2', 'ring-emerald-500', 'ring-offset-2'), 2500);
+        return true;
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [highlightId, highlightDate]);
+      return false;
+    };
+
+    // Try at 400ms, then retry at 800ms if data hasn't loaded yet
+    const t1 = setTimeout(() => {
+      if (!scrollToCard()) {
+        const t2 = setTimeout(scrollToCard, 400);
+        return () => clearTimeout(t2);
+      }
+    }, 400);
+    return () => clearTimeout(t1);
+  }, [highlightId, highlightDate, highlightBranch]);
   const deleteMutation = useDeleteCleaning();
   const itemStatusMutation = useUpdateCleaningItemStatus();
 
@@ -793,7 +804,7 @@ export default function Dashboard() {
   const { data: adminStatus, isLoading: authLoading } = useAdminStatus();
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
   const [notifOpen, setNotifOpen] = useState(false);
-  const [highlightTarget, setHighlightTarget] = useState<{ type: 'vm' | 'cleaning'; id: number; date?: string } | null>(null);
+  const [highlightTarget, setHighlightTarget] = useState<{ type: 'vm' | 'cleaning'; id: number; date?: string; branch?: string } | null>(null);
   const { notifications, unreadCount, dismiss } = useAdminNotifications();
 
   useEffect(() => {
@@ -830,7 +841,7 @@ export default function Dashboard() {
           dismiss(key);
           setActiveTab(target.type);
           const id = target.type === 'vm' ? target.checklistId : target.cleaningId;
-          if (id != null) setHighlightTarget({ type: target.type, id, date: target.date });
+          if (id != null) setHighlightTarget({ type: target.type, id, date: target.date, branch: target.branch });
           setNotifOpen(false);
         }}
       />
@@ -876,8 +887,8 @@ export default function Dashboard() {
 
         <div className="flex-1 overflow-y-auto">
           {activeTab === 'vm'
-            ? <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} />
-            : <CleaningTab highlightId={highlightTarget?.type === 'cleaning' ? highlightTarget.id : undefined} highlightDate={highlightTarget?.type === 'cleaning' ? highlightTarget.date : undefined} />
+            ? <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} highlightBranch={highlightTarget?.type === 'vm' ? highlightTarget.branch : undefined} />
+            : <CleaningTab highlightId={highlightTarget?.type === 'cleaning' ? highlightTarget.id : undefined} highlightDate={highlightTarget?.type === 'cleaning' ? highlightTarget.date : undefined} highlightBranch={highlightTarget?.type === 'cleaning' ? highlightTarget.branch : undefined} />
           }
         </div>
       </div>
