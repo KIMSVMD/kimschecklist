@@ -334,7 +334,7 @@ function toLocalDateStr(d: Date) {
 }
 
 function CleaningTab() {
-  const [filterBranch, setFilterBranch] = useState('전체');
+  const [filterBranch, setFilterBranch] = useState('');
   const { toast } = useToast();
   const deleteMutation = useDeleteCleaning();
   const itemStatusMutation = useUpdateCleaningItemStatus();
@@ -354,7 +354,7 @@ function CleaningTab() {
   const isToday = selectedDate === todayStr;
 
   const { data: allRecords = [], isLoading } = useCleaningInspections(
-    filterBranch !== '전체' ? { branch: filterBranch } : {}
+    filterBranch ? { branch: filterBranch } : {}
   );
 
   // Records for the selected date, filtered by inspection time
@@ -455,14 +455,17 @@ function CleaningTab() {
           <select
             value={filterBranch}
             onChange={e => setFilterBranch(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-emerald-400/50 outline-none text-secondary text-sm"
+            className={`flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-emerald-400/50 outline-none text-sm ${filterBranch ? 'text-secondary' : 'text-muted-foreground'}`}
           >
-            {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
+            <option value="">지점 선택</option>
+            {BRANCHES.filter(b => b !== '전체').map(b => (
+              <option key={b} value={b}>{b}점</option>
+            ))}
           </select>
         </div>
 
-        {/* Date navigator + 오픈/마감 filter */}
-        <div className="flex items-center gap-2">
+        {/* Date navigator + 오픈/마감 filter — only when a branch is selected */}
+        {filterBranch && <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 bg-muted rounded-2xl p-1 flex-1">
             <button
               onClick={goBack}
@@ -507,16 +510,21 @@ function CleaningTab() {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
 
       <div className="p-4 space-y-5">
-        {isLoading ? (
+      {!filterBranch ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
+          <Droplets className="w-12 h-12 text-emerald-300" />
+          <p className="text-base font-semibold">지점을 선택해 주세요</p>
+          <p className="text-sm text-center">위 드롭다운에서 지점을 선택하면<br />청소 점검 현황을 확인할 수 있습니다.</p>
+        </div>
+      ) : isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
           </div>
-        ) : (
-          <>
+      ) : (<>
             {/* Summary card for selected date */}
             <div className="bg-secondary text-white rounded-3xl p-5 shadow-xl">
               <div className="flex items-center gap-2 mb-4">
