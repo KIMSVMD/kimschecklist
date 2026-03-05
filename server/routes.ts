@@ -273,6 +273,60 @@ export async function registerRoutes(
     }
   });
 
+  // Admin comment on checklist
+  app.patch('/api/checklists/:id/comment', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { adminComment } = req.body;
+      const result = await storage.updateChecklist(id, { adminComment: adminComment ?? null } as any);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Field staff confirm comment on checklist
+  app.patch('/api/checklists/:id/confirm', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const result = await storage.updateChecklist(id, { commentConfirmed: true } as any);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin comment on cleaning inspection
+  app.patch('/api/cleaning/:id/comment', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { adminComment } = req.body;
+      const result = await storage.updateCleaningInspection(id, { adminComment: adminComment ?? null });
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Field staff confirm comment on cleaning inspection
+  app.patch('/api/cleaning/:id/confirm', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const result = await storage.updateCleaningInspection(id, { commentConfirmed: true });
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post(api.checklists.create.path, async (req, res) => {
     try {
       const input = api.checklists.create.input.parse(req.body);

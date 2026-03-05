@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
+import { useChecklists, useDeleteChecklist, useConfirmChecklistComment } from "@/hooks/use-checklists";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin } from "lucide-react";
+import { ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin, MessageSquare, CheckCheck, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,6 +20,16 @@ export default function StaffDashboard() {
   const [filterCategory, setFilterCategory] = useState('전체');
   const { toast } = useToast();
   const deleteMutation = useDeleteChecklist();
+  const confirmMutation = useConfirmChecklistComment();
+
+  const handleConfirm = async (id: number) => {
+    try {
+      await confirmMutation.mutateAsync(id);
+      toast({ title: "확인 완료!", description: "관리자 코멘트를 확인했습니다." });
+    } catch {
+      toast({ title: "처리 실패", variant: "destructive" });
+    }
+  };
 
   const { data: checklists, isLoading } = useChecklists({
     branch: filterBranch || undefined,
@@ -185,6 +195,45 @@ export default function StaffDashboard() {
                       <div className="mb-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
                         <strong className="block mb-1 text-xs text-muted-foreground">특이사항:</strong>
                         {item.notes}
+                      </div>
+                    )}
+
+                    {/* Admin comment */}
+                    {(item as any).adminComment && (
+                      <div className={`mb-4 rounded-2xl border-2 overflow-hidden ${
+                        (item as any).commentConfirmed
+                          ? 'border-emerald-200 bg-emerald-50'
+                          : 'border-amber-200 bg-amber-50'
+                      }`}>
+                        <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+                          <MessageSquare className={`w-4 h-4 ${(item as any).commentConfirmed ? 'text-emerald-600' : 'text-amber-600'}`} />
+                          <span className={`text-xs font-black uppercase tracking-wide ${(item as any).commentConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            관리자 코멘트
+                          </span>
+                          {(item as any).commentConfirmed && (
+                            <span className="ml-auto text-xs font-bold text-emerald-600 flex items-center gap-1">
+                              <CheckCheck className="w-3.5 h-3.5" /> 확인완료
+                            </span>
+                          )}
+                        </div>
+                        <p className="px-4 pb-3 text-secondary text-sm font-medium leading-relaxed">
+                          {(item as any).adminComment}
+                        </p>
+                        {!(item as any).commentConfirmed && (
+                          <div className="px-4 pb-4">
+                            <button
+                              onClick={() => handleConfirm(item.id)}
+                              disabled={confirmMutation.isPending}
+                              className="w-full py-3 rounded-xl bg-amber-500 text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
+                              data-testid={`btn-confirm-comment-${item.id}`}
+                            >
+                              {confirmMutation.isPending
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : <CheckCheck className="w-5 h-5" />}
+                              확인했습니다
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 

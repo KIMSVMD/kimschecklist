@@ -36,3 +36,37 @@ export function useDeleteCleaning() {
     },
   });
 }
+
+export function useSaveCleaningComment() {
+  return useMutation({
+    mutationFn: async ({ id, adminComment }: { id: number; adminComment: string }) => {
+      const res = await fetch(`/api/cleaning/${id}/comment`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminComment }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('코멘트 저장 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaning"] });
+    },
+  });
+}
+
+export function useConfirmCleaningComment() {
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/cleaning/${id}/confirm`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('확인 처리 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaning"] });
+    },
+  });
+}

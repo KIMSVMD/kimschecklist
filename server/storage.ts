@@ -19,6 +19,7 @@ export interface IStorage {
   deleteProduct(id: number): Promise<void>;
   getCleaningInspections(filters?: { branch?: string; date?: string }): Promise<CleaningInspection[]>;
   createCleaningInspection(data: InsertCleaning): Promise<CleaningInspection>;
+  updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined>;
   deleteCleaningInspection(id: number): Promise<void>;
 }
 
@@ -112,6 +113,11 @@ export class DatabaseStorage implements IStorage {
 
   async createCleaningInspection(data: InsertCleaning): Promise<CleaningInspection> {
     const [row] = await db.insert(cleaningInspections).values(data).returning();
+    return row;
+  }
+
+  async updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined> {
+    const [row] = await db.update(cleaningInspections).set(data as any).where(eq(cleaningInspections.id, id)).returning();
     return row;
   }
 

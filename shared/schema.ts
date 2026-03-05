@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -11,6 +11,8 @@ export const checklists = pgTable("checklists", {
   photoUrl: text("photo_url"),
   notes: text("notes"),
   items: jsonb("items").$type<Record<string, string>>(),
+  adminComment: text("admin_comment"),
+  commentConfirmed: boolean("comment_confirmed").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -64,6 +66,8 @@ export const cleaningInspections = pgTable("cleaning_inspections", {
   inspectionTime: text("inspection_time").notNull(), // 오픈 / 마감
   items: jsonb("items").$type<Record<string, { status: string; photoUrl?: string | null; memo?: string | null }>>(),
   overallStatus: text("overall_status").notNull(), // ok / issue
+  adminComment: text("admin_comment"),
+  commentConfirmed: boolean("comment_confirmed").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

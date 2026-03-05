@@ -10,13 +10,94 @@ import { calcVMScore, calcCleaningScore, scoreColor } from "@/lib/scoring";
 import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
+  MessageSquare, Send, CheckCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { useSaveChecklistComment } from "@/hooks/use-checklists";
+import { useSaveCleaningComment } from "@/hooks/use-cleaning";
 
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
 const BRANCHES = ['전체', '강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천', '대전', '해운대', '괴정', '쇼핑', '수성'];
 const ZONES = ['입구', '농산', '축산', '수산', '공산'];
+
+function AdminCommentInput({ 
+  id, type, existingComment, confirmed 
+}: { 
+  id: number; type: 'vm' | 'cleaning'; existingComment?: string | null; confirmed?: boolean | null; 
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(existingComment ?? '');
+  const vmMutation = useSaveChecklistComment();
+  const cleaningMutation = useSaveCleaningComment();
+  const saveMutation = type === 'vm' ? vmMutation : cleaningMutation;
+
+  const handleSave = async () => {
+    try {
+      await (saveMutation as any).mutateAsync({ id, adminComment: text });
+      toast({ title: "코멘트 저장됨", description: "현장 직원에게 전달됩니다." });
+      setOpen(false);
+    } catch {
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="mt-3 border-t border-border/50 pt-3">
+      {!open ? (
+        <button
+          onClick={() => { setText(existingComment ?? ''); setOpen(true); }}
+          className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${
+            existingComment
+              ? 'bg-amber-50 border border-amber-200 text-amber-700'
+              : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid={`btn-comment-open-${id}`}
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            {existingComment ? (
+              <span className="truncate max-w-[200px]">{existingComment}</span>
+            ) : (
+              <span>관리자 코멘트 추가</span>
+            )}
+          </div>
+          {confirmed && <CheckCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="현장 직원에게 전달할 피드백을 입력하세요..."
+            className="w-full rounded-xl border border-border bg-muted/50 p-3 text-sm text-secondary resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
+            rows={3}
+            autoFocus
+            data-testid={`input-comment-${id}`}
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-comment-save-${id}`}
+            >
+              {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              저장
+            </button>
+            <button
+              onClick={() => setOpen(false)}
+              className="px-4 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function VMTab() {
   const [filterBranch, setFilterBranch] = useState('전체');
@@ -160,6 +241,13 @@ function VMTab() {
                       {item.notes}
                     </div>
                   )}
+
+                  <AdminCommentInput
+                    id={item.id}
+                    type="vm"
+                    existingComment={(item as any).adminComment}
+                    confirmed={(item as any).commentConfirmed}
+                  />
 
                   <div className="flex gap-3 mt-4">
                     <Link href={`/checklist/edit/${item.id}`} className="flex-1">
@@ -416,6 +504,14 @@ function CleaningTab() {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
+                      </div>
+                      <div className="px-4 pb-4">
+                        <AdminCommentInput
+                          id={record.id}
+                          type="cleaning"
+                          existingComment={(record as any).adminComment}
+                          confirmed={(record as any).commentConfirmed}
+                        />
                       </div>
                     </motion.div>
                   );

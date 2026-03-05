@@ -108,3 +108,39 @@ export function useUploadPhoto() {
     },
   });
 }
+
+export function useSaveChecklistComment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, adminComment }: { id: number; adminComment: string }) => {
+      const res = await fetch(`/api/checklists/${id}/comment`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminComment }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('코멘트 저장 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+    },
+  });
+}
+
+export function useConfirmChecklistComment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/checklists/${id}/confirm`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('확인 처리 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+    },
+  });
+}
