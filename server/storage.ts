@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, cleaningReplies, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply } from "@shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "@shared/schema";
 import { desc, eq, asc, gte, and } from "drizzle-orm";
 
 export interface IStorage {
@@ -24,6 +24,8 @@ export interface IStorage {
   getCleaningReplies(cleaningId: number): Promise<CleaningReply[]>;
   addCleaningReply(data: InsertCleaningReply): Promise<CleaningReply>;
   updateCleaningItemStatus(id: number, itemName: string, newStatus: string): Promise<CleaningInspection | undefined>;
+  getChecklistReplies(checklistId: number): Promise<ChecklistReply[]>;
+  addChecklistReply(data: InsertChecklistReply): Promise<ChecklistReply>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -162,6 +164,17 @@ export class DatabaseStorage implements IStorage {
 
   async addCleaningReply(data: InsertCleaningReply): Promise<CleaningReply> {
     const [row] = await db.insert(cleaningReplies).values(data).returning();
+    return row;
+  }
+
+  async getChecklistReplies(checklistId: number): Promise<ChecklistReply[]> {
+    return await db.select().from(checklistReplies)
+      .where(eq(checklistReplies.checklistId, checklistId))
+      .orderBy(asc(checklistReplies.createdAt));
+  }
+
+  async addChecklistReply(data: InsertChecklistReply): Promise<ChecklistReply> {
+    const [row] = await db.insert(checklistReplies).values(data).returning();
     return row;
   }
 

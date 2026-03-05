@@ -165,3 +165,30 @@ export function useSaveChecklistReply() {
     },
   });
 }
+
+export function useChecklistReplies(checklistId: number | null | undefined) {
+  return useQuery({
+    queryKey: ["/api/checklists", checklistId, "replies"],
+    queryFn: () => fetch(`/api/checklists/${checklistId}/replies`, { credentials: 'include' }).then(r => r.json()),
+    enabled: checklistId != null,
+  });
+}
+
+export function useAddChecklistReply() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, content, authorType, photoUrl }: { id: number; content: string; authorType: 'admin' | 'staff'; photoUrl?: string | null }) => {
+      const res = await fetch(`/api/checklists/${id}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, authorType, photoUrl: photoUrl ?? null }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('답글 저장 실패');
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/checklists", variables.id, "replies"] });
+    },
+  });
+}

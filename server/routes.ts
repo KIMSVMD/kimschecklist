@@ -345,7 +345,7 @@ export async function registerRoutes(
     }
   });
 
-  // Field staff reply to admin comment on checklist
+  // Field staff reply to admin comment on checklist (legacy single-reply)
   app.patch('/api/checklists/:id/reply', async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -354,6 +354,35 @@ export async function registerRoutes(
       const result = await storage.updateChecklist(id, { staffReply: staffReply ?? null } as any);
       if (!result) return res.status(404).json({ message: "Not found" });
       res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Thread replies for VM checklist
+  app.get('/api/checklists/:id/replies', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const replies = await storage.getChecklistReplies(id);
+      res.json(replies);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post('/api/checklists/:id/replies', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { content, authorType, photoUrl } = req.body;
+      if (!content || !authorType) return res.status(400).json({ message: "content and authorType required" });
+      if (!['admin', 'staff'].includes(authorType)) return res.status(400).json({ message: "authorType must be admin or staff" });
+      if (authorType === 'admin' && !(req.session as any).isAdmin) {
+        return res.status(401).json({ message: "관리자 권한이 필요합니다." });
+      }
+      const reply = await storage.addChecklistReply({ checklistId: id, content, authorType, photoUrl: photoUrl ?? null });
+      res.status(201).json(reply);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
     }

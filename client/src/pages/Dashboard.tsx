@@ -14,6 +14,7 @@ import {
   ChevronLeft, ChevronRight, Calendar,
 } from "lucide-react";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
+import { VMCommentThread } from "@/components/VMCommentThread";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useSaveChecklistComment } from "@/hooks/use-checklists";
@@ -263,6 +264,18 @@ function VMTab() {
                     confirmed={(item as any).commentConfirmed}
                     staffReply={(item as any).staffReply}
                   />
+
+                  {(item as any).adminComment && (
+                    <div className="mt-2">
+                      <VMCommentThread
+                        checklistId={item.id}
+                        adminComment={(item as any).adminComment}
+                        confirmed={(item as any).commentConfirmed}
+                        isAdmin={true}
+                        hideComment={true}
+                      />
+                    </div>
+                  )}
 
                   <div className="flex gap-3 mt-4">
                     <Link href={`/checklist/edit/${item.id}`} className="flex-1">

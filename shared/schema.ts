@@ -82,6 +82,19 @@ export type InsertCleaning = z.infer<typeof insertCleaningSchema>;
 export type CleaningInspection = typeof cleaningInspections.$inferSelect;
 
 // Thread replies for cleaning inspections (multiple per record, admin & staff both)
+export const checklistReplies = pgTable("checklist_replies", {
+  id: serial("id").primaryKey(),
+  checklistId: integer("checklist_id").notNull().references(() => checklists.id, { onDelete: "cascade" }),
+  authorType: text("author_type").notNull(), // 'admin' | 'staff'
+  content: text("content").notNull(),
+  photoUrl: text("photo_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertChecklistReplySchema = createInsertSchema(checklistReplies).omit({ id: true, createdAt: true });
+export type InsertChecklistReply = z.infer<typeof insertChecklistReplySchema>;
+export type ChecklistReply = typeof checklistReplies.$inferSelect;
+
 export const cleaningReplies = pgTable("cleaning_replies", {
   id: serial("id").primaryKey(),
   cleaningId: integer("cleaning_id").notNull().references(() => cleaningInspections.id, { onDelete: "cascade" }),
