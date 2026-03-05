@@ -2,41 +2,44 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist, useConfirmChecklistComment } from "@/hooks/use-checklists";
+import { useCleaningInspections, useDeleteCleaning, useConfirmCleaningComment } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin, MessageSquare, CheckCheck, Loader2 } from "lucide-react";
+import {
+  ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin,
+  MessageSquare, CheckCheck, Loader2, Droplets, Sun, Moon, XCircle, BarChart3,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { calcVMScore, calcCleaningScore, scoreColor } from "@/lib/scoring";
 
 const REGIONS: Record<string, string[]> = {
   '수도권': ['강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천'],
   '지방': ['대전', '해운대', '괴정', '쇼핑', '수성'],
 };
-const ALL_BRANCHES = [...REGIONS['수도권'], ...REGIONS['지방']];
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
 
 export default function StaffDashboard() {
   const [filterBranch, setFilterBranch] = useState('');
   const [filterCategory, setFilterCategory] = useState('전체');
+  const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
   const { toast } = useToast();
+
   const deleteMutation = useDeleteChecklist();
-  const confirmMutation = useConfirmChecklistComment();
+  const confirmVMMutation = useConfirmChecklistComment();
+  const deleteCleaningMutation = useDeleteCleaning();
+  const confirmCleaningMutation = useConfirmCleaningComment();
 
-  const handleConfirm = async (id: number) => {
-    try {
-      await confirmMutation.mutateAsync(id);
-      toast({ title: "확인 완료!", description: "관리자 코멘트를 확인했습니다." });
-    } catch {
-      toast({ title: "처리 실패", variant: "destructive" });
-    }
-  };
-
-  const { data: checklists, isLoading } = useChecklists({
+  const { data: checklists, isLoading: vmLoading } = useChecklists({
     branch: filterBranch || undefined,
     category: filterCategory !== '전체' ? filterCategory : undefined,
   });
 
-  const handleDelete = async (id: number, label: string) => {
+  const { data: cleaningRecords = [], isLoading: cleaningLoading } = useCleaningInspections(
+    filterBranch ? { branch: filterBranch } : {}
+  );
+
+  const handleDeleteVM = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?`)) return;
     try {
       await deleteMutation.mutateAsync(id);
@@ -46,16 +49,40 @@ export default function StaffDashboard() {
     }
   };
 
+  const handleConfirmVM = async (id: number) => {
+    try {
+      await confirmVMMutation.mutateAsync(id);
+      toast({ title: "확인 완료!", description: "관리자 코멘트를 확인했습니다." });
+    } catch {
+      toast({ title: "처리 실패", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteCleaning = async (id: number) => {
+    if (!confirm("이 청소 점검 기록을 삭제하시겠습니까?")) return;
+    try {
+      await deleteCleaningMutation.mutateAsync(id);
+      toast({ title: "삭제 완료" });
+    } catch {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    }
+  };
+
+  const handleConfirmCleaning = async (id: number) => {
+    try {
+      await confirmCleaningMutation.mutateAsync(id);
+      toast({ title: "확인 완료!", description: "관리자 코멘트를 확인했습니다." });
+    } catch {
+      toast({ title: "처리 실패", variant: "destructive" });
+    }
+  };
+
   const statusColors = {
     excellent: 'bg-blue-100 text-blue-700',
     average: 'bg-amber-100 text-amber-700',
     poor: 'bg-red-100 text-primary font-bold',
   };
-  const statusLabels = {
-    excellent: '우수',
-    average: '보통',
-    poor: '미흡',
-  };
+  const statusLabels = { excellent: '우수', average: '보통', poor: '미흡' };
 
   return (
     <Layout title="내 점검 목록" showBack={true}>
@@ -82,187 +109,333 @@ export default function StaffDashboard() {
             </select>
           </div>
 
-          {/* Category filter */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setFilterCategory(cat)}
-                className={`shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                  filterCategory === cat
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-muted text-muted-foreground hover:text-secondary'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          {/* Tab switcher */}
+          <div className="flex gap-1 bg-muted p-1 rounded-2xl">
+            <button
+              onClick={() => setActiveTab('vm')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+              }`}
+              data-testid="tab-staff-vm"
+            >
+              <BarChart3 className="w-4 h-4" /> VM 점검
+            </button>
+            <button
+              onClick={() => setActiveTab('cleaning')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
+              }`}
+              data-testid="tab-staff-cleaning"
+            >
+              <Droplets className="w-4 h-4" /> 청소 점검
+            </button>
           </div>
+
+          {/* Category filter — only on VM tab */}
+          {activeTab === 'vm' && (
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(cat)}
+                  className={`shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                    filterCategory === cat
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'bg-muted text-muted-foreground hover:text-secondary'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {!filterBranch ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground text-center space-y-3">
-              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
-                <MapPin className="w-10 h-10 text-primary/60" />
-              </div>
-              <p className="font-bold text-xl text-secondary">지점을 선택해주세요</p>
-              <p className="text-base">내 점검 목록을 확인할 지점을 먼저 선택하세요</p>
+        {/* No branch selected */}
+        {!filterBranch ? (
+          <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground text-center space-y-3 p-6">
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+              <MapPin className="w-10 h-10 text-primary/60" />
             </div>
-          ) : isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-              불러오는 중...
-            </div>
-          ) : !checklists?.length ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-3">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                <ClipboardList className="w-8 h-8 opacity-40" />
-              </div>
-              <p className="font-medium text-lg">등록된 점검 기록이 없습니다</p>
-              <Link href="/checklist/new">
-                <button className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-base">
-                  새 점검 등록하기
-                </button>
-              </Link>
-            </div>
-          ) : (
-            checklists.map((item, index) => {
-              const isPoor = item.status === 'poor';
-              return (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.04 }}
-                  key={item.id}
-                  className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5
-                    ${isPoor ? 'border-2 border-primary' : 'border border-border/50'}`}
-                  data-testid={`card-checklist-${item.id}`}
-                >
-                  {/* Photo */}
-                  {item.photoUrl ? (
-                    <div className="w-full h-44 bg-muted relative">
-                      <img src={item.photoUrl} alt="현장사진" className="w-full h-full object-cover" />
-                      {isPoor && (
-                        <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
-                          <AlertCircle className="w-4 h-4" /> 미흡 — 조치 필요
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="w-full h-28 bg-muted/50 flex flex-col items-center justify-center text-muted-foreground border-b border-border/50">
-                      <ImageIcon className="w-7 h-7 mb-1 opacity-40" />
-                      <span className="text-xs font-medium">사진 없음</span>
-                    </div>
-                  )}
+            <p className="font-bold text-xl text-secondary">지점을 선택해주세요</p>
+            <p className="text-base">내 점검 목록을 확인할 지점을 먼저 선택하세요</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-                  <div className="p-5">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
-                          {item.category}
-                        </span>
-                        <h3 className="text-xl font-black text-secondary mt-1">
-                          {item.product}
-                        </h3>
-                      </div>
-                      <span className={`px-3 py-1.5 rounded-xl text-sm border ${statusColors[item.status as keyof typeof statusColors]}`}>
-                        {statusLabels[item.status as keyof typeof statusLabels]}
-                      </span>
-                    </div>
-
-                    {/* Item tags */}
-                    {item.items && Object.keys(item.items as object).length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {Object.entries(item.items as Record<string, string>).map(([name, st]) => (
-                          <span key={name} className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                            st === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
-                            st === 'average' ? 'bg-amber-50 border-amber-200 text-amber-600' :
-                            'bg-red-50 border-red-200 text-red-600'
-                          }`}>
-                            {name.split(':')[0]}: {st === 'excellent' ? '우수' : st === 'average' ? '보통' : '미흡'}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
-                    </p>
-
-                    {item.notes && (
-                      <div className="mb-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
-                        <strong className="block mb-1 text-xs text-muted-foreground">특이사항:</strong>
-                        {item.notes}
-                      </div>
-                    )}
-
-                    {/* Admin comment */}
-                    {(item as any).adminComment && (
-                      <div className={`mb-4 rounded-2xl border-2 overflow-hidden ${
-                        (item as any).commentConfirmed
-                          ? 'border-emerald-200 bg-emerald-50'
-                          : 'border-amber-200 bg-amber-50'
-                      }`}>
-                        <div className="flex items-center gap-2 px-4 pt-3 pb-1">
-                          <MessageSquare className={`w-4 h-4 ${(item as any).commentConfirmed ? 'text-emerald-600' : 'text-amber-600'}`} />
-                          <span className={`text-xs font-black uppercase tracking-wide ${(item as any).commentConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
-                            관리자 코멘트
-                          </span>
-                          {(item as any).commentConfirmed && (
-                            <span className="ml-auto text-xs font-bold text-emerald-600 flex items-center gap-1">
-                              <CheckCheck className="w-3.5 h-3.5" /> 확인완료
-                            </span>
+            {/* ── VM TAB ── */}
+            {activeTab === 'vm' && (
+              vmLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                  불러오는 중...
+                </div>
+              ) : !checklists?.length ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-3">
+                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <ClipboardList className="w-8 h-8 opacity-40" />
+                  </div>
+                  <p className="font-medium text-lg">등록된 VM 점검 기록이 없습니다</p>
+                  <Link href="/checklist/new">
+                    <button className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-base">
+                      새 점검 등록하기
+                    </button>
+                  </Link>
+                </div>
+              ) : (
+                checklists.map((item, index) => {
+                  const isPoor = item.status === 'poor';
+                  const score = item.items && Object.keys(item.items as object).length > 0
+                    ? calcVMScore(item.items as Record<string, string>, item.photoUrl)
+                    : null;
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.04 }}
+                      key={item.id}
+                      className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5
+                        ${isPoor ? 'border-2 border-primary' : 'border border-border/50'}`}
+                      data-testid={`card-checklist-${item.id}`}
+                    >
+                      {item.photoUrl ? (
+                        <div className="w-full h-44 bg-muted relative">
+                          <img src={item.photoUrl} alt="현장사진" className="w-full h-full object-cover" />
+                          {isPoor && (
+                            <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
+                              <AlertCircle className="w-4 h-4" /> 미흡 — 조치 필요
+                            </div>
                           )}
                         </div>
-                        <p className="px-4 pb-3 text-secondary text-sm font-medium leading-relaxed">
-                          {(item as any).adminComment}
+                      ) : (
+                        <div className="w-full h-28 bg-muted/50 flex flex-col items-center justify-center text-muted-foreground border-b border-border/50">
+                          <ImageIcon className="w-7 h-7 mb-1 opacity-40" />
+                          <span className="text-xs font-medium">사진 없음</span>
+                        </div>
+                      )}
+
+                      <div className="p-5">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{item.category}</span>
+                            <h3 className="text-xl font-black text-secondary mt-1">{item.product}</h3>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {score !== null && (
+                              <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(score)}`}>
+                                {score}점
+                              </div>
+                            )}
+                            <span className={`px-3 py-1.5 rounded-xl text-sm border ${statusColors[item.status as keyof typeof statusColors]}`}>
+                              {statusLabels[item.status as keyof typeof statusLabels]}
+                            </span>
+                          </div>
+                        </div>
+
+                        {item.items && Object.keys(item.items as object).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {Object.entries(item.items as Record<string, string>).map(([name, st]) => (
+                              <span key={name} className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                                st === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
+                                st === 'average' ? 'bg-amber-50 border-amber-200 text-amber-600' :
+                                'bg-red-50 border-red-200 text-red-600'
+                              }`}>
+                                {name.split(':')[0]}: {st === 'excellent' ? '우수' : st === 'average' ? '보통' : '미흡'}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                         </p>
-                        {!(item as any).commentConfirmed && (
-                          <div className="px-4 pb-4">
+
+                        {item.notes && (
+                          <div className="mb-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
+                            <strong className="block mb-1 text-xs text-muted-foreground">특이사항:</strong>
+                            {item.notes}
+                          </div>
+                        )}
+
+                        {(item as any).adminComment && (
+                          <AdminCommentBox
+                            comment={(item as any).adminComment}
+                            confirmed={(item as any).commentConfirmed}
+                            isPending={confirmVMMutation.isPending}
+                            onConfirm={() => handleConfirmVM(item.id)}
+                            testId={`btn-confirm-comment-${item.id}`}
+                          />
+                        )}
+
+                        <div className="flex gap-3 mt-4">
+                          <Link href={`/checklist/edit/${item.id}`} className="flex-1">
                             <button
-                              onClick={() => handleConfirm(item.id)}
-                              disabled={confirmMutation.isPending}
-                              className="w-full py-3 rounded-xl bg-amber-500 text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
-                              data-testid={`btn-confirm-comment-${item.id}`}
+                              className="w-full py-4 rounded-2xl border-2 border-border bg-muted text-secondary font-bold text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:border-primary/40 hover:text-primary"
+                              data-testid={`button-edit-staff-${item.id}`}
                             >
-                              {confirmMutation.isPending
-                                ? <Loader2 className="w-4 h-4 animate-spin" />
-                                : <CheckCheck className="w-5 h-5" />}
-                              확인했습니다
+                              <Pencil className="w-5 h-5" /> 수정
                             </button>
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteVM(item.id, item.product)}
+                            disabled={deleteMutation.isPending}
+                            className="py-4 px-5 rounded-2xl border-2 border-red-200 bg-red-50 text-red-500 font-bold text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 hover:border-red-300 disabled:opacity-50"
+                            data-testid={`button-delete-staff-${item.id}`}
+                          >
+                            <Trash2 className="w-5 h-5" /> 삭제
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )
+            )}
+
+            {/* ── CLEANING TAB ── */}
+            {activeTab === 'cleaning' && (
+              cleaningLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin mb-4" />
+                  불러오는 중...
+                </div>
+              ) : cleaningRecords.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-3">
+                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <Droplets className="w-8 h-8 opacity-40" />
+                  </div>
+                  <p className="font-medium text-lg">등록된 청소 점검 기록이 없습니다</p>
+                  <Link href="/checklist/new">
+                    <button className="px-6 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-base">
+                      청소 점검 시작하기
+                    </button>
+                  </Link>
+                </div>
+              ) : (
+                cleaningRecords.map((record, i) => {
+                  const items = (record.items as Record<string, { status: string; memo?: string | null }>) || {};
+                  const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
+                  const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;
+                  const isOk = record.overallStatus === 'ok';
+                  return (
+                    <motion.div
+                      key={record.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      className={`bg-white rounded-3xl border-2 overflow-hidden shadow-lg shadow-black/5 ${
+                        isOk ? 'border-emerald-200' : 'border-red-200'
+                      }`}
+                      data-testid={`card-cleaning-staff-${record.id}`}
+                    >
+                      {/* Header stripe */}
+                      <div className={`px-5 py-3 flex items-center justify-between ${isOk ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isOk ? 'bg-emerald-500' : 'bg-primary'}`}>
+                            {isOk
+                              ? <CheckCheck className="w-4 h-4 text-white" />
+                              : <XCircle className="w-4 h-4 text-white" />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-secondary text-lg">{record.zone}</span>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isOk ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-primary'}`}>
+                                {isOk ? '정상' : '문제'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              {record.inspectionTime === '오픈' ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+                              <span>{record.inspectionTime}</span>
+                              <span>·</span>
+                              <span>{format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {cleanScore !== null && (
+                          <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(cleanScore)}`}>
+                            {cleanScore}점
                           </div>
                         )}
                       </div>
-                    )}
 
-                    {/* Action buttons */}
-                    <div className="flex gap-3">
-                      <Link href={`/checklist/edit/${item.id}`} className="flex-1">
+                      <div className="p-5 space-y-3">
+                        {issueItems.length > 0 && (
+                          <div>
+                            <p className="text-xs font-bold text-muted-foreground mb-2">문제 항목</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {issueItems.map(([name, v]) => (
+                                <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5">
+                                  <span className="text-xs font-bold text-red-600">{name}</span>
+                                  {v.memo && <p className="text-[10px] text-red-400 mt-0.5">{v.memo}</p>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {(record as any).adminComment && (
+                          <AdminCommentBox
+                            comment={(record as any).adminComment}
+                            confirmed={(record as any).commentConfirmed}
+                            isPending={confirmCleaningMutation.isPending}
+                            onConfirm={() => handleConfirmCleaning(record.id)}
+                            testId={`btn-confirm-cleaning-${record.id}`}
+                          />
+                        )}
+
                         <button
-                          className="w-full py-4 rounded-2xl border-2 border-border bg-muted text-secondary font-bold text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:border-primary/40 hover:text-primary"
-                          data-testid={`button-edit-staff-${item.id}`}
+                          onClick={() => handleDeleteCleaning(record.id)}
+                          disabled={deleteCleaningMutation.isPending}
+                          className="w-full py-3 rounded-2xl border-2 border-red-200 bg-red-50 text-red-500 font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 disabled:opacity-50"
+                          data-testid={`button-delete-cleaning-staff-${record.id}`}
                         >
-                          <Pencil className="w-5 h-5" /> 수정
+                          <Trash2 className="w-4 h-4" /> 삭제
                         </button>
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(item.id, item.product)}
-                        disabled={deleteMutation.isPending}
-                        className="py-4 px-5 rounded-2xl border-2 border-red-200 bg-red-50 text-red-500 font-bold text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 hover:border-red-300 disabled:opacity-50"
-                        data-testid={`button-delete-staff-${item.id}`}
-                      >
-                        <Trash2 className="w-5 h-5" /> 삭제
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })
-          )}
-        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )
+            )}
+          </div>
+        )}
       </div>
     </Layout>
+  );
+}
+
+function AdminCommentBox({
+  comment, confirmed, isPending, onConfirm, testId,
+}: {
+  comment: string; confirmed: boolean | null; isPending: boolean; onConfirm: () => void; testId: string;
+}) {
+  return (
+    <div className={`rounded-2xl border-2 overflow-hidden ${confirmed ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+      <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+        <MessageSquare className={`w-4 h-4 ${confirmed ? 'text-emerald-600' : 'text-amber-600'}`} />
+        <span className={`text-xs font-black uppercase tracking-wide ${confirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+          관리자 코멘트
+        </span>
+        {confirmed && (
+          <span className="ml-auto text-xs font-bold text-emerald-600 flex items-center gap-1">
+            <CheckCheck className="w-3.5 h-3.5" /> 확인완료
+          </span>
+        )}
+      </div>
+      <p className="px-4 pb-3 text-secondary text-sm font-medium leading-relaxed">{comment}</p>
+      {!confirmed && (
+        <div className="px-4 pb-4">
+          <button
+            onClick={onConfirm}
+            disabled={isPending}
+            className="w-full py-3 rounded-xl bg-amber-500 text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+            data-testid={testId}
+          >
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-5 h-5" />}
+            확인했습니다
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
