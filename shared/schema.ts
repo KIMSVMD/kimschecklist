@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -80,3 +80,20 @@ export const insertCleaningSchema = createInsertSchema(cleaningInspections).omit
 
 export type InsertCleaning = z.infer<typeof insertCleaningSchema>;
 export type CleaningInspection = typeof cleaningInspections.$inferSelect;
+
+// Thread replies for cleaning inspections (multiple per record, admin & staff both)
+export const cleaningReplies = pgTable("cleaning_replies", {
+  id: serial("id").primaryKey(),
+  cleaningId: integer("cleaning_id").notNull().references(() => cleaningInspections.id, { onDelete: "cascade" }),
+  authorType: text("author_type").notNull(), // 'admin' | 'staff'
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCleaningReplySchema = createInsertSchema(cleaningReplies).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCleaningReply = z.infer<typeof insertCleaningReplySchema>;
+export type CleaningReply = typeof cleaningReplies.$inferSelect;

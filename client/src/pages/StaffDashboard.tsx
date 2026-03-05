@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
-import { useCleaningInspections, useDeleteCleaning, useConfirmCleaningComment, useSaveCleaningReply } from "@/hooks/use-cleaning";
+import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning";
+import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
@@ -50,8 +51,6 @@ export default function StaffDashboard() {
   const confirmVMMutation = useConfirmChecklistComment();
   const replyVMMutation = useSaveChecklistReply();
   const deleteCleaningMutation = useDeleteCleaning();
-  const confirmCleaningMutation = useConfirmCleaningComment();
-  const replyCleaningMutation = useSaveCleaningReply();
 
   const { data: checklists, isLoading: vmLoading } = useChecklists({
     branch: filterBranch || undefined,
@@ -88,15 +87,6 @@ export default function StaffDashboard() {
       toast({ title: "삭제 완료" });
     } catch {
       toast({ title: "삭제 실패", variant: "destructive" });
-    }
-  };
-
-  const handleConfirmCleaning = async (id: number) => {
-    try {
-      await confirmCleaningMutation.mutateAsync(id);
-      toast({ title: "확인 완료!", description: "관리자 코멘트를 확인했습니다." });
-    } catch {
-      toast({ title: "처리 실패", variant: "destructive" });
     }
   };
 
@@ -434,18 +424,12 @@ export default function StaffDashboard() {
                           </div>
                         )}
 
-                        {(record as any).adminComment && (
-                          <AdminCommentBox
-                            comment={(record as any).adminComment}
-                            confirmed={(record as any).commentConfirmed}
-                            staffReply={(record as any).staffReply}
-                            isPending={confirmCleaningMutation.isPending}
-                            isReplying={replyCleaningMutation.isPending}
-                            onConfirm={() => handleConfirmCleaning(record.id)}
-                            onReply={reply => replyCleaningMutation.mutateAsync({ id: record.id, staffReply: reply }).then(() => toast({ title: "답글이 전송됐습니다" })).catch(() => toast({ title: "전송 실패", variant: "destructive" }))}
-                            testId={`btn-confirm-cleaning-${record.id}`}
-                          />
-                        )}
+                        <CleaningCommentThread
+                          cleaningId={record.id}
+                          adminComment={(record as any).adminComment}
+                          confirmed={(record as any).commentConfirmed}
+                          isAdmin={false}
+                        />
 
                         <button
                           onClick={() => handleDeleteCleaning(record.id)}

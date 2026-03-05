@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { CleaningInspection, InsertCleaning } from "@shared/schema";
+import type { CleaningInspection, InsertCleaning, CleaningReply } from "@shared/schema";
 
 export function useCleaningInspections(filters?: { branch?: string; date?: string }) {
   const params = new URLSearchParams();
@@ -71,20 +71,32 @@ export function useConfirmCleaningComment() {
   });
 }
 
-export function useSaveCleaningReply() {
+export function useCleaningReplies(cleaningId: number | null) {
+  return useQuery<CleaningReply[]>({
+    queryKey: ["/api/cleaning", cleaningId, "replies"],
+    queryFn: async () => {
+      const res = await fetch(`/api/cleaning/${cleaningId}/replies`, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    enabled: cleaningId != null,
+  });
+}
+
+export function useAddCleaningReply() {
   return useMutation({
-    mutationFn: async ({ id, staffReply }: { id: number; staffReply: string }) => {
-      const res = await fetch(`/api/cleaning/${id}/reply`, {
-        method: 'PATCH',
+    mutationFn: async ({ id, content, authorType }: { id: number; content: string; authorType: 'admin' | 'staff' }) => {
+      const res = await fetch(`/api/cleaning/${id}/replies`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staffReply }),
+        body: JSON.stringify({ content, authorType }),
         credentials: 'include',
       });
       if (!res.ok) throw new Error('답글 저장 실패');
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cleaning"] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaning", variables.id, "replies"] });
     },
   });
 }

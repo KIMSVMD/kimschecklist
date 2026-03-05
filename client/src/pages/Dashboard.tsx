@@ -17,6 +17,7 @@ import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useSaveChecklistComment } from "@/hooks/use-checklists";
 import { useSaveCleaningComment } from "@/hooks/use-cleaning";
+import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
 const BRANCHES = ['전체', '강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천', '대전', '해운대', '괴정', '쇼핑', '수성'];
@@ -97,8 +98,8 @@ function AdminCommentInput({
         </div>
       )}
 
-      {/* Staff reply — shown to admin as read-only */}
-      {staffReply && (
+      {/* Staff reply — shown to admin as read-only (VM only; cleaning uses thread) */}
+      {type === 'vm' && staffReply && (
         <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 flex gap-2">
           <CornerDownRight className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
           <div>
@@ -562,7 +563,7 @@ function CleaningTab() {
                           </button>
                         </div>
                       </div>
-                      <div className="px-4 pb-4">
+                      <div className="px-4 pb-4 space-y-2">
                         <AdminCommentInput
                           id={record.id}
                           type="cleaning"
@@ -570,6 +571,15 @@ function CleaningTab() {
                           confirmed={(record as any).commentConfirmed}
                           staffReply={(record as any).staffReply}
                         />
+                        {(record as any).adminComment && (
+                          <CleaningCommentThread
+                            cleaningId={record.id}
+                            adminComment={(record as any).adminComment}
+                            confirmed={(record as any).commentConfirmed}
+                            isAdmin={true}
+                            hideComment={true}
+                          />
+                        )}
                       </div>
                     </motion.div>
                   );

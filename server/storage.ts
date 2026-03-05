@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning } from "@shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply } from "@shared/schema";
 import { desc, eq, asc, gte, and } from "drizzle-orm";
 
 export interface IStorage {
@@ -18,9 +18,11 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   deleteProduct(id: number): Promise<void>;
   getCleaningInspections(filters?: { branch?: string; date?: string }): Promise<CleaningInspection[]>;
-  createCleaningInspection(data: InsertCleaning): Promise<CleaningInspection>;
+  upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
   updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined>;
   deleteCleaningInspection(id: number): Promise<void>;
+  getCleaningReplies(cleaningId: number): Promise<CleaningReply[]>;
+  addCleaningReply(data: InsertCleaningReply): Promise<CleaningReply>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -111,9 +113,35 @@ export class DatabaseStorage implements IStorage {
     return query;
   }
 
-  async createCleaningInspection(data: InsertCleaning): Promise<CleaningInspection> {
+  async upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }> {
+    // Find existing record for same branch + zone + inspectionTime on same calendar day
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const existing = await db.select().from(cleaningInspections)
+      .where(
+        and(
+          eq(cleaningInspections.branch, data.branch),
+          eq(cleaningInspections.zone, data.zone),
+          eq(cleaningInspections.inspectionTime, data.inspectionTime),
+          gte(cleaningInspections.createdAt, todayStart)
+        )
+      )
+      .orderBy(desc(cleaningInspections.createdAt))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(cleaningInspections)
+        .set({ items: data.items, overallStatus: data.overallStatus })
+        .where(eq(cleaningInspections.id, existing[0].id))
+        .returning();
+      return { record: updated, created: false };
+    }
+
     const [row] = await db.insert(cleaningInspections).values(data).returning();
-    return row;
+    return { record: row, created: true };
   }
 
   async updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined> {
@@ -123,6 +151,17 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCleaningInspection(id: number): Promise<void> {
     await db.delete(cleaningInspections).where(eq(cleaningInspections.id, id));
+  }
+
+  async getCleaningReplies(cleaningId: number): Promise<CleaningReply[]> {
+    return await db.select().from(cleaningReplies)
+      .where(eq(cleaningReplies.cleaningId, cleaningId))
+      .orderBy(asc(cleaningReplies.createdAt));
+  }
+
+  async addCleaningReply(data: InsertCleaningReply): Promise<CleaningReply> {
+    const [row] = await db.insert(cleaningReplies).values(data).returning();
+    return row;
   }
 }
 

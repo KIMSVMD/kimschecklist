@@ -202,14 +202,43 @@ export async function registerRoutes(
   app.post('/api/cleaning', async (req, res) => {
     try {
       const input = insertCleaningSchema.parse(req.body);
-      const row = await storage.createCleaningInspection(input);
-      res.status(201).json(row);
+      const { record, created } = await storage.upsertCleaningInspection(input);
+      res.status(created ? 201 : 200).json(record);
     } catch (err) {
       if (err instanceof z.ZodError) {
         res.status(400).json({ message: err.errors[0].message });
       } else {
         res.status(500).json({ message: "Internal server error" });
       }
+    }
+  });
+
+  // Cleaning replies (thread - multiple per record)
+  app.get('/api/cleaning/:id/replies', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const replies = await storage.getCleaningReplies(id);
+      res.json(replies);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post('/api/cleaning/:id/replies', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { content, authorType } = req.body;
+      if (!content || !authorType) return res.status(400).json({ message: "content and authorType required" });
+      if (!['admin', 'staff'].includes(authorType)) return res.status(400).json({ message: "authorType must be admin or staff" });
+      if (authorType === 'admin' && !(req.session as any).isAdmin) {
+        return res.status(401).json({ message: "관리자 권한이 필요합니다." });
+      }
+      const reply = await storage.addCleaningReply({ cleaningId: id, content, authorType });
+      res.status(201).json(reply);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
