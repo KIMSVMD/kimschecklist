@@ -18,29 +18,53 @@ export type AdminNotification = {
   inspectionTime?: string;
 };
 
-const LS_KEY = 'admin_notif_last_seen_at';
+const LS_KEY = 'admin_notif_dismissed_keys';
 
-function getLastSeenAt(): string {
-  return localStorage.getItem(LS_KEY) ?? new Date(0).toISOString();
+function getDismissedKeys(): Set<string> {
+  try {
+    const stored = localStorage.getItem(LS_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissedKeys(keys: Set<string>) {
+  localStorage.setItem(LS_KEY, JSON.stringify([...keys]));
+}
+
+export function notifKey(n: AdminNotification): string {
+  return `${n.notifType}-${n.type}-${n.replyId ?? n.checklistId ?? n.cleaningId}`;
 }
 
 export function useAdminNotifications() {
-  const [lastSeenAt, setLastSeenAtState] = useState<string>(getLastSeenAt);
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(getDismissedKeys);
 
-  const { data: notifications = [], isLoading, refetch } = useQuery<AdminNotification[]>({
+  const { data: allNotifications = [] } = useQuery<AdminNotification[]>({
     queryKey: ["/api/admin/notifications"],
     refetchInterval: 30_000,
   });
 
-  const unreadCount = notifications.filter(
-    n => new Date(n.createdAt) > new Date(lastSeenAt)
-  ).length;
+  const notifications = allNotifications.filter(n => !dismissedKeys.has(notifKey(n)));
+  const unreadCount = notifications.length;
 
-  const markAllRead = useCallback(() => {
-    const now = new Date().toISOString();
-    localStorage.setItem(LS_KEY, now);
-    setLastSeenAtState(now);
+  const dismiss = useCallback((key: string) => {
+    setDismissedKeys(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      saveDismissedKeys(next);
+      return next;
+    });
   }, []);
 
-  return { notifications, isLoading, unreadCount, markAllRead, lastSeenAt, refetch };
+  const dismissAll = useCallback(() => {
+    setDismissedKeys(prev => {
+      const next = new Set(prev);
+      allNotifications.forEach(n => next.add(notifKey(n)));
+      saveDismissedKeys(next);
+      return next;
+    });
+  }, [allNotifications]);
+
+  return { notifications, unreadCount, dismiss, dismissAll };
 }

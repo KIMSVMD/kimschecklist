@@ -794,10 +794,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState<{ type: 'vm' | 'cleaning'; id: number; date?: string } | null>(null);
-  const { notifications, unreadCount, markAllRead, lastSeenAt } = useAdminNotifications();
-  // Snapshot of lastSeenAt before marking all read — used to filter panel contents
-  const prevLastSeenAtRef = useRef(lastSeenAt);
-  const [panelSeenAt, setPanelSeenAt] = useState(lastSeenAt);
+  const { notifications, unreadCount, dismiss } = useAdminNotifications();
 
   useEffect(() => {
     if (!authLoading && !adminStatus?.isAdmin) {
@@ -807,11 +804,7 @@ export default function Dashboard() {
 
   const handleBellClick = () => {
     if (unreadCount === 0) return;
-    // Capture the current threshold before marking read — panel shows items newer than this
-    setPanelSeenAt(prevLastSeenAtRef.current);
     setNotifOpen(true);
-    markAllRead();
-    prevLastSeenAtRef.current = new Date().toISOString();
   };
 
   if (authLoading) {
@@ -832,8 +825,9 @@ export default function Dashboard() {
         open={notifOpen}
         onClose={() => setNotifOpen(false)}
         notifications={notifications}
-        lastSeenAt={panelSeenAt}
-        onNavigate={(target) => {
+        onDismiss={dismiss}
+        onNavigate={(target, key) => {
+          dismiss(key);
           setActiveTab(target.type);
           const id = target.type === 'vm' ? target.checklistId : target.cleaningId;
           if (id != null) setHighlightTarget({ type: target.type, id, date: target.date });
