@@ -11,7 +11,7 @@ import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
   MessageSquare, Send, CheckCheck, CornerDownRight,
-  ChevronLeft, ChevronRight, Calendar,
+  ChevronLeft, ChevronRight, Calendar, Bell,
 } from "lucide-react";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { VMCommentThread } from "@/components/VMCommentThread";
@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSaveChecklistComment } from "@/hooks/use-checklists";
 import { useSaveCleaningComment } from "@/hooks/use-cleaning";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
+import { useAdminNotifications } from "@/hooks/use-notifications";
+import { NotificationPanel } from "@/components/NotificationPanel";
 
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
 const BRANCHES = ['전체', '강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천', '대전', '해운대', '괴정', '쇼핑', '수성'];
@@ -759,12 +761,20 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { data: adminStatus, isLoading: authLoading } = useAdminStatus();
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { notifications, unreadCount, markAllRead, lastSeenAt } = useAdminNotifications();
 
   useEffect(() => {
     if (!authLoading && !adminStatus?.isAdmin) {
       setLocation("/admin/login");
     }
   }, [adminStatus, authLoading, setLocation]);
+
+  const handleBellClick = () => {
+    if (unreadCount === 0) return;
+    setNotifOpen(true);
+    markAllRead();
+  };
 
   if (authLoading) {
     return (
@@ -780,9 +790,16 @@ export default function Dashboard() {
 
   return (
     <Layout title="관리자 대시보드" showBack={true}>
+      <NotificationPanel
+        open={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        notifications={notifications}
+        lastSeenAt={lastSeenAt}
+        onNavigate={(_target) => setNotifOpen(false)}
+      />
       <div className="flex flex-col h-full bg-background">
-        {/* Tab switcher */}
-        <div className="flex gap-1 p-3 bg-muted/50 border-b border-border">
+        {/* Tab switcher + bell */}
+        <div className="flex gap-1 p-3 bg-muted/50 border-b border-border items-center">
           <button
             onClick={() => setActiveTab('vm')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
@@ -800,6 +817,23 @@ export default function Dashboard() {
             data-testid="tab-cleaning"
           >
             <Droplets className="w-5 h-5" /> 청소 점검
+          </button>
+          {/* Notification bell — only clickable when unread exist */}
+          <button
+            onClick={handleBellClick}
+            className={`relative w-12 h-12 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
+              unreadCount > 0
+                ? 'bg-white border-border shadow-sm active:scale-95'
+                : 'bg-muted border-transparent cursor-default'
+            }`}
+            data-testid="btn-notification-bell"
+          >
+            <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-white text-[11px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
 
