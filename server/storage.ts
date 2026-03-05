@@ -412,8 +412,8 @@ export class DatabaseStorage implements IStorage {
       .limit(80);
 
     const commentReplies: StaffNotification[] = [
-      ...vmWithComment.map((r, i) => ({
-        id: i,
+      ...vmWithComment.map((r) => ({
+        id: r.id,
         notifCategory: 'comment_reply' as const,
         type: 'vm_comment' as const,
         createdAt: r.createdAt,
@@ -423,8 +423,8 @@ export class DatabaseStorage implements IStorage {
         product: r.product ?? undefined,
         category: r.category ?? undefined,
       })),
-      ...vmAdminReplies.map((r, i) => ({
-        id: vmWithComment.length + i,
+      ...vmAdminReplies.map((r) => ({
+        id: r.replyId,
         notifCategory: 'comment_reply' as const,
         type: 'vm_reply' as const,
         createdAt: r.createdAt,
@@ -435,8 +435,8 @@ export class DatabaseStorage implements IStorage {
         product: r.product ?? undefined,
         category: r.category ?? undefined,
       })),
-      ...cleaningWithComment.map((r, i) => ({
-        id: vmWithComment.length + vmAdminReplies.length + i,
+      ...cleaningWithComment.map((r) => ({
+        id: r.id,
         notifCategory: 'comment_reply' as const,
         type: 'cleaning_comment' as const,
         createdAt: r.createdAt,
@@ -446,8 +446,8 @@ export class DatabaseStorage implements IStorage {
         zone: r.zone ?? undefined,
         inspectionTime: r.inspectionTime ?? undefined,
       })),
-      ...cleaningAdminReplies.map((r, i) => ({
-        id: vmWithComment.length + vmAdminReplies.length + cleaningWithComment.length + i,
+      ...cleaningAdminReplies.map((r) => ({
+        id: r.replyId,
         notifCategory: 'comment_reply' as const,
         type: 'cleaning_reply' as const,
         createdAt: r.createdAt,

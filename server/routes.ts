@@ -386,9 +386,9 @@ export async function registerRoutes(
   });
 
   // Staff notifications — admin feedback & replies for a specific branch
-  app.get('/api/staff/notifications', async (req, res) => {
+  app.get('/api/staff/notifications/:branch', async (req, res) => {
     try {
-      const branch = typeof req.query.branch === 'string' ? req.query.branch.trim() : '';
+      const branch = req.params.branch?.trim();
       if (!branch) return res.status(400).json({ message: "branch required" });
       const notifications = await storage.getStaffNotifications(branch);
       res.json(notifications);
