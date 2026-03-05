@@ -566,7 +566,11 @@ function CleaningTab() {
                 <h3 className="text-lg font-black text-secondary">
                   {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 점검 기록
                 </h3>
-                {dayRecords.map((record, i) => {
+                {[...dayRecords].sort((a, b) => {
+                  if (a.overallStatus === 'issue' && b.overallStatus !== 'issue') return -1;
+                  if (a.overallStatus !== 'issue' && b.overallStatus === 'issue') return 1;
+                  return 0;
+                }).map((record, i) => {
                   const items = record.items as Record<string, { status: string; memo?: string | null }> || {};
                   const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue' || v.status === 'partial');
                   const cleanScore = calcCleaningScore(items);
