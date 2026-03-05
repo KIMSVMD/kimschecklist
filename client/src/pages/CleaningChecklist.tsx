@@ -46,37 +46,63 @@ type ItemData = {
   memo?: string | null;
 };
 
-// Korean time (KST = UTC+9) date string "YYYY-MM-DD"
+// KST date string — if current KST time >= 23:59:59, returns tomorrow's date
+// so that drafts appear "reset" at exactly 23:59:59 KST every night
+function getKSTDraftDateStr() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const iso = kst.toISOString(); // "YYYY-MM-DDTHH:MM:SS.mmmZ"
+  const [h, m, s] = iso.split("T")[1].split(":").map(Number);
+  if (h === 23 && m === 59 && s >= 59) {
+    // Treat as next day → draft appears reset
+    const nextDay = new Date(kst.getTime() + 24 * 60 * 60 * 1000);
+    return nextDay.toISOString().split("T")[0];
+  }
+  return iso.split("T")[0];
+}
+
+// For "today" KST comparison (not draft-key related)
 function getKSTDateStr() {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().split("T")[0];
 }
 
+type DraftStore = {
+  items: Record<string, ItemData>;
+  submitted: boolean;
+};
+
 function getDraftKey(branch: string, zone: string, time: string) {
-  return `cleaning_draft_${branch}_${zone}_${time}_${getKSTDateStr()}`;
+  return `cleaning_draft_${branch}_${zone}_${time}_${getKSTDraftDateStr()}`;
 }
 
-function loadDraft(branch: string, zone: string, time: string): Record<string, ItemData> {
+function loadDraftStore(branch: string, zone: string, time: string): DraftStore {
   try {
     const raw = localStorage.getItem(getDraftKey(branch, zone, time));
-    if (!raw) return {};
-    return JSON.parse(raw);
+    if (!raw) return { items: {}, submitted: false };
+    const parsed = JSON.parse(raw);
+    // Handle legacy format (plain items object without wrapper)
+    if (parsed.items !== undefined) return parsed as DraftStore;
+    return { items: parsed, submitted: false };
   } catch {
-    return {};
+    return { items: {}, submitted: false };
   }
 }
 
-function saveDraft(branch: string, zone: string, time: string, data: Record<string, ItemData>) {
+function saveDraftStore(branch: string, zone: string, time: string, store: DraftStore) {
   try {
-    localStorage.setItem(getDraftKey(branch, zone, time), JSON.stringify(data));
+    localStorage.setItem(getDraftKey(branch, zone, time), JSON.stringify(store));
   } catch {}
 }
 
-function clearDraft(branch: string, zone: string, time: string) {
-  try {
-    localStorage.removeItem(getDraftKey(branch, zone, time));
-  } catch {}
+function getDraftState(branch: string, zone: string, time: string) {
+  const store = loadDraftStore(branch, zone, time);
+  return {
+    hasData: Object.keys(store.items).length > 0,
+    submitted: store.submitted,
+    items: store.items,
+  };
 }
 
 export default function CleaningChecklist() {
@@ -117,15 +143,20 @@ export default function CleaningChecklist() {
   // Load draft when zone or inspectionTime changes
   useEffect(() => {
     if (step === "items" && selectedZone && branch) {
-      const draft = loadDraft(branch, selectedZone, inspectionTime);
-      setItemData(draft);
+      const { items } = loadDraftStore(branch, selectedZone, inspectionTime);
+      setItemData(items);
     }
   }, [step, selectedZone, inspectionTime, branch]);
 
   // Save draft whenever itemData changes (while in items step)
+  // Preserve existing submitted flag so "제출완료" badge stays correct
   useEffect(() => {
     if (step === "items" && selectedZone && branch && Object.keys(itemData).length > 0) {
-      saveDraft(branch, selectedZone, inspectionTime, itemData);
+      const existing = loadDraftStore(branch, selectedZone, inspectionTime);
+      saveDraftStore(branch, selectedZone, inspectionTime, {
+        items: itemData,
+        submitted: existing.submitted,
+      });
     }
   }, [itemData, step, selectedZone, inspectionTime, branch]);
 
@@ -179,18 +210,18 @@ export default function CleaningChecklist() {
         items,
         overallStatus: hasIssue ? "issue" : "ok",
       });
-      // Clear the draft after successful submit
-      clearDraft(branch, selectedZone, inspectionTime);
+      // Mark draft as submitted (don't clear — user should see their data if they return)
+      saveDraftStore(branch, selectedZone, inspectionTime, {
+        items: itemData,
+        submitted: true,
+      });
       setStep("done");
     } catch (err) {
       toast({ title: "저장 실패", description: String(err), variant: "destructive" });
     }
   };
 
-  const hasDraft = (zone: string) => {
-    const draft = loadDraft(branch, zone, inspectionTime);
-    return Object.keys(draft).length > 0;
-  };
+  const getDraftInfo = (zone: string) => getDraftState(branch, zone, inspectionTime);
 
   return (
     <Layout title="매장 청소 점검" showBack={true}>
@@ -255,7 +286,7 @@ export default function CleaningChecklist() {
                 <div className="flex flex-col gap-3">
                   {ZONES.map(zone => {
                     const zs = zoneScores[zone];
-                    const hasSavedDraft = hasDraft(zone);
+                    const draftInfo = getDraftInfo(zone);
                     return (
                       <button
                         key={zone}
@@ -265,7 +296,12 @@ export default function CleaningChecklist() {
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-2xl font-bold">{zone}</span>
-                          {hasSavedDraft && (
+                          {draftInfo.hasData && draftInfo.submitted && (
+                            <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                              제출완료
+                            </span>
+                          )}
+                          {draftInfo.hasData && !draftInfo.submitted && (
                             <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                               작성 중
                             </span>
