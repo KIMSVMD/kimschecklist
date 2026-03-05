@@ -35,11 +35,19 @@ const REGIONS = {
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 
+type SelectStage = 'type' | 'category' | 'group' | 'product';
+
 export default function NewChecklist() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
   const [step, setStep] = useState(1);
+
+  // Step 2 sub-stage lifted to parent for unified back navigation
+  const [stage, setStage] = useState<SelectStage>('type');
+  const [selCategory, setSelCategory] = useState('');
+  const [selGroup, setSelGroup] = useState('');
+
   const [formData, setFormData] = useState({
     branch: "",
     category: "",
@@ -53,8 +61,50 @@ export default function NewChecklist() {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
-  const nextStep = () => setStep(p => Math.min(p + 1, 3));
-  const prevStep = () => setStep(p => Math.max(p - 1, 1));
+  // Unified back handler covering all steps and sub-stages
+  const handlePrev = () => {
+    if (step === 3) {
+      setStage('type');
+      setSelCategory('');
+      setSelGroup('');
+      setStep(2);
+    } else if (step === 2) {
+      if (stage === 'product') { setStage('group'); setSelGroup(''); }
+      else if (stage === 'group') { setStage('category'); setSelCategory(''); }
+      else if (stage === 'category') { setStage('type'); }
+      else { setStep(1); } // stage === 'type'
+    }
+  };
+
+  // Whether to show the back button
+  const showBack = step === 3 || (step === 2 && stage !== 'type') || (step === 2 && stage === 'type');
+
+  // Label for the back button
+  const backLabel = (() => {
+    if (step === 3) return '상품 선택';
+    if (step === 2) {
+      if (stage === 'category') return '유형 선택';
+      if (stage === 'group') return '카테고리 선택';
+      if (stage === 'product') return '그룹 선택';
+      return '지점 선택'; // stage === 'type'
+    }
+    return '이전';
+  })();
+
+  // Progress percentage
+  const progressMap: Record<string, number> = {
+    // step 1
+    '1-': 33,
+    // step 2 sub-stages
+    '2-type': 40,
+    '2-category': 50,
+    '2-group': 60,
+    '2-product': 70,
+    // step 3
+    '3-': 100,
+  };
+  const progressKey = step === 2 ? `2-${stage}` : `${step}-`;
+  const progressPct = progressMap[progressKey] ?? 33;
 
   return (
     <Layout title="새 점검 등록" showBack={true}>
@@ -63,7 +113,7 @@ export default function NewChecklist() {
           <motion.div 
             className="h-full bg-primary"
             initial={{ width: "33%" }}
-            animate={{ width: `${(step / 3) * 100}%` }}
+            animate={{ width: `${progressPct}%` }}
             transition={{ duration: 0.3 }}
           />
         </div>
@@ -74,18 +124,24 @@ export default function NewChecklist() {
               <Step1Branch 
                 key="step1" 
                 selected={formData.branch} 
-                onSelect={(v) => { updateForm('branch', v); nextStep(); }} 
+                onSelect={(v) => { updateForm('branch', v); setStep(2); }} 
               />
             )}
             {step === 2 && (
               <Step2Select
                 key="step2"
                 branch={formData.branch}
+                stage={stage}
+                setStage={setStage}
+                selCategory={selCategory}
+                setSelCategory={setSelCategory}
+                selGroup={selGroup}
+                setSelGroup={setSelGroup}
                 onSelect={(category, product) => {
                   updateForm('category', category);
                   updateForm('product', product);
                   updateForm('items', {});
-                  nextStep();
+                  setStep(3);
                 }}
               />
             )}
@@ -100,13 +156,14 @@ export default function NewChecklist() {
           </AnimatePresence>
         </div>
 
-        {step > 1 && (
+        {showBack && (
           <div className="p-4 bg-white/80 backdrop-blur-md border-t border-border/50">
             <button 
-              onClick={prevStep}
+              onClick={handlePrev}
               className="w-full py-4 rounded-2xl bg-muted text-secondary font-bold text-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              data-testid="btn-prev-step"
             >
-              <ChevronLeft className="w-5 h-5" /> 이전 단계
+              <ChevronLeft className="w-5 h-5" /> {backLabel}로 돌아가기
             </button>
           </div>
         )}
@@ -164,13 +221,19 @@ function Step1Branch({ selected, onSelect }: { selected: string, onSelect: (v: s
   );
 }
 
-type SelectStage = 'type' | 'category' | 'group' | 'product';
+type Step2Props = {
+  branch: string;
+  stage: SelectStage;
+  setStage: (s: SelectStage) => void;
+  selCategory: string;
+  setSelCategory: (v: string) => void;
+  selGroup: string;
+  setSelGroup: (v: string) => void;
+  onSelect: (category: string, product: string) => void;
+};
 
-function Step2Select({ branch, onSelect }: { branch: string, onSelect: (category: string, product: string) => void }) {
+function Step2Select({ branch, stage, setStage, selCategory, setSelCategory, selGroup, setSelGroup, onSelect }: Step2Props) {
   const [, setLocation] = useLocation();
-  const [stage, setStage] = useState<SelectStage>('type');
-  const [selCategory, setSelCategory] = useState('');
-  const [selGroup, setSelGroup] = useState('');
 
   const { data: dbProducts = [], isLoading } = useProducts(selCategory);
   const groups = [...new Set(dbProducts.map(p => p.groupName))];
@@ -195,25 +258,11 @@ function Step2Select({ branch, onSelect }: { branch: string, onSelect: (category
     onSelect(selCategory, `[${selGroup}]${productName}`);
   };
 
-  const goBack = () => {
-    if (stage === 'product') { setStage('group'); setSelGroup(''); }
-    else if (stage === 'group') { setStage('category'); setSelCategory(''); }
-    else if (stage === 'category') { setStage('type'); }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
       className="space-y-6"
     >
-      {/* Back link within sub-stages */}
-      {stage !== 'type' && (
-        <button onClick={goBack} className="flex items-center gap-2 text-primary font-bold text-sm active:scale-95 transition-all">
-          <ChevronLeft className="w-4 h-4" />
-          {stage === 'category' ? '유형 선택' : stage === 'group' ? `${selCategory} 다시 선택` : `${selGroup} 다시 선택`}
-        </button>
-      )}
-
       {/* ── STAGE: type ── */}
       {stage === 'type' && (
         <>
@@ -224,7 +273,6 @@ function Step2Select({ branch, onSelect }: { branch: string, onSelect: (category
             <p className="text-muted-foreground text-lg">어떤 점검을 진행하나요?</p>
           </div>
           <div className="flex flex-col gap-4">
-            {/* 청소 점검 */}
             <button
               onClick={() => setLocation(`/cleaning/new?branch=${encodeURIComponent(branch)}`)}
               className="flex items-center justify-between p-6 rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]"
@@ -239,7 +287,6 @@ function Step2Select({ branch, onSelect }: { branch: string, onSelect: (category
               </div>
               <ChevronRight className="w-8 h-8 opacity-70" />
             </button>
-            {/* VM 진열가이드 점검 */}
             <button
               onClick={() => setStage('category')}
               className="flex items-center justify-between p-6 rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-primary to-primary/80 text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
