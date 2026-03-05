@@ -78,9 +78,7 @@ function AdminCommentInput({
             <div className="flex flex-wrap gap-1.5">
               {[
                 '점검 후 사진 전송 부탁드립니다',
-                '조치 후 사진 전송 부탁드립니다',
                 '확인 부탁드립니다',
-                '즉시 조치 바랍니다',
               ].map(tpl => (
                 <button
                   key={tpl}
