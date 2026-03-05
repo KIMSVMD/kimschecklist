@@ -475,7 +475,7 @@ function CleaningTab() {
               <ChevronLeft className="w-5 h-5 text-secondary" />
             </button>
             <div className="flex-1 text-center">
-              <p className="font-black text-secondary text-base">
+              <p className="font-black text-secondary text-sm whitespace-nowrap">
                 {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
               </p>
             </div>
@@ -490,12 +490,12 @@ function CleaningTab() {
           </div>
 
           {/* 오픈 / 마감 toggle */}
-          <div className="flex bg-muted rounded-2xl p-1 gap-1 shrink-0">
+          <div className="flex bg-muted rounded-2xl p-1 gap-0.5 shrink-0">
             {(['전체', '오픈', '마감'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setFilterTime(t)}
-                className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center gap-0.5 px-2 py-2 rounded-xl text-xs font-bold transition-all ${
                   filterTime === t
                     ? t === '오픈' ? 'bg-amber-400 text-white shadow-sm'
                       : t === '마감' ? 'bg-secondary text-white shadow-sm'
