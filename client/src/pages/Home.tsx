@@ -3,57 +3,126 @@ import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import {
   ClipboardCheck, ClipboardList, ChevronRight, Store, Settings,
-  BookOpen, X, Camera, Bell, MessageSquare, BarChart3, CheckCircle2,
-  Droplets, ClipboardPen,
+  BookOpen, X, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const MANUAL_SECTIONS = [
   {
-    role: '현장 직원 — VM 점검',
-    color: 'bg-primary/10 text-primary',
-    icon: ClipboardPen,
+    id: 'home',
+    title: '① 메인 화면',
+    subtitle: '앱 시작 및 메뉴 선택',
+    imgPath: '/objects/uploads/eb77b053-d078-4e18-b228-22c2f5d0be0c',
     steps: [
-      { icon: ClipboardCheck, text: '메인화면에서 새 점검 등록 선택' },
-      { icon: ClipboardCheck, text: '카테고리(농산/수산 등)와 상품 선택' },
-      { icon: CheckCircle2, text: '항목별 우수 / 보통 / 미흡 선택' },
-      { icon: Camera, text: '현장 사진 첨부 후 제출' },
+      '새 점검 등록 → VM 체크리스트 작성 시작',
+      '내 점검 목록 → 내가 올린 점검 확인/수정',
+      '관리자 메뉴 → 비밀번호 입력 후 대시보드',
     ],
   },
   {
-    role: '현장 직원 — 청소 점검',
-    color: 'bg-emerald-100 text-emerald-700',
-    icon: Droplets,
+    id: 'vm',
+    title: '② VM 점검 등록',
+    subtitle: 'VM 체크리스트 작성 방법',
+    imgPath: '/objects/uploads/ac1f310d-2c06-42b9-a260-e9422ec49dd8',
     steps: [
-      { icon: ClipboardCheck, text: '새 점검 등록 → 청소 점검 선택' },
-      { icon: CheckCircle2, text: '구역(농산/수산 등)과 오픈/마감 선택' },
-      { icon: CheckCircle2, text: '항목별 정상 / 문제 체크 후 제출' },
-      { icon: ClipboardList, text: '임시저장 가능 (매일 자정 자동 초기화)' },
+      '지점명 선택 후 카테고리(농산/수산 등) 선택',
+      '가이드 상품 목록에서 점검할 상품 선택',
+      '항목별 우수 / 보통 / 미흡 선택',
+      '현장 사진 첨부 후 제출 버튼 클릭',
     ],
   },
   {
-    role: '현장 직원 — 알림 확인',
-    color: 'bg-amber-100 text-amber-700',
-    icon: Bell,
+    id: 'staff',
+    title: '③ 내 점검 목록',
+    subtitle: '등록한 점검 확인 및 알림',
+    imgPath: '/objects/uploads/10e898e4-3227-44f4-93a8-0f2264605df9',
     steps: [
-      { icon: Bell, text: '내 점검 목록 → 벨 아이콘으로 알림 확인' },
-      { icon: MessageSquare, text: '코멘트/답글 탭: 관리자 피드백 확인' },
-      { icon: BarChart3, text: '점수 변경 탭: 관리자 점수 수정 내역' },
-      { icon: ChevronRight, text: '알림 탭하면 해당 카드로 바로 이동' },
+      '지점 선택 후 날짜별 점검 카드 확인',
+      '벨 아이콘으로 관리자 코멘트/점수 알림 확인',
+      '카드에서 직접 답글 작성 가능',
+      '점검 카드 수정 · 삭제 버튼 사용 가능',
     ],
   },
   {
-    role: '관리자 — 대시보드',
-    color: 'bg-slate-100 text-slate-700',
-    icon: BarChart3,
+    id: 'cleaning',
+    title: '④ 청소 점검 등록',
+    subtitle: '구역별 청소 상태 점검',
+    imgPath: '/objects/uploads/47140d1f-f572-49f6-b305-8c6c07103a67',
     steps: [
-      { icon: Settings, text: '관리자 메뉴 → 비밀번호 입력' },
-      { icon: BarChart3, text: 'VM / 청소 탭에서 지점별 점검 현황 확인' },
-      { icon: MessageSquare, text: '카드에 코멘트 작성 또는 답글로 소통' },
-      { icon: CheckCircle2, text: '항목 점수 직접 수정 가능' },
+      '지점 선택 → 구역(농산/수산 등) 선택',
+      '오픈 / 마감 중 해당 시간대 선택',
+      '항목별 정상 / 문제 선택 후 제출',
+      '임시저장 가능 (매일 자정 자동 초기화)',
+    ],
+  },
+  {
+    id: 'admin',
+    title: '⑤ 관리자 대시보드',
+    subtitle: '전 지점 점검 현황 관리',
+    imgPath: '/objects/uploads/a84ed4b8-98f6-41a7-b2f5-824893eb5818',
+    steps: [
+      'VM 점검 / 청소 점검 탭으로 구분 확인',
+      '지점별 점수 및 항목 현황 카드 확인',
+      '코멘트 작성 또는 빠른 템플릿 버튼 사용',
+      '항목 점수 직접 수정 가능',
     ],
   },
 ];
+
+function ManualSection({ section }: { section: typeof MANUAL_SECTIONS[0] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-2xl border border-border/60 overflow-hidden bg-white">
+      <button
+        className="w-full flex items-center justify-between px-4 py-3.5 text-left active:bg-muted/50"
+        onClick={() => setExpanded(v => !v)}
+      >
+        <div>
+          <p className="text-sm font-black text-secondary">{section.title}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{section.subtitle}</p>
+        </div>
+        {expanded
+          ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+          : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-border/40">
+              {/* 실제 앱 캡처 이미지 */}
+              <div className="bg-muted/30 flex justify-center py-3 px-4">
+                <img
+                  src={section.imgPath}
+                  alt={section.title}
+                  className="rounded-xl shadow-md max-h-72 w-auto object-contain"
+                />
+              </div>
+              {/* 설명 스텝 */}
+              <div className="px-4 py-3 space-y-2">
+                {section.steps.map((step, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                      {i + 1}
+                    </span>
+                    <p className="text-sm text-secondary leading-snug">{step}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function Home() {
   const [manualOpen, setManualOpen] = useState(false);
@@ -155,7 +224,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 매뉴얼 모달 */}
+      {/* 매뉴얼 바텀 시트 */}
       <AnimatePresence>
         {manualOpen && (
           <motion.div
@@ -170,7 +239,7 @@ export default function Home() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="w-full bg-white rounded-t-3xl max-h-[88vh] flex flex-col"
+              className="w-full bg-white rounded-t-3xl max-h-[92vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
               {/* 헤더 */}
@@ -188,37 +257,15 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* 내용 */}
-              <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5 pb-8">
-                {MANUAL_SECTIONS.map((section) => {
-                  const SectionIcon = section.icon;
-                  return (
-                    <div key={section.role} className="rounded-2xl border border-border/60 overflow-hidden">
-                      {/* 섹션 헤더 */}
-                      <div className={`flex items-center gap-2 px-4 py-3 ${section.color} bg-opacity-60`}>
-                        <SectionIcon className="w-4 h-4 shrink-0" />
-                        <span className="text-sm font-black">{section.role}</span>
-                      </div>
-                      {/* 스텝 목록 */}
-                      <div className="divide-y divide-border/40">
-                        {section.steps.map((step, i) => {
-                          const StepIcon = step.icon;
-                          return (
-                            <div key={i} className="flex items-start gap-3 px-4 py-3">
-                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                                <span className="text-[10px] font-black text-muted-foreground">{i + 1}</span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-1">
-                                <StepIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                <p className="text-sm text-secondary font-medium leading-snug">{step.text}</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+              <p className="px-6 pt-4 pb-2 text-xs text-muted-foreground">
+                각 항목을 탭하면 실제 화면과 함께 자세한 설명을 볼 수 있어요.
+              </p>
+
+              {/* 섹션 목록 */}
+              <div className="overflow-y-auto flex-1 px-6 py-2 space-y-3 pb-8">
+                {MANUAL_SECTIONS.map(section => (
+                  <ManualSection key={section.id} section={section} />
+                ))}
               </div>
             </motion.div>
           </motion.div>
