@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Bell, X, BarChart3, Droplets, MessageSquare, ClipboardCheck } from "lucide-react";
+import { Bell, X, BarChart3, Droplets, MessageSquare, ClipboardCheck, ArrowRight } from "lucide-react";
 import type { AdminNotification } from "@/hooks/use-notifications";
 
 type NotifFilter = '전체' | 'new_inspection' | 'reply';
@@ -13,6 +13,10 @@ interface Props {
   notifications: AdminNotification[];
   lastSeenAt: string;
   onNavigate: (target: { type: 'vm' | 'cleaning'; branch: string; checklistId?: number; cleaningId?: number; date?: string }) => void;
+}
+
+function toLocalDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function NotificationPanel({ open, onClose, notifications, lastSeenAt, onNavigate }: Props) {
@@ -30,12 +34,15 @@ export function NotificationPanel({ open, onClose, notifications, lastSeenAt, on
     return () => document.removeEventListener("mousedown", handler);
   }, [open, onClose]);
 
-  const filtered = notifications.filter(n =>
+  // Only show unread notifications (newer than lastSeenAt)
+  const unread = notifications.filter(n => new Date(n.createdAt) > new Date(lastSeenAt));
+
+  const filtered = unread.filter(n =>
     filter === '전체' ? true : n.notifType === filter
   );
 
   const tabs: { key: NotifFilter; label: string }[] = [
-    { key: '전체', label: '전체' },
+    { key: '전체', label: `전체 ${unread.length > 0 ? `(${unread.length})` : ''}` },
     { key: 'new_inspection', label: '새 점검 등록' },
     { key: 'reply', label: '답글' },
   ];
@@ -98,24 +105,22 @@ export function NotificationPanel({ open, onClose, notifications, lastSeenAt, on
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
                   <MessageSquare className="w-10 h-10 opacity-30" />
-                  <p className="font-medium">알림이 없습니다</p>
+                  <p className="font-medium">새 알림이 없습니다</p>
                 </div>
               ) : (
                 filtered.map((n, i) => {
-                  const isNew = new Date(n.createdAt) > new Date(lastSeenAt);
-                  const timeAgo = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: ko });
+                  const date = new Date(n.createdAt);
+                  const dateStr = toLocalDateStr(date);
+                  const timeAgo = formatDistanceToNow(date, { addSuffix: true, locale: ko });
                   const isVM = n.type === 'vm';
 
-                  // Label
                   const locationLabel = isVM
                     ? `${n.branch}점 · ${n.category ?? ''} / ${n.product ?? ''}`
                     : `${n.branch}점 · ${n.zone ?? ''} ${n.inspectionTime ?? ''}`;
 
-                  // Badge
                   const badge = n.notifType === 'new_inspection' ? '새 점검' : '답글';
                   const badgeBg = n.notifType === 'new_inspection' ? 'bg-emerald-500' : 'bg-amber-500';
 
-                  // Icon bg
                   const iconBg = isVM
                     ? (n.notifType === 'new_inspection' ? 'bg-primary/10' : 'bg-orange-100')
                     : (n.notifType === 'new_inspection' ? 'bg-emerald-100' : 'bg-teal-100');
@@ -128,10 +133,21 @@ export function NotificationPanel({ open, onClose, notifications, lastSeenAt, on
                     ? (n.notifType === 'new_inspection' ? 'text-primary' : 'text-orange-500')
                     : (n.notifType === 'new_inspection' ? 'text-emerald-600' : 'text-teal-600');
 
+                  const handleGo = () => {
+                    onNavigate({
+                      type: n.type,
+                      branch: n.branch,
+                      checklistId: n.checklistId,
+                      cleaningId: n.cleaningId,
+                      date: dateStr,
+                    });
+                    onClose();
+                  };
+
                   return (
                     <div
                       key={`${n.notifType}-${n.type}-${n.id}`}
-                      className={`px-5 py-4 transition-colors ${isNew ? 'bg-emerald-50/50' : ''}`}
+                      className="px-5 py-4 bg-emerald-50/40 transition-colors"
                       data-testid={`notification-item-${i}`}
                     >
                       <div className="flex items-start gap-3">
@@ -147,20 +163,27 @@ export function NotificationPanel({ open, onClose, notifications, lastSeenAt, on
                               {badge}
                             </span>
                             <span className="text-xs font-bold text-secondary truncate">{locationLabel}</span>
-                            {isNew && (
-                              <span className="shrink-0 text-[10px] font-black bg-primary text-white px-1.5 py-0.5 rounded-full">NEW</span>
-                            )}
+                            <span className="shrink-0 text-[10px] font-black bg-primary text-white px-1.5 py-0.5 rounded-full">NEW</span>
                           </div>
                           {n.notifType === 'reply' && n.content && (
                             <p className="text-sm text-secondary line-clamp-2 mb-1">{n.content}</p>
                           )}
                           {n.notifType === 'new_inspection' && (
                             <p className="text-xs text-muted-foreground mb-1">
-                              {isVM ? 'VM 점검이 신규 등록됐습니다' : '청소 점검이 신규 등록됐습니다'}
+                              {isVM ? 'VM 점검이 신규 등록됐습니다' : '청소 점검에 문제가 등록됐습니다'}
                             </p>
                           )}
                           <p className="text-xs text-muted-foreground">{timeAgo}</p>
                         </div>
+
+                        {/* Navigate button */}
+                        <button
+                          onClick={handleGo}
+                          className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl bg-secondary text-white text-xs font-bold active:scale-95 transition-all"
+                          data-testid={`btn-notification-go-${i}`}
+                        >
+                          보기 <ArrowRight className="w-3 h-3" />
+                        </button>
                       </div>
                     </div>
                   );

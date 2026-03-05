@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus } from "@/hooks/use-checklists";
@@ -116,10 +116,25 @@ function AdminCommentInput({
   );
 }
 
-function VMTab() {
+function VMTab({ highlightId }: { highlightId?: number }) {
   const [filterBranch, setFilterBranch] = useState('전체');
   const [filterCategory, setFilterCategory] = useState('전체');
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!highlightId) return;
+    setFilterBranch('전체');
+    setFilterCategory('전체');
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`vm-card-${highlightId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2500);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
   const deleteMutation = useDeleteChecklist();
   const itemStatusMutation = useUpdateChecklistItemStatus();
 
@@ -336,12 +351,28 @@ function toLocalDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function CleaningTab() {
+function CleaningTab({ highlightId, highlightDate }: { highlightId?: number; highlightDate?: string }) {
   const todayStr = toLocalDateStr(new Date());
   const [filterBranch, setFilterBranch] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!highlightId) return;
+    setFilterBranch('');
+    setFilterTime('전체');
+    if (highlightDate) setSelectedDate(highlightDate);
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`cleaning-card-${highlightId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-emerald-500', 'ring-offset-2');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-emerald-500', 'ring-offset-2'), 2500);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightId, highlightDate]);
   const deleteMutation = useDeleteCleaning();
   const itemStatusMutation = useUpdateCleaningItemStatus();
 
@@ -762,7 +793,11 @@ export default function Dashboard() {
   const { data: adminStatus, isLoading: authLoading } = useAdminStatus();
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
   const [notifOpen, setNotifOpen] = useState(false);
+  const [highlightTarget, setHighlightTarget] = useState<{ type: 'vm' | 'cleaning'; id: number; date?: string } | null>(null);
   const { notifications, unreadCount, markAllRead, lastSeenAt } = useAdminNotifications();
+  // Snapshot of lastSeenAt before marking all read — used to filter panel contents
+  const prevLastSeenAtRef = useRef(lastSeenAt);
+  const [panelSeenAt, setPanelSeenAt] = useState(lastSeenAt);
 
   useEffect(() => {
     if (!authLoading && !adminStatus?.isAdmin) {
@@ -772,8 +807,11 @@ export default function Dashboard() {
 
   const handleBellClick = () => {
     if (unreadCount === 0) return;
+    // Capture the current threshold before marking read — panel shows items newer than this
+    setPanelSeenAt(prevLastSeenAtRef.current);
     setNotifOpen(true);
     markAllRead();
+    prevLastSeenAtRef.current = new Date().toISOString();
   };
 
   if (authLoading) {
@@ -794,8 +832,13 @@ export default function Dashboard() {
         open={notifOpen}
         onClose={() => setNotifOpen(false)}
         notifications={notifications}
-        lastSeenAt={lastSeenAt}
-        onNavigate={(_target) => setNotifOpen(false)}
+        lastSeenAt={panelSeenAt}
+        onNavigate={(target) => {
+          setActiveTab(target.type);
+          const id = target.type === 'vm' ? target.checklistId : target.cleaningId;
+          if (id != null) setHighlightTarget({ type: target.type, id, date: target.date });
+          setNotifOpen(false);
+        }}
       />
       <div className="flex flex-col h-full bg-background">
         {/* Tab switcher + bell */}
@@ -838,7 +881,10 @@ export default function Dashboard() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {activeTab === 'vm' ? <VMTab /> : <CleaningTab />}
+          {activeTab === 'vm'
+            ? <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} />
+            : <CleaningTab highlightId={highlightTarget?.type === 'cleaning' ? highlightTarget.id : undefined} highlightDate={highlightTarget?.type === 'cleaning' ? highlightTarget.date : undefined} />
+          }
         </div>
       </div>
     </Layout>

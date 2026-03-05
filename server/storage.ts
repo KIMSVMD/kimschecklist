@@ -264,7 +264,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(checklists.createdAt))
       .limit(60);
 
-    // New cleaning inspections
+    // New cleaning inspections — only zones with issues
     const newCleaning = await db
       .select({
         id: cleaningInspections.id,
@@ -274,6 +274,7 @@ export class DatabaseStorage implements IStorage {
         createdAt: cleaningInspections.createdAt,
       })
       .from(cleaningInspections)
+      .where(eq(cleaningInspections.overallStatus, 'issue'))
       .orderBy(desc(cleaningInspections.createdAt))
       .limit(60);
 
