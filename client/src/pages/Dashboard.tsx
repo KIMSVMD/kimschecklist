@@ -39,9 +39,10 @@ function AdminCommentInput({
   const cleaningMutation = useSaveCleaningComment();
   const saveMutation = type === 'vm' ? vmMutation : cleaningMutation;
 
-  const handleSave = async () => {
+  const handleSave = async (overrideText?: string) => {
+    const comment = overrideText ?? text;
     try {
-      await (saveMutation as any).mutateAsync({ id, adminComment: text });
+      await (saveMutation as any).mutateAsync({ id, adminComment: comment });
       toast({ title: "코멘트 저장됨", description: "현장 직원에게 전달됩니다." });
       setOpen(false);
     } catch {
@@ -73,6 +74,27 @@ function AdminCommentInput({
         </button>
       ) : (
         <div className="space-y-2">
+          {type === 'cleaning' && (
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                '점검 후 사진 전송 부탁드립니다',
+                '조치 후 사진 전송 부탁드립니다',
+                '확인 부탁드립니다',
+                '즉시 조치 바랍니다',
+              ].map(tpl => (
+                <button
+                  key={tpl}
+                  type="button"
+                  onClick={() => handleSave(tpl)}
+                  disabled={saveMutation.isPending}
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full border border-border bg-muted text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all active:scale-95 disabled:opacity-50"
+                  data-testid={`btn-comment-tpl-${id}-${tpl}`}
+                >
+                  {tpl}
+                </button>
+              ))}
+            </div>
+          )}
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
