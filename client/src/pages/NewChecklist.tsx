@@ -53,7 +53,7 @@ export default function NewChecklist() {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
-  const nextStep = () => setStep(p => Math.min(p + 1, 4));
+  const nextStep = () => setStep(p => Math.min(p + 1, 3));
   const prevStep = () => setStep(p => Math.max(p - 1, 1));
 
   return (
@@ -62,8 +62,8 @@ export default function NewChecklist() {
         <div className="w-full bg-muted h-2">
           <motion.div 
             className="h-full bg-primary"
-            initial={{ width: "25%" }}
-            animate={{ width: `${(step / 4) * 100}%` }}
+            initial={{ width: "33%" }}
+            animate={{ width: `${(step / 3) * 100}%` }}
             transition={{ duration: 0.3 }}
           />
         </div>
@@ -78,24 +78,20 @@ export default function NewChecklist() {
               />
             )}
             {step === 2 && (
-              <Step2Category 
-                key="step2" 
-                selected={formData.category}
+              <Step2Select
+                key="step2"
                 branch={formData.branch}
-                onSelect={(v) => { updateForm('category', v); updateForm('product', ''); nextStep(); }} 
+                onSelect={(category, product) => {
+                  updateForm('category', category);
+                  updateForm('product', product);
+                  updateForm('items', {});
+                  nextStep();
+                }}
               />
             )}
             {step === 3 && (
-              <Step3Product 
-                key="step3" 
-                category={formData.category}
-                selected={formData.product} 
-                onSelect={(v) => { updateForm('product', v); updateForm('items', {}); nextStep(); }} 
-              />
-            )}
-            {step === 4 && (
               <Step4Input 
-                key="step4" 
+                key="step3" 
                 formData={formData} 
                 updateForm={updateForm}
                 onSubmit={() => {}}
@@ -168,106 +164,138 @@ function Step1Branch({ selected, onSelect }: { selected: string, onSelect: (v: s
   );
 }
 
-function Step2Category({ selected, branch, onSelect }: { selected: string, branch: string, onSelect: (v: string) => void }) {
+type SelectStage = 'type' | 'category' | 'group' | 'product';
+
+function Step2Select({ branch, onSelect }: { branch: string, onSelect: (category: string, product: string) => void }) {
   const [, setLocation] = useLocation();
+  const [stage, setStage] = useState<SelectStage>('type');
+  const [selCategory, setSelCategory] = useState('');
+  const [selGroup, setSelGroup] = useState('');
 
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-      className="space-y-6"
-    >
-      <div className="space-y-2">
-        <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-          <Layers className="text-primary w-8 h-8" /> 점검 유형 선택
-        </h2>
-        <p className="text-muted-foreground text-lg">어떤 점검을 진행하나요?</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4">
-        {/* 청소 점검 (top, special) */}
-        <button
-          onClick={() => setLocation(`/cleaning/new?branch=${encodeURIComponent(branch)}`)}
-          className="flex items-center justify-between p-6 rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]"
-          data-testid="btn-cleaning-select"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-white/20 p-3 rounded-2xl">
-              <Droplets className="w-8 h-8" />
-            </div>
-            <div className="text-left">
-              <h3 className="text-2xl font-black">매장 청소 점검</h3>
-              <p className="text-emerald-100 text-sm font-medium mt-0.5">입구 · 농산 · 축산 · 수산 · 공산</p>
-            </div>
-          </div>
-          <ChevronRight className="w-8 h-8 opacity-70" />
-        </button>
-
-        <div className="flex items-center gap-3 my-1">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-muted-foreground font-bold">VM 점검</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat}
-            onClick={() => onSelect(cat)}
-            className={`flex items-center justify-between p-6 rounded-3xl border-2 transition-all active:scale-[0.98] ${
-              selected === cat 
-              ? 'border-primary bg-primary text-white shadow-lg shadow-primary/20' 
-              : 'border-border bg-white text-secondary hover:border-primary/50 shadow-sm'
-            }`}
-          >
-            <span className="text-3xl font-bold">{cat}</span>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${selected === cat ? 'bg-white/20' : 'bg-muted'}`}>
-              <Package className={selected === cat ? 'text-white' : 'text-muted-foreground'} />
-            </div>
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
-function Step3Product({ category, selected, onSelect }: { category: string, selected: string, onSelect: (v: string) => void }) {
-  const { data: dbProducts = [], isLoading } = useProducts(category);
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-
+  const { data: dbProducts = [], isLoading } = useProducts(selCategory);
   const groups = [...new Set(dbProducts.map(p => p.groupName))];
 
+  const handleCategorySelect = (cat: string) => {
+    setSelCategory(cat);
+    setSelGroup('');
+    setStage('group');
+  };
+
   const handleGroupSelect = (group: string) => {
-    const subProducts = dbProducts.filter(p => p.groupName === group && p.productName);
-    if (subProducts.length === 0) {
-      onSelect(`[${group}]`);
+    const subs = dbProducts.filter(p => p.groupName === group && p.productName);
+    if (subs.length === 0) {
+      onSelect(selCategory, `[${group}]`);
     } else {
-      setSelectedGroup(group);
+      setSelGroup(group);
+      setStage('product');
     }
   };
 
   const handleProductSelect = (productName: string) => {
-    onSelect(`[${selectedGroup}]${productName}`);
+    onSelect(selCategory, `[${selGroup}]${productName}`);
   };
 
-  const subProductsForGroup = selectedGroup
-    ? dbProducts.filter(p => p.groupName === selectedGroup && p.productName)
-    : [];
+  const goBack = () => {
+    if (stage === 'product') { setStage('group'); setSelGroup(''); }
+    else if (stage === 'group') { setStage('category'); setSelCategory(''); }
+    else if (stage === 'category') { setStage('type'); }
+  };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
       className="space-y-6"
     >
-      {!selectedGroup ? (
+      {/* Back link within sub-stages */}
+      {stage !== 'type' && (
+        <button onClick={goBack} className="flex items-center gap-2 text-primary font-bold text-sm active:scale-95 transition-all">
+          <ChevronLeft className="w-4 h-4" />
+          {stage === 'category' ? '유형 선택' : stage === 'group' ? `${selCategory} 다시 선택` : `${selGroup} 다시 선택`}
+        </button>
+      )}
+
+      {/* ── STAGE: type ── */}
+      {stage === 'type' && (
         <>
           <div className="space-y-2">
+            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
+              <Layers className="text-primary w-8 h-8" /> 점검 유형 선택
+            </h2>
+            <p className="text-muted-foreground text-lg">어떤 점검을 진행하나요?</p>
+          </div>
+          <div className="flex flex-col gap-4">
+            {/* 청소 점검 */}
+            <button
+              onClick={() => setLocation(`/cleaning/new?branch=${encodeURIComponent(branch)}`)}
+              className="flex items-center justify-between p-6 rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]"
+              data-testid="btn-cleaning-select"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-3 rounded-2xl"><Droplets className="w-8 h-8" /></div>
+                <div className="text-left">
+                  <h3 className="text-2xl font-black">매장 청소 점검</h3>
+                  <p className="text-emerald-100 text-sm font-medium mt-0.5">입구 · 농산 · 축산 · 수산 · 공산</p>
+                </div>
+              </div>
+              <ChevronRight className="w-8 h-8 opacity-70" />
+            </button>
+            {/* VM 진열가이드 점검 */}
+            <button
+              onClick={() => setStage('category')}
+              className="flex items-center justify-between p-6 rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-primary to-primary/80 text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.98]"
+              data-testid="btn-vm-select"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-3 rounded-2xl"><Package className="w-8 h-8" /></div>
+                <div className="text-left">
+                  <h3 className="text-2xl font-black">진열가이드 점검</h3>
+                  <p className="text-red-100 text-sm font-medium mt-0.5">VM 점검 · 농산 · 수산 · 축산 · 공산</p>
+                </div>
+              </div>
+              <ChevronRight className="w-8 h-8 opacity-70" />
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ── STAGE: category ── */}
+      {stage === 'category' && (
+        <>
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
+              <Layers className="text-primary w-8 h-8" /> 카테고리 선택
+            </h2>
+            <p className="text-muted-foreground text-lg">점검할 매장 카테고리를 선택하세요.</p>
+          </div>
+          <div className="flex flex-col gap-3">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                onClick={() => handleCategorySelect(cat)}
+                className="flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm transition-all active:scale-[0.98]"
+                data-testid={`btn-category-${cat}`}
+              >
+                <span className="text-3xl font-bold">{cat}</span>
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                  <Package className="text-muted-foreground" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── STAGE: group ── */}
+      {stage === 'group' && (
+        <>
+          <div className="space-y-1">
             <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
               <Package className="text-primary w-8 h-8" /> 상품 그룹 선택
             </h2>
             <p className="text-muted-foreground text-lg">
-              <strong className="text-primary">{category}</strong> 그룹을 선택해주세요.
+              <strong className="text-primary">{selCategory}</strong> 그룹을 선택하세요.
             </p>
           </div>
-
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -275,12 +303,12 @@ function Step3Product({ category, selected, onSelect }: { category: string, sele
           ) : groups.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>등록된 상품이 없습니다.<br />관리자에게 문의해주세요.</p>
+              <p>등록된 상품이 없습니다.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               {groups.map(group => {
-                const hasSubProducts = dbProducts.some(p => p.groupName === group && p.productName);
+                const cnt = dbProducts.filter(p => p.groupName === group && p.productName).length;
                 return (
                   <button
                     key={group}
@@ -290,12 +318,8 @@ function Step3Product({ category, selected, onSelect }: { category: string, sele
                   >
                     <span className="text-2xl font-bold">{group}</span>
                     <div className="flex items-center gap-2">
-                      {hasSubProducts && (
-                        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg font-medium">
-                          {dbProducts.filter(p => p.groupName === group && p.productName).length}개
-                        </span>
-                      )}
-                      <ChevronRight className={`w-6 h-6 ${hasSubProducts ? 'text-muted-foreground' : 'text-primary'}`} />
+                      {cnt > 0 && <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg font-medium">{cnt}개</span>}
+                      <ChevronRight className="w-6 h-6 text-muted-foreground" />
                     </div>
                   </button>
                 );
@@ -303,43 +327,29 @@ function Step3Product({ category, selected, onSelect }: { category: string, sele
             </div>
           )}
         </>
-      ) : (
+      )}
+
+      {/* ── STAGE: product ── */}
+      {stage === 'product' && (
         <>
-          <div className="space-y-2">
-            <button
-              onClick={() => setSelectedGroup(null)}
-              className="flex items-center gap-2 text-primary font-bold text-base active:scale-95 transition-all"
-            >
-              <ChevronLeft className="w-5 h-5" /> {selectedGroup} 다시 선택
-            </button>
+          <div className="space-y-1">
             <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-              <Package className="text-primary w-8 h-8" /> 세부 상품 선택
+              <Package className="text-primary w-8 h-8" /> 상품 선택
             </h2>
             <p className="text-muted-foreground text-lg">
-              <strong className="text-primary">{selectedGroup}</strong>의 상품을 선택해주세요.
+              <strong className="text-primary">{selGroup}</strong>의 상품을 선택하세요.
             </p>
           </div>
-
           <div className="flex flex-col gap-3">
-            {subProductsForGroup.map(p => (
+            {dbProducts.filter(p => p.groupName === selGroup && p.productName).map(p => (
               <button
                 key={p.id}
                 onClick={() => handleProductSelect(p.productName!)}
-                className={`flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 transition-all active:scale-[0.98] ${
-                  selected === `[${selectedGroup}]${p.productName}`
-                  ? 'border-primary bg-primary/5 text-secondary shadow-md'
-                  : 'border-border bg-white text-secondary hover:border-primary/30'
-                }`}
+                className="flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/30 transition-all active:scale-[0.98] shadow-sm"
                 data-testid={`button-product-${p.id}`}
               >
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1.5 rounded-lg text-sm font-bold shrink-0 ${
-                    selected === `[${selectedGroup}]${p.productName}`
-                    ? 'bg-primary text-white'
-                    : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {selectedGroup}
-                  </span>
+                  <span className="px-3 py-1.5 rounded-lg text-sm font-bold shrink-0 bg-muted text-muted-foreground">{selGroup}</span>
                   <span className="text-2xl font-bold">{p.productName}</span>
                 </div>
                 <ChevronRight className="w-6 h-6 text-muted-foreground shrink-0" />
