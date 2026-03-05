@@ -378,7 +378,7 @@ function CleaningTab() {
 
   const selectedDateObj = new Date(selectedDate + 'T00:00:00');
 
-  // Zone status summary for selected date (latest record per zone)
+  // Zone status summary for selected date (latest record per zone, for grid display)
   const zoneStatus: Record<string, { status: string; time: string; id: number } | null> = {};
   ZONES.forEach(z => { zoneStatus[z] = null; });
   dayRecords.forEach(r => {
@@ -399,6 +399,41 @@ function CleaningTab() {
     }
   });
 
+  // Completion rate calculation:
+  // - Denominator = ZONES × times (2 when '전체', 1 when specific time)
+  // - Each slot earns (non-issue items / total items) points — issues reduce the rate
+  const relevantTimes = filterTime === '전체' ? ['오픈', '마감'] : [filterTime];
+  const totalSlots = ZONES.length * relevantTimes.length;
+
+  // Build slot map: latest record per (zone × time) pair
+  const slotMap: Record<string, typeof dayRecords[0] | null> = {};
+  ZONES.forEach(z => relevantTimes.forEach(t => { slotMap[`${z}_${t}`] = null; }));
+  // Use all day records for the selected date (ignoring filterTime so we can look at both)
+  allRecords
+    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .forEach(r => {
+      const key = `${r.zone}_${r.inspectionTime}`;
+      if (key in slotMap) {
+        if (!slotMap[key] || new Date(r.createdAt) > new Date(slotMap[key]!.createdAt)) {
+          slotMap[key] = r;
+        }
+      }
+    });
+
+  let completionScore = 0;
+  let completedSlotCount = 0;
+  Object.values(slotMap).forEach(record => {
+    if (record) {
+      completedSlotCount++;
+      const items = record.items as Record<string, { status: string }> || {};
+      const total = Object.keys(items).length;
+      const issueCount = Object.values(items).filter((v: any) => v.status === 'issue').length;
+      const quality = total > 0 ? (total - issueCount) / total : 1;
+      completionScore += quality;
+    }
+  });
+
+  const completionRate = totalSlots > 0 ? Math.round((completionScore / totalSlots) * 100) : 0;
   const completedZones = ZONES.filter(z => zoneStatus[z] !== null).length;
 
   const handleDelete = async (id: number) => {
@@ -492,15 +527,15 @@ function CleaningTab() {
               </div>
               <div className="flex gap-4 mb-5">
                 <div className="flex-1 bg-white/10 rounded-2xl p-4 text-center">
-                  <p className="text-3xl font-black text-emerald-400">{completedZones}<span className="text-lg text-white/60">/{ZONES.length}</span></p>
-                  <p className="text-sm text-white/70 font-medium mt-1">구역 완료</p>
+                  <p className="text-3xl font-black text-emerald-400">{completedSlotCount}<span className="text-lg text-white/60">/{totalSlots}</span></p>
+                  <p className="text-sm text-white/70 font-medium mt-1">점검 완료</p>
                 </div>
                 <div className="flex-1 bg-white/10 rounded-2xl p-4 text-center">
                   <p className="text-3xl font-black text-primary">{issues.length}</p>
                   <p className="text-sm text-white/70 font-medium mt-1">문제 발생</p>
                 </div>
                 <div className="flex-1 bg-white/10 rounded-2xl p-4 text-center">
-                  <p className="text-3xl font-black text-white">{Math.round((completedZones / ZONES.length) * 100)}<span className="text-lg text-white/60">%</span></p>
+                  <p className="text-3xl font-black text-white">{completionRate}<span className="text-lg text-white/60">%</span></p>
                   <p className="text-sm text-white/70 font-medium mt-1">완료율</p>
                 </div>
               </div>
