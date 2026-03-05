@@ -8,7 +8,7 @@ import { ko } from "date-fns/locale";
 import {
   ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin,
   MessageSquare, CheckCheck, Loader2, Droplets, Sun, Moon, XCircle, BarChart3,
-  CornerDownRight, Send,
+  CornerDownRight, Send, ChevronLeft, ChevronRight, Calendar,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -21,10 +21,30 @@ const REGIONS: Record<string, string[]> = {
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
 
 export default function StaffDashboard() {
+  const toLocalDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const todayStr = toLocalDateStr(new Date());
+
   const [filterBranch, setFilterBranch] = useState('');
   const [filterCategory, setFilterCategory] = useState('전체');
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
+  const [selectedDate, setSelectedDate] = useState(todayStr);
   const { toast } = useToast();
+
+  const isToday = selectedDate === todayStr;
+  const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+
+  const goBack = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(toLocalDateStr(d));
+  };
+  const goForward = () => {
+    if (isToday) return;
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 1);
+    setSelectedDate(toLocalDateStr(d));
+  };
 
   const deleteMutation = useDeleteChecklist();
   const confirmVMMutation = useConfirmChecklistComment();
@@ -150,6 +170,32 @@ export default function StaffDashboard() {
                   {cat}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Date navigator — only on cleaning tab */}
+          {activeTab === 'cleaning' && (
+            <div className="flex items-center gap-2 bg-muted rounded-2xl p-1">
+              <button
+                onClick={goBack}
+                className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
+                data-testid="btn-staff-date-prev"
+              >
+                <ChevronLeft className="w-5 h-5 text-secondary" />
+              </button>
+              <div className="flex-1 text-center">
+                <p className="font-black text-secondary text-sm">
+                  {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
+                </p>
+              </div>
+              <button
+                onClick={goForward}
+                disabled={isToday}
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
+                data-testid="btn-staff-date-next"
+              >
+                <ChevronRight className="w-5 h-5 text-secondary" />
+              </button>
             </div>
           )}
         </div>
@@ -305,20 +351,29 @@ export default function StaffDashboard() {
                   <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin mb-4" />
                   불러오는 중...
                 </div>
-              ) : cleaningRecords.length === 0 ? (
+              ) : cleaningRecords.filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate).length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-3">
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                    <Droplets className="w-8 h-8 opacity-40" />
+                    <Calendar className="w-8 h-8 opacity-40" />
                   </div>
-                  <p className="font-medium text-lg">등록된 청소 점검 기록이 없습니다</p>
-                  <Link href="/checklist/new">
-                    <button className="px-6 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-base">
-                      청소 점검 시작하기
+                  <p className="font-medium text-lg">
+                    {isToday ? '오늘은' : format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
+                  </p>
+                  {!isToday && (
+                    <button onClick={() => setSelectedDate(todayStr)} className="text-sm font-bold text-emerald-600 underline underline-offset-2">
+                      오늘로 돌아가기
                     </button>
-                  </Link>
+                  )}
+                  {isToday && (
+                    <Link href="/checklist/new">
+                      <button className="px-6 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-base">
+                        청소 점검 시작하기
+                      </button>
+                    </Link>
+                  )}
                 </div>
               ) : (
-                cleaningRecords.map((record, i) => {
+                cleaningRecords.filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate).map((record, i) => {
                   const items = (record.items as Record<string, { status: string; memo?: string | null }>) || {};
                   const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
                   const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;

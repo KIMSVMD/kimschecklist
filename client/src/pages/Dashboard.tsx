@@ -11,6 +11,7 @@ import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
   MessageSquare, Send, CheckCheck, CornerDownRight,
+  ChevronLeft, ChevronRight, Calendar,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -289,34 +290,52 @@ function VMTab() {
   );
 }
 
+function toLocalDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function CleaningTab() {
   const [filterBranch, setFilterBranch] = useState('전체');
   const { toast } = useToast();
   const deleteMutation = useDeleteCleaning();
 
-  const today = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateStr(new Date());
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const isToday = selectedDate === todayStr;
+
   const { data: allRecords = [], isLoading } = useCleaningInspections(
     filterBranch !== '전체' ? { branch: filterBranch } : {}
   );
 
-  // Today's records
-  const todayRecords = allRecords.filter(r => {
-    const d = new Date(r.createdAt).toISOString().split('T')[0];
-    return d === today;
-  });
+  // Records for the selected date
+  const dayRecords = allRecords.filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate);
 
-  // Zone status summary for today (latest record per zone)
+  const goBack = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(toLocalDateStr(d));
+  };
+  const goForward = () => {
+    if (isToday) return;
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 1);
+    setSelectedDate(toLocalDateStr(d));
+  };
+
+  const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+
+  // Zone status summary for selected date (latest record per zone)
   const zoneStatus: Record<string, { status: string; time: string; id: number } | null> = {};
   ZONES.forEach(z => { zoneStatus[z] = null; });
-  todayRecords.forEach(r => {
+  dayRecords.forEach(r => {
     if (!zoneStatus[r.zone] || new Date(r.createdAt) > new Date((zoneStatus[r.zone] as any).createdAt)) {
       zoneStatus[r.zone] = { status: r.overallStatus, time: r.inspectionTime, id: r.id };
     }
   });
 
-  // Issue list for today
+  // Issue list for selected date
   const issues: { zone: string; item: string; memo?: string | null; photoUrl?: string | null; time: string }[] = [];
-  todayRecords.forEach(r => {
+  dayRecords.forEach(r => {
     if (r.items) {
       Object.entries(r.items as Record<string, any>).forEach(([item, data]) => {
         if (data.status === 'issue') {
@@ -340,19 +359,42 @@ function CleaningTab() {
 
   return (
     <>
-      {/* Branch filter */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-secondary font-bold mb-3">
-          <Filter className="w-5 h-5" />
-          <span>지점 선택</span>
+      {/* Branch filter + date navigator */}
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+          <select
+            value={filterBranch}
+            onChange={e => setFilterBranch(e.target.value)}
+            className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-emerald-400/50 outline-none text-secondary text-sm"
+          >
+            {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
+          </select>
         </div>
-        <select
-          value={filterBranch}
-          onChange={e => setFilterBranch(e.target.value)}
-          className="w-full bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-emerald-400/50 outline-none text-secondary"
-        >
-          {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
-        </select>
+
+        {/* Date navigator */}
+        <div className="flex items-center gap-2 bg-muted rounded-2xl p-1">
+          <button
+            onClick={goBack}
+            className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
+            data-testid="btn-date-prev"
+          >
+            <ChevronLeft className="w-5 h-5 text-secondary" />
+          </button>
+          <div className="flex-1 text-center">
+            <p className="font-black text-secondary text-base">
+              {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
+            </p>
+          </div>
+          <button
+            onClick={goForward}
+            disabled={isToday}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
+            data-testid="btn-date-next"
+          >
+            <ChevronRight className="w-5 h-5 text-secondary" />
+          </button>
+        </div>
       </div>
 
       <div className="p-4 space-y-5">
@@ -362,11 +404,13 @@ function CleaningTab() {
           </div>
         ) : (
           <>
-            {/* Today summary card */}
+            {/* Summary card for selected date */}
             <div className="bg-secondary text-white rounded-3xl p-5 shadow-xl">
               <div className="flex items-center gap-2 mb-4">
                 <Droplets className="w-6 h-6 text-emerald-400" />
-                <h3 className="text-xl font-black">오늘의 청소 점검 현황</h3>
+                <h3 className="text-xl font-black">
+                  {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 청소 점검 현황
+                </h3>
               </div>
               <div className="flex gap-4 mb-5">
                 <div className="flex-1 bg-white/10 rounded-2xl p-4 text-center">
@@ -418,11 +462,12 @@ function CleaningTab() {
               </div>
             </div>
 
-            {/* Issues today */}
+            {/* Issues for selected date */}
             {issues.length > 0 && (
               <div className="space-y-3">
                 <h3 className="text-lg font-black text-secondary flex items-center gap-2">
-                  <XCircle className="w-5 h-5 text-primary" /> 오늘 발생한 문제
+                  <XCircle className="w-5 h-5 text-primary" />
+                  {isToday ? '오늘' : format(selectedDateObj, 'M월 d일', { locale: ko })} 발생한 문제
                 </h3>
                 {issues.map((issue, i) => (
                   <motion.div
@@ -455,14 +500,15 @@ function CleaningTab() {
               </div>
             )}
 
-            {/* Full history */}
-            {allRecords.length > 0 && (
+            {/* Records for selected date */}
+            {dayRecords.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-lg font-black text-secondary">전체 점검 기록</h3>
-                {allRecords.map((record, i) => {
+                <h3 className="text-lg font-black text-secondary">
+                  {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 점검 기록
+                </h3>
+                {dayRecords.map((record, i) => {
                   const items = record.items as Record<string, { status: string; memo?: string | null }> || {};
                   const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue' || v.status === 'partial');
-                  const isToday = new Date(record.createdAt).toISOString().split('T')[0] === today;
                   const cleanScore = calcCleaningScore(items);
                   return (
                     <motion.div
@@ -487,7 +533,6 @@ function CleaningTab() {
                               {record.inspectionTime === '오픈' ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
                               {record.inspectionTime}
                             </span>
-                            {isToday && <span className="text-xs bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">오늘</span>}
                           </div>
                           <p className="text-xs text-muted-foreground">
                             {format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}
@@ -532,12 +577,19 @@ function CleaningTab() {
               </div>
             )}
 
-            {allRecords.length === 0 && (
+            {dayRecords.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-3">
                 <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                  <Droplets className="w-8 h-8 opacity-40" />
+                  <Calendar className="w-8 h-8 opacity-40" />
                 </div>
-                <p className="font-medium text-lg">청소 점검 기록이 없습니다.</p>
+                <p className="font-medium text-lg">
+                  {isToday ? '오늘은' : format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
+                </p>
+                {!isToday && (
+                  <button onClick={() => setSelectedDate(todayStr)} className="text-sm font-bold text-emerald-600 underline underline-offset-2">
+                    오늘로 돌아가기
+                  </button>
+                )}
               </div>
             )}
           </>
