@@ -35,7 +35,7 @@ const REGIONS = {
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 
-type SelectStage = 'type' | 'category' | 'group' | 'product';
+type SelectStage = 'type' | 'category' | 'product';
 
 export default function NewChecklist() {
   const [, setLocation] = useLocation();
@@ -46,7 +46,6 @@ export default function NewChecklist() {
   // Step 2 sub-stage lifted to parent for unified back navigation
   const [stage, setStage] = useState<SelectStage>('type');
   const [selCategory, setSelCategory] = useState('');
-  const [selGroup, setSelGroup] = useState('');
 
   const [formData, setFormData] = useState({
     branch: "",
@@ -66,26 +65,23 @@ export default function NewChecklist() {
     if (step === 3) {
       setStage('type');
       setSelCategory('');
-      setSelGroup('');
       setStep(2);
     } else if (step === 2) {
-      if (stage === 'product') { setStage('group'); setSelGroup(''); }
-      else if (stage === 'group') { setStage('category'); setSelCategory(''); }
+      if (stage === 'product') { setStage('category'); setSelCategory(''); }
       else if (stage === 'category') { setStage('type'); }
       else { setStep(1); } // stage === 'type'
     }
   };
 
   // Whether to show the back button
-  const showBack = step === 3 || (step === 2 && stage !== 'type') || (step === 2 && stage === 'type');
+  const showBack = step >= 2;
 
   // Label for the back button
   const backLabel = (() => {
     if (step === 3) return '상품 선택';
     if (step === 2) {
       if (stage === 'category') return '유형 선택';
-      if (stage === 'group') return '카테고리 선택';
-      if (stage === 'product') return '그룹 선택';
+      if (stage === 'product') return '카테고리 선택';
       return '지점 선택'; // stage === 'type'
     }
     return '이전';
@@ -93,14 +89,10 @@ export default function NewChecklist() {
 
   // Progress percentage
   const progressMap: Record<string, number> = {
-    // step 1
     '1-': 33,
-    // step 2 sub-stages
     '2-type': 40,
-    '2-category': 50,
-    '2-group': 60,
+    '2-category': 55,
     '2-product': 70,
-    // step 3
     '3-': 100,
   };
   const progressKey = step === 2 ? `2-${stage}` : `${step}-`;
@@ -135,8 +127,6 @@ export default function NewChecklist() {
                 setStage={setStage}
                 selCategory={selCategory}
                 setSelCategory={setSelCategory}
-                selGroup={selGroup}
-                setSelGroup={setSelGroup}
                 onSelect={(category, product) => {
                   updateForm('category', category);
                   updateForm('product', product);
@@ -227,35 +217,17 @@ type Step2Props = {
   setStage: (s: SelectStage) => void;
   selCategory: string;
   setSelCategory: (v: string) => void;
-  selGroup: string;
-  setSelGroup: (v: string) => void;
   onSelect: (category: string, product: string) => void;
 };
 
-function Step2Select({ branch, stage, setStage, selCategory, setSelCategory, selGroup, setSelGroup, onSelect }: Step2Props) {
+function Step2Select({ branch, stage, setStage, selCategory, setSelCategory, onSelect }: Step2Props) {
   const [, setLocation] = useLocation();
 
   const { data: dbProducts = [], isLoading } = useProducts(selCategory);
-  const groups = [...new Set(dbProducts.map(p => p.groupName))];
 
   const handleCategorySelect = (cat: string) => {
     setSelCategory(cat);
-    setSelGroup('');
-    setStage('group');
-  };
-
-  const handleGroupSelect = (group: string) => {
-    const subs = dbProducts.filter(p => p.groupName === group && p.productName);
-    if (subs.length === 0) {
-      onSelect(selCategory, `[${group}]`);
-    } else {
-      setSelGroup(group);
-      setStage('product');
-    }
-  };
-
-  const handleProductSelect = (productName: string) => {
-    onSelect(selCategory, `[${selGroup}]${productName}`);
+    setStage('product');
   };
 
   return (
@@ -332,50 +304,6 @@ function Step2Select({ branch, stage, setStage, selCategory, setSelCategory, sel
         </>
       )}
 
-      {/* ── STAGE: group ── */}
-      {stage === 'group' && (
-        <>
-          <div className="space-y-1">
-            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-              <Package className="text-primary w-8 h-8" /> 상품 그룹 선택
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              <strong className="text-primary">{selCategory}</strong> 그룹을 선택하세요.
-            </p>
-          </div>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            </div>
-          ) : groups.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>등록된 상품이 없습니다.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {groups.map(group => {
-                const cnt = dbProducts.filter(p => p.groupName === group && p.productName).length;
-                return (
-                  <button
-                    key={group}
-                    onClick={() => handleGroupSelect(group)}
-                    className="flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/40 transition-all active:scale-[0.98] shadow-sm"
-                    data-testid={`button-group-${group}`}
-                  >
-                    <span className="text-2xl font-bold">{group}</span>
-                    <div className="flex items-center gap-2">
-                      {cnt > 0 && <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg font-medium">{cnt}개</span>}
-                      <ChevronRight className="w-6 h-6 text-muted-foreground" />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
-
       {/* ── STAGE: product ── */}
       {stage === 'product' && (
         <>
@@ -384,25 +312,36 @@ function Step2Select({ branch, stage, setStage, selCategory, setSelCategory, sel
               <Package className="text-primary w-8 h-8" /> 상품 선택
             </h2>
             <p className="text-muted-foreground text-lg">
-              <strong className="text-primary">{selGroup}</strong>의 상품을 선택하세요.
+              <strong className="text-primary">{selCategory}</strong> 상품을 선택하세요.
             </p>
           </div>
-          <div className="flex flex-col gap-3">
-            {dbProducts.filter(p => p.groupName === selGroup && p.productName).map(p => (
-              <button
-                key={p.id}
-                onClick={() => handleProductSelect(p.productName!)}
-                className="flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/30 transition-all active:scale-[0.98] shadow-sm"
-                data-testid={`button-product-${p.id}`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="px-3 py-1.5 rounded-lg text-sm font-bold shrink-0 bg-muted text-muted-foreground">{selGroup}</span>
-                  <span className="text-2xl font-bold">{p.productName}</span>
-                </div>
-                <ChevronRight className="w-6 h-6 text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            </div>
+          ) : dbProducts.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>등록된 상품이 없습니다.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {dbProducts.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => onSelect(selCategory, p.productName ? `[${p.groupName}]${p.productName}` : `[${p.groupName}]`)}
+                  className="flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/30 transition-all active:scale-[0.98] shadow-sm"
+                  data-testid={`button-product-${p.id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1.5 rounded-lg text-sm font-bold shrink-0 bg-muted text-muted-foreground">{p.groupName}</span>
+                    <span className="text-xl font-bold">{p.productName || p.groupName}</span>
+                  </div>
+                  <ChevronRight className="w-6 h-6 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
         </>
       )}
     </motion.div>
