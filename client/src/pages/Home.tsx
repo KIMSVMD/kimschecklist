@@ -12,7 +12,6 @@ const MANUAL_SECTIONS = [
     id: 'home',
     title: '① 메인 화면',
     subtitle: '앱 시작 및 메뉴 선택',
-    imgPath: '/objects/uploads/eb77b053-d078-4e18-b228-22c2f5d0be0c',
     steps: [
       '새 점검 등록 → VM 체크리스트 작성 시작',
       '내 점검 목록 → 내가 올린 점검 확인/수정',
@@ -23,7 +22,6 @@ const MANUAL_SECTIONS = [
     id: 'vm',
     title: '② VM 점검 등록',
     subtitle: 'VM 체크리스트 작성 방법',
-    imgPath: '/objects/uploads/ac1f310d-2c06-42b9-a260-e9422ec49dd8',
     steps: [
       '지점명 선택 후 카테고리(농산/수산 등) 선택',
       '가이드 상품 목록에서 점검할 상품 선택',
@@ -35,7 +33,6 @@ const MANUAL_SECTIONS = [
     id: 'staff',
     title: '③ 내 점검 목록',
     subtitle: '등록한 점검 확인 및 알림',
-    imgPath: '/objects/uploads/10e898e4-3227-44f4-93a8-0f2264605df9',
     steps: [
       '지점 선택 후 날짜별 점검 카드 확인',
       '벨 아이콘으로 관리자 코멘트/점수 알림 확인',
@@ -47,7 +44,6 @@ const MANUAL_SECTIONS = [
     id: 'cleaning',
     title: '④ 청소 점검 등록',
     subtitle: '구역별 청소 상태 점검',
-    imgPath: '/objects/uploads/47140d1f-f572-49f6-b305-8c6c07103a67',
     steps: [
       '지점 선택 → 구역(농산/수산 등) 선택',
       '오픈 / 마감 중 해당 시간대 선택',
@@ -59,7 +55,6 @@ const MANUAL_SECTIONS = [
     id: 'admin',
     title: '⑤ 관리자 대시보드',
     subtitle: '전 지점 점검 현황 관리',
-    imgPath: '/objects/uploads/a84ed4b8-98f6-41a7-b2f5-824893eb5818',
     steps: [
       'VM 점검 / 청소 점검 탭으로 구분 확인',
       '지점별 점수 및 항목 현황 카드 확인',
@@ -97,15 +92,6 @@ function ManualSection({ section }: { section: typeof MANUAL_SECTIONS[0] }) {
             className="overflow-hidden"
           >
             <div className="border-t border-border/40">
-              {/* 실제 앱 캡처 이미지 */}
-              <div className="bg-muted/30 flex justify-center py-3 px-4">
-                <img
-                  src={section.imgPath}
-                  alt={section.title}
-                  className="rounded-xl shadow-md max-h-72 w-auto object-contain"
-                />
-              </div>
-              {/* 설명 스텝 */}
               <div className="px-4 py-3 space-y-2">
                 {section.steps.map((step, i) => (
                   <div key={i} className="flex items-start gap-2.5">
