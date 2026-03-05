@@ -166,6 +166,25 @@ export function useSaveChecklistReply() {
   });
 }
 
+export function useUpdateChecklistItemStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, itemName, newStatus }: { id: number; itemName: string; newStatus: string }) => {
+      const res = await fetch(`/api/checklists/${id}/item-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemName, newStatus }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('항목 상태 변경 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+    },
+  });
+}
+
 export function useChecklistReplies(checklistId: number | null | undefined) {
   return useQuery({
     queryKey: ["/api/checklists", checklistId, "replies"],

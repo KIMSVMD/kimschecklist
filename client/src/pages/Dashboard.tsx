@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
+import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus } from "@/hooks/use-checklists";
 import { useAdminStatus } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
@@ -119,6 +119,16 @@ function VMTab() {
   const [filterCategory, setFilterCategory] = useState('전체');
   const { toast } = useToast();
   const deleteMutation = useDeleteChecklist();
+  const itemStatusMutation = useUpdateChecklistItemStatus();
+
+  const handleItemResolve = async (id: number, itemName: string) => {
+    try {
+      await itemStatusMutation.mutateAsync({ id, itemName, newStatus: 'excellent' });
+      toast({ title: "수정 완료 처리됨", description: `'${itemName}' 항목이 우수로 변경됐습니다.` });
+    } catch {
+      toast({ title: "변경 실패", variant: "destructive" });
+    }
+  };
 
   const { data: checklists, isLoading } = useChecklists({
     branch: filterBranch !== '전체' ? filterBranch : undefined,
@@ -235,13 +245,27 @@ function VMTab() {
                   {item.items && Object.keys(item.items as object).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {Object.entries(item.items as Record<string, string>).map(([name, status]) => (
-                        <span key={name} className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                          status === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
-                          status === 'average' ? 'bg-amber-50 border-amber-200 text-amber-600' :
-                          'bg-red-50 border-red-200 text-red-600'
-                        }`}>
-                          {name}: {status === 'excellent' ? '우수' : status === 'average' ? '보통' : '미흡'}
-                        </span>
+                        <div key={name} className="flex items-center gap-1">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                            status === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
+                            status === 'average' ? 'bg-amber-50 border-amber-200 text-amber-600' :
+                            'bg-red-50 border-red-200 text-red-600'
+                          }`}>
+                            {name}: {status === 'excellent' ? '우수' : status === 'average' ? '보통' : '미흡'}
+                          </span>
+                          {status === 'poor' && (
+                            <button
+                              onClick={() => handleItemResolve(item.id, name)}
+                              disabled={itemStatusMutation.isPending}
+                              className="flex items-center gap-0.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full disabled:opacity-50 transition-all active:scale-95"
+                              title={`'${name}' 수정 완료 처리`}
+                              data-testid={`btn-vm-item-resolve-${item.id}-${name}`}
+                            >
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              <span>완료</span>
+                            </button>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}

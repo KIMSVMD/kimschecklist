@@ -359,6 +359,22 @@ export async function registerRoutes(
     }
   });
 
+  // Admin override individual VM item status (poor → excellent)
+  app.patch('/api/checklists/:id/item-status', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { itemName, newStatus } = req.body;
+      if (!itemName || !newStatus) return res.status(400).json({ message: "itemName and newStatus required" });
+      if (!['excellent', 'average', 'poor'].includes(newStatus)) return res.status(400).json({ message: "newStatus must be excellent, average, or poor" });
+      const result = await storage.updateChecklistItemStatus(id, itemName, newStatus);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Thread replies for VM checklist
   app.get('/api/checklists/:id/replies', async (req, res) => {
     try {

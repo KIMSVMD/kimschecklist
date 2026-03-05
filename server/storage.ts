@@ -24,6 +24,7 @@ export interface IStorage {
   getCleaningReplies(cleaningId: number): Promise<CleaningReply[]>;
   addCleaningReply(data: InsertCleaningReply): Promise<CleaningReply>;
   updateCleaningItemStatus(id: number, itemName: string, newStatus: string): Promise<CleaningInspection | undefined>;
+  updateChecklistItemStatus(id: number, itemName: string, newStatus: string): Promise<Checklist | undefined>;
   getChecklistReplies(checklistId: number): Promise<ChecklistReply[]>;
   addChecklistReply(data: InsertChecklistReply): Promise<ChecklistReply>;
 }
@@ -188,6 +189,23 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(cleaningInspections)
       .set({ items, overallStatus: hasIssue ? 'issue' : 'ok' })
       .where(eq(cleaningInspections.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateChecklistItemStatus(id: number, itemName: string, newStatus: string): Promise<Checklist | undefined> {
+    const [existing] = await db.select().from(checklists).where(eq(checklists.id, id));
+    if (!existing) return undefined;
+    const items = (existing.items as Record<string, string>) || {};
+    if (!(itemName in items)) return existing;
+    const updatedItems = { ...items, [itemName]: newStatus };
+    // Recalculate overall status
+    const vals = Object.values(updatedItems);
+    const overallStatus = vals.every(v => v === 'excellent') ? 'excellent'
+      : vals.some(v => v === 'poor') ? 'poor' : 'average';
+    const [updated] = await db.update(checklists)
+      .set({ items: updatedItems, status: overallStatus })
+      .where(eq(checklists.id, id))
       .returning();
     return updated;
   }
