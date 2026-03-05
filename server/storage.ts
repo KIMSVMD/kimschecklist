@@ -1,10 +1,11 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "@shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "@shared/schema";
 import { desc, eq, asc, gte, and, sql } from "drizzle-orm";
 
 export type StaffNotification = {
   id: number;
-  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply';
+  notifCategory: 'comment_reply' | 'score_change';
+  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply' | 'vm_score' | 'cleaning_score';
   createdAt: Date;
   branch: string;
   content?: string | null;
@@ -15,6 +16,9 @@ export type StaffNotification = {
   cleaningId?: number;
   zone?: string;
   inspectionTime?: string;
+  itemName?: string;
+  oldStatus?: string;
+  newStatus?: string;
 };
 
 export type AdminNotification = {
@@ -221,12 +225,25 @@ export class DatabaseStorage implements IStorage {
     if (!existing) return undefined;
     const items = (existing.items as Record<string, any>) || {};
     if (!items[itemName]) return existing;
+    const oldStatus = items[itemName].status;
     items[itemName] = { ...items[itemName], status: newStatus };
     const hasIssue = Object.values(items).some((v: any) => v.status === 'issue');
     const [updated] = await db.update(cleaningInspections)
       .set({ items, overallStatus: hasIssue ? 'issue' : 'ok' })
       .where(eq(cleaningInspections.id, id))
       .returning();
+    if (updated && oldStatus !== newStatus) {
+      await db.insert(staffScoreNotifications).values({
+        targetType: 'cleaning',
+        branch: existing.branch,
+        cleaningId: id,
+        itemName,
+        oldStatus,
+        newStatus,
+        zone: existing.zone,
+        inspectionTime: existing.inspectionTime,
+      });
+    }
     return updated;
   }
 
@@ -386,9 +403,18 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(cleaningInspections.branch, branch), eq(cleaningReplies.authorType, 'admin')))
       .orderBy(desc(cleaningReplies.createdAt));
 
-    const all: StaffNotification[] = [
+    // Score change notifications (admin item status overrides)
+    const scoreChanges = await db
+      .select()
+      .from(staffScoreNotifications)
+      .where(eq(staffScoreNotifications.branch, branch))
+      .orderBy(desc(staffScoreNotifications.createdAt))
+      .limit(80);
+
+    const commentReplies: StaffNotification[] = [
       ...vmWithComment.map((r, i) => ({
         id: i,
+        notifCategory: 'comment_reply' as const,
         type: 'vm_comment' as const,
         createdAt: r.createdAt,
         branch: r.branch,
@@ -399,6 +425,7 @@ export class DatabaseStorage implements IStorage {
       })),
       ...vmAdminReplies.map((r, i) => ({
         id: vmWithComment.length + i,
+        notifCategory: 'comment_reply' as const,
         type: 'vm_reply' as const,
         createdAt: r.createdAt,
         branch: r.branch,
@@ -410,6 +437,7 @@ export class DatabaseStorage implements IStorage {
       })),
       ...cleaningWithComment.map((r, i) => ({
         id: vmWithComment.length + vmAdminReplies.length + i,
+        notifCategory: 'comment_reply' as const,
         type: 'cleaning_comment' as const,
         createdAt: r.createdAt,
         branch: r.branch,
@@ -420,6 +448,7 @@ export class DatabaseStorage implements IStorage {
       })),
       ...cleaningAdminReplies.map((r, i) => ({
         id: vmWithComment.length + vmAdminReplies.length + cleaningWithComment.length + i,
+        notifCategory: 'comment_reply' as const,
         type: 'cleaning_reply' as const,
         createdAt: r.createdAt,
         branch: r.branch,
@@ -430,9 +459,28 @@ export class DatabaseStorage implements IStorage {
         inspectionTime: r.inspectionTime ?? undefined,
       })),
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-     .slice(0, 80);
+     .slice(0, 60);
 
-    return all;
+    const scoreNotifs: StaffNotification[] = scoreChanges.map(r => ({
+      id: r.id,
+      notifCategory: 'score_change' as const,
+      type: (r.targetType === 'vm' ? 'vm_score' : 'cleaning_score') as 'vm_score' | 'cleaning_score',
+      createdAt: r.createdAt,
+      branch: r.branch,
+      checklistId: r.checklistId ?? undefined,
+      cleaningId: r.cleaningId ?? undefined,
+      itemName: r.itemName,
+      oldStatus: r.oldStatus ?? undefined,
+      newStatus: r.newStatus,
+      product: r.product ?? undefined,
+      category: r.category ?? undefined,
+      zone: r.zone ?? undefined,
+      inspectionTime: r.inspectionTime ?? undefined,
+    }));
+
+    return [...commentReplies, ...scoreNotifs]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 100);
   }
 
   async updateChecklistItemStatus(id: number, itemName: string, newStatus: string): Promise<Checklist | undefined> {
@@ -440,6 +488,7 @@ export class DatabaseStorage implements IStorage {
     if (!existing) return undefined;
     const items = (existing.items as Record<string, string>) || {};
     if (!(itemName in items)) return existing;
+    const oldStatus = items[itemName];
     const updatedItems = { ...items, [itemName]: newStatus };
     // Recalculate overall status
     const vals = Object.values(updatedItems);
@@ -449,6 +498,18 @@ export class DatabaseStorage implements IStorage {
       .set({ items: updatedItems, status: overallStatus })
       .where(eq(checklists.id, id))
       .returning();
+    if (updated && oldStatus !== newStatus) {
+      await db.insert(staffScoreNotifications).values({
+        targetType: 'vm',
+        branch: existing.branch,
+        checklistId: id,
+        itemName,
+        oldStatus,
+        newStatus,
+        product: existing.product,
+        category: existing.category,
+      });
+    }
     return updated;
   }
 }

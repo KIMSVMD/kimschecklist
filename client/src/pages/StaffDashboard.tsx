@@ -39,8 +39,14 @@ export default function StaffDashboard() {
   const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const [filterZone, setFilterZone] = useState('전체');
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifTab, setNotifTab] = useState<'comment_reply' | 'score_change'>('comment_reply');
   const { toast } = useToast();
   const { notifications, unreadCount, dismiss, dismissAll, staffNotifKey } = useStaffNotifications(filterBranch);
+
+  const commentReplies = notifications.filter(n => n.notifCategory === 'comment_reply');
+  const scoreChanges = notifications.filter(n => n.notifCategory === 'score_change');
+  const commentUnread = commentReplies.length;
+  const scoreUnread = scoreChanges.length;
 
   const isToday = selectedDate === todayStr;
   const selectedDateObj = new Date(selectedDate + 'T00:00:00');
@@ -83,7 +89,7 @@ export default function StaffDashboard() {
     const key = staffNotifKey(n);
     dismiss(key);
     setNotifOpen(false);
-    const isVm = n.type === 'vm_comment' || n.type === 'vm_reply';
+    const isVm = n.type === 'vm_comment' || n.type === 'vm_reply' || n.type === 'vm_score';
     setActiveTab(isVm ? 'vm' : 'cleaning');
     const cardId = isVm ? `staff-vm-card-${n.checklistId}` : `staff-cleaning-card-${n.cleaningId}`;
     const scrollToCard = () => {
@@ -340,21 +346,15 @@ export default function StaffDashboard() {
         {/* Staff Notification Panel */}
         {notifOpen && filterBranch && (
           <div className="sticky top-0 z-50 bg-white border-b border-border/50 shadow-xl max-h-[65vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
               <div className="flex items-center gap-2">
                 <Bell className="w-5 h-5 text-primary" />
                 <span className="font-black text-secondary text-base">{filterBranch}점 알림</span>
-                {unreadCount > 0 && (
-                  <span className="bg-primary text-white text-xs font-black px-2 py-0.5 rounded-full">{unreadCount}</span>
-                )}
               </div>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
-                  <button
-                    onClick={dismissAll}
-                    className="text-xs font-bold text-muted-foreground hover:text-secondary px-2 py-1 rounded-lg hover:bg-muted transition-all"
-                    data-testid="btn-staff-notif-dismiss-all"
-                  >
+                  <button onClick={dismissAll} className="text-xs font-bold text-muted-foreground px-2 py-1 rounded-lg hover:bg-muted transition-all" data-testid="btn-staff-notif-dismiss-all">
                     모두 읽음
                   </button>
                 )}
@@ -363,42 +363,96 @@ export default function StaffDashboard() {
                 </button>
               </div>
             </div>
+            {/* Tab switcher */}
+            <div className="flex gap-0 border-b border-border/30 shrink-0">
+              {([
+                { key: 'comment_reply' as const, label: '코멘트/답글', count: commentUnread },
+                { key: 'score_change' as const, label: '점수 변경', count: scoreUnread },
+              ]).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setNotifTab(tab.key)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-bold border-b-2 transition-all ${
+                    notifTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
+                  }`}
+                  data-testid={`btn-staff-notif-tab-${tab.key}`}
+                >
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${notifTab === tab.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {/* Notification list */}
             <div className="overflow-y-auto flex-1">
-              {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground space-y-2">
-                  <Bell className="w-10 h-10 opacity-20" />
-                  <p className="font-medium text-sm">새 알림이 없습니다</p>
-                </div>
-              ) : (
-                notifications.map(n => {
+              {(() => {
+                const list = notifTab === 'comment_reply' ? commentReplies : scoreChanges;
+                if (list.length === 0) return (
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground space-y-2">
+                    <Bell className="w-10 h-10 opacity-20" />
+                    <p className="font-medium text-sm">새 알림이 없습니다</p>
+                  </div>
+                );
+                return list.map(n => {
                   const key = staffNotifKey(n);
-                  const isVm = n.type === 'vm_comment' || n.type === 'vm_reply';
-                  const isComment = n.type === 'vm_comment' || n.type === 'cleaning_comment';
+                  const isVm = n.type === 'vm_comment' || n.type === 'vm_reply' || n.type === 'vm_score';
+                  const isScore = n.notifCategory === 'score_change';
+
+                  const statusLabel = (s?: string) => {
+                    if (!s) return '';
+                    if (s === 'excellent') return '우수';
+                    if (s === 'average') return '보통';
+                    if (s === 'poor') return '미흡';
+                    if (s === 'ok') return '정상';
+                    if (s === 'issue') return '문제';
+                    return s;
+                  };
+                  const statusColor = (s?: string) => {
+                    if (s === 'excellent' || s === 'ok') return 'text-blue-600 bg-blue-50';
+                    if (s === 'average') return 'text-amber-600 bg-amber-50';
+                    return 'text-red-600 bg-red-50';
+                  };
+
                   return (
-                    <div key={key} className="flex items-start gap-3 p-4 border-b border-border/30 hover:bg-muted/40 transition-all" data-testid={`staff-notif-${key}`}>
-                      <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${isVm ? 'bg-primary/10' : 'bg-emerald-100'}`}>
-                        <MessageCircle className={`w-4 h-4 ${isVm ? 'text-primary' : 'text-emerald-600'}`} />
+                    <button
+                      key={key}
+                      onClick={() => handleNotifNavigate(n)}
+                      className="w-full flex items-start gap-3 p-4 border-b border-border/30 hover:bg-muted/40 active:bg-muted transition-all text-left"
+                      data-testid={`staff-notif-${key}`}
+                    >
+                      <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${isScore ? 'bg-amber-50' : isVm ? 'bg-primary/10' : 'bg-emerald-100'}`}>
+                        <MessageCircle className={`w-4 h-4 ${isScore ? 'text-amber-500' : isVm ? 'text-primary' : 'text-emerald-600'}`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-muted-foreground mb-0.5">
                           {isVm ? `VM · ${n.category} · ${n.product}` : `청소 · ${n.zone} · ${n.inspectionTime}`}
                           {' · '}
-                          {isComment ? '관리자 피드백' : '관리자 답글'}
+                          {isScore ? '점수 변경' : n.type.includes('comment') ? '관리자 피드백' : '관리자 답글'}
                         </p>
-                        <p className="text-sm font-medium text-secondary leading-snug line-clamp-2">{n.content}</p>
+                        {isScore ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-secondary">{n.itemName}</span>
+                            {n.oldStatus && (
+                              <>
+                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${statusColor(n.oldStatus)}`}>{statusLabel(n.oldStatus)}</span>
+                                <span className="text-xs text-muted-foreground">→</span>
+                              </>
+                            )}
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${statusColor(n.newStatus)}`}>{statusLabel(n.newStatus)}</span>
+                          </div>
+                        ) : (
+                          <p className="text-sm font-medium text-secondary leading-snug line-clamp-2">{n.content}</p>
+                        )}
                         <p className="text-[11px] text-muted-foreground mt-1">{format(new Date(n.createdAt), 'M월 d일 HH:mm', { locale: ko })}</p>
                       </div>
-                      <button
-                        onClick={() => handleNotifNavigate(n)}
-                        className="shrink-0 px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-xs font-bold active:scale-95 transition-all"
-                        data-testid={`btn-staff-notif-view-${key}`}
-                      >
-                        보기
-                      </button>
-                    </div>
+                      <span className="shrink-0 text-xs font-bold text-primary/60 self-center">보기 →</span>
+                    </button>
                   );
-                })
-              )}
+                });
+              })()}
             </div>
           </div>
         )}

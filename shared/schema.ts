@@ -111,3 +111,22 @@ export const insertCleaningReplySchema = createInsertSchema(cleaningReplies).omi
 
 export type InsertCleaningReply = z.infer<typeof insertCleaningReplySchema>;
 export type CleaningReply = typeof cleaningReplies.$inferSelect;
+
+// Tracks when admin overrides an item's status (score change notifications for staff)
+export const staffScoreNotifications = pgTable("staff_score_notifications", {
+  id: serial("id").primaryKey(),
+  targetType: text("target_type").notNull(), // 'vm' | 'cleaning'
+  branch: text("branch").notNull(),
+  checklistId: integer("checklist_id"),
+  cleaningId: integer("cleaning_id"),
+  itemName: text("item_name").notNull(),
+  oldStatus: text("old_status"),
+  newStatus: text("new_status").notNull(),
+  product: text("product"),
+  category: text("category"),
+  zone: text("zone"),
+  inspectionTime: text("inspection_time"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type StaffScoreNotification = typeof staffScoreNotifications.$inferSelect;

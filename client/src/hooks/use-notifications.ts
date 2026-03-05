@@ -3,7 +3,8 @@ import { useState, useCallback, useEffect } from "react";
 
 export type StaffNotification = {
   id: number;
-  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply';
+  notifCategory: 'comment_reply' | 'score_change';
+  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply' | 'vm_score' | 'cleaning_score';
   createdAt: string;
   branch: string;
   content?: string | null;
@@ -14,6 +15,9 @@ export type StaffNotification = {
   cleaningId?: number;
   zone?: string;
   inspectionTime?: string;
+  itemName?: string;
+  oldStatus?: string;
+  newStatus?: string;
 };
 
 function staffNotifKey(n: StaffNotification): string {
