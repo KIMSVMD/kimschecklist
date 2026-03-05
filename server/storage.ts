@@ -23,6 +23,7 @@ export interface IStorage {
   deleteCleaningInspection(id: number): Promise<void>;
   getCleaningReplies(cleaningId: number): Promise<CleaningReply[]>;
   addCleaningReply(data: InsertCleaningReply): Promise<CleaningReply>;
+  updateCleaningItemStatus(id: number, itemName: string, newStatus: string): Promise<CleaningInspection | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -162,6 +163,20 @@ export class DatabaseStorage implements IStorage {
   async addCleaningReply(data: InsertCleaningReply): Promise<CleaningReply> {
     const [row] = await db.insert(cleaningReplies).values(data).returning();
     return row;
+  }
+
+  async updateCleaningItemStatus(id: number, itemName: string, newStatus: string): Promise<CleaningInspection | undefined> {
+    const [existing] = await db.select().from(cleaningInspections).where(eq(cleaningInspections.id, id));
+    if (!existing) return undefined;
+    const items = (existing.items as Record<string, any>) || {};
+    if (!items[itemName]) return existing;
+    items[itemName] = { ...items[itemName], status: newStatus };
+    const hasIssue = Object.values(items).some((v: any) => v.status === 'issue');
+    const [updated] = await db.update(cleaningInspections)
+      .set({ items, overallStatus: hasIssue ? 'issue' : 'ok' })
+      .where(eq(cleaningInspections.id, id))
+      .returning();
+    return updated;
   }
 }
 

@@ -85,11 +85,11 @@ export function useCleaningReplies(cleaningId: number | null) {
 
 export function useAddCleaningReply() {
   return useMutation({
-    mutationFn: async ({ id, content, authorType }: { id: number; content: string; authorType: 'admin' | 'staff' }) => {
+    mutationFn: async ({ id, content, authorType, photoUrl }: { id: number; content: string; authorType: 'admin' | 'staff'; photoUrl?: string | null }) => {
       const res = await fetch(`/api/cleaning/${id}/replies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, authorType }),
+        body: JSON.stringify({ content, authorType, photoUrl: photoUrl ?? null }),
         credentials: 'include',
       });
       if (!res.ok) throw new Error('답글 저장 실패');
@@ -97,6 +97,24 @@ export function useAddCleaningReply() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cleaning", variables.id, "replies"] });
+    },
+  });
+}
+
+export function useUpdateCleaningItemStatus() {
+  return useMutation({
+    mutationFn: async ({ id, itemName, newStatus }: { id: number; itemName: string; newStatus: 'ok' | 'issue' }) => {
+      const res = await fetch(`/api/cleaning/${id}/item-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemName, newStatus }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('항목 상태 변경 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaning"] });
     },
   });
 }

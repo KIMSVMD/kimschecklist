@@ -87,6 +87,7 @@ export const cleaningReplies = pgTable("cleaning_replies", {
   cleaningId: integer("cleaning_id").notNull().references(() => cleaningInspections.id, { onDelete: "cascade" }),
   authorType: text("author_type").notNull(), // 'admin' | 'staff'
   content: text("content").notNull(),
+  photoUrl: text("photo_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

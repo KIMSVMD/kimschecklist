@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
 import { useAdminStatus } from "@/hooks/use-guides";
-import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning";
+import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { calcVMScore, calcCleaningScore, scoreColor } from "@/lib/scoring";
@@ -299,6 +299,16 @@ function CleaningTab() {
   const [filterBranch, setFilterBranch] = useState('전체');
   const { toast } = useToast();
   const deleteMutation = useDeleteCleaning();
+  const itemStatusMutation = useUpdateCleaningItemStatus();
+
+  const handleItemResolve = async (id: number, itemName: string) => {
+    try {
+      await itemStatusMutation.mutateAsync({ id, itemName, newStatus: 'ok' });
+      toast({ title: "항목 완료 처리됨", description: `'${itemName}' 항목이 이상없음으로 변경됐습니다.` });
+    } catch {
+      toast({ title: "변경 실패", variant: "destructive" });
+    }
+  };
 
   const todayStr = toLocalDateStr(new Date());
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -335,12 +345,12 @@ function CleaningTab() {
   });
 
   // Issue list for selected date
-  const issues: { zone: string; item: string; memo?: string | null; photoUrl?: string | null; time: string }[] = [];
+  const issues: { recordId: number; zone: string; item: string; memo?: string | null; photoUrl?: string | null; time: string }[] = [];
   dayRecords.forEach(r => {
     if (r.items) {
       Object.entries(r.items as Record<string, any>).forEach(([item, data]) => {
         if (data.status === 'issue') {
-          issues.push({ zone: r.zone, item, memo: data.memo, photoUrl: data.photoUrl, time: r.inspectionTime });
+          issues.push({ recordId: r.id, zone: r.zone, item, memo: data.memo, photoUrl: data.photoUrl, time: r.inspectionTime });
         }
       });
     }
@@ -495,6 +505,15 @@ function CleaningTab() {
                           <p className="text-sm text-muted-foreground mt-1 truncate">{issue.memo}</p>
                         )}
                       </div>
+                      <button
+                        onClick={() => handleItemResolve(issue.recordId, issue.item)}
+                        disabled={itemStatusMutation.isPending}
+                        className="shrink-0 self-center flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-emerald-50 border-2 border-emerald-300 text-emerald-700 hover:bg-emerald-100 active:scale-[0.96] transition-all disabled:opacity-50"
+                        data-testid={`btn-resolve-issue-${i}`}
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span className="text-[10px] font-black">완료처리</span>
+                      </button>
                     </div>
                   </motion.div>
                 ))}
@@ -539,9 +558,19 @@ function CleaningTab() {
                             {format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}
                           </p>
                           {issueItems.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
+                            <div className="mt-2 flex flex-wrap gap-1.5">
                               {issueItems.map(([name, v]) => (
-                                <span key={name} className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${v.status === 'partial' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-red-50 border-red-200 text-red-600'}`}>{name}</span>
+                                <button
+                                  key={name}
+                                  onClick={() => handleItemResolve(record.id, name)}
+                                  disabled={itemStatusMutation.isPending}
+                                  className={`group flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border font-bold transition-all active:scale-95 disabled:opacity-50 ${v.status === 'partial' ? 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100' : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'}`}
+                                  data-testid={`btn-badge-resolve-${record.id}-${name}`}
+                                  title={`'${name}' 완료처리`}
+                                >
+                                  {name}
+                                  <CheckCircle2 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600" />
+                                </button>
                               ))}
                             </div>
                           )}

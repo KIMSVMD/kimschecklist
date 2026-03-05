@@ -229,14 +229,30 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
-      const { content, authorType } = req.body;
+      const { content, authorType, photoUrl } = req.body;
       if (!content || !authorType) return res.status(400).json({ message: "content and authorType required" });
       if (!['admin', 'staff'].includes(authorType)) return res.status(400).json({ message: "authorType must be admin or staff" });
       if (authorType === 'admin' && !(req.session as any).isAdmin) {
         return res.status(401).json({ message: "관리자 권한이 필요합니다." });
       }
-      const reply = await storage.addCleaningReply({ cleaningId: id, content, authorType });
+      const reply = await storage.addCleaningReply({ cleaningId: id, content, authorType, photoUrl: photoUrl ?? null });
       res.status(201).json(reply);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin: update a specific item's status in a cleaning inspection
+  app.patch('/api/cleaning/:id/item-status', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { itemName, newStatus } = req.body;
+      if (!itemName || !newStatus) return res.status(400).json({ message: "itemName and newStatus required" });
+      if (!['ok', 'issue'].includes(newStatus)) return res.status(400).json({ message: "newStatus must be ok or issue" });
+      const result = await storage.updateCleaningItemStatus(id, itemName, newStatus);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
     }

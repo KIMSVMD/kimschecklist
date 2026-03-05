@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateCleaning, useCleaningInspections } from "@/hooks/use-cleaning";
@@ -16,7 +16,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
 
 const ZONES = ["입구", "농산", "축산", "수산", "공산"];
@@ -24,48 +23,20 @@ const ZONES = ["입구", "농산", "축산", "수산", "공산"];
 const ZONE_ITEMS: Record<string, string[]> = {
   "입구": ["카트 정리 상태"],
   "농산": [
-    "바닥 청결",
-    "진열대 청결",
-    "상품 상태",
-    "폐기 상품 여부",
-    "가격표 상태",
-    "행사매대 주변 청결",
-    "메인 통로 청결",
-    "쇼케이스 유리 청결",
-    "폐기통 상태",
+    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
   ],
   "축산": [
-    "바닥 청결",
-    "진열대 청결",
-    "상품 상태",
-    "폐기 상품 여부",
-    "가격표 상태",
-    "행사매대 주변 청결",
-    "메인 통로 청결",
-    "쇼케이스 유리 청결",
-    "폐기통 상태",
+    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
   ],
   "수산": [
-    "바닥 청결",
-    "진열대 청결",
-    "상품 상태",
-    "폐기 상품 여부",
-    "가격표 상태",
-    "행사매대 주변 청결",
-    "메인 통로 청결",
-    "쇼케이스 유리 청결",
-    "폐기통 상태",
+    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
   ],
   "공산": [
-    "바닥 청결",
-    "진열대 청결",
-    "상품 상태",
-    "폐기 상품 여부",
-    "가격표 상태",
-    "행사매대 주변 청결",
-    "메인 통로 청결",
-    "쇼케이스 유리 청결",
-    "폐기통 상태",
+    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
   ],
 };
 
@@ -74,6 +45,39 @@ type ItemData = {
   photoUrl?: string | null;
   memo?: string | null;
 };
+
+// Korean time (KST = UTC+9) date string "YYYY-MM-DD"
+function getKSTDateStr() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().split("T")[0];
+}
+
+function getDraftKey(branch: string, zone: string, time: string) {
+  return `cleaning_draft_${branch}_${zone}_${time}_${getKSTDateStr()}`;
+}
+
+function loadDraft(branch: string, zone: string, time: string): Record<string, ItemData> {
+  try {
+    const raw = localStorage.getItem(getDraftKey(branch, zone, time));
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function saveDraft(branch: string, zone: string, time: string, data: Record<string, ItemData>) {
+  try {
+    localStorage.setItem(getDraftKey(branch, zone, time), JSON.stringify(data));
+  } catch {}
+}
+
+function clearDraft(branch: string, zone: string, time: string) {
+  try {
+    localStorage.removeItem(getDraftKey(branch, zone, time));
+  } catch {}
+}
 
 export default function CleaningChecklist() {
   const [, setLocation] = useLocation();
@@ -96,12 +100,12 @@ export default function CleaningChecklist() {
   const issueCount = Object.values(itemData).filter(v => v.status === "issue").length;
 
   // Today's zone scores for this branch
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
   const { data: todayRecords = [] } = useCleaningInspections(branch ? { branch } : {});
   const zoneScores: Record<string, number | null> = {};
   ZONES.forEach(z => { zoneScores[z] = null; });
   (todayRecords as any[]).filter(r => {
-    return new Date(r.createdAt).toISOString().split('T')[0] === today;
+    return new Date(r.createdAt).toISOString().split("T")[0] === today;
   }).forEach(r => {
     const items = r.items as Record<string, { status: string }> || {};
     const score = calcCleaningScore(items);
@@ -110,10 +114,25 @@ export default function CleaningChecklist() {
     }
   });
 
+  // Load draft when zone or inspectionTime changes
+  useEffect(() => {
+    if (step === "items" && selectedZone && branch) {
+      const draft = loadDraft(branch, selectedZone, inspectionTime);
+      setItemData(draft);
+    }
+  }, [step, selectedZone, inspectionTime, branch]);
+
+  // Save draft whenever itemData changes (while in items step)
+  useEffect(() => {
+    if (step === "items" && selectedZone && branch && Object.keys(itemData).length > 0) {
+      saveDraft(branch, selectedZone, inspectionTime, itemData);
+    }
+  }, [itemData, step, selectedZone, inspectionTime, branch]);
+
   const handleZoneSelect = (zone: string) => {
     setSelectedZone(zone);
-    setItemData({});
     setStep("items");
+    // Draft will be loaded via useEffect
   };
 
   const handleStatusSet = (item: string, status: "ok" | "issue") => {
@@ -160,10 +179,17 @@ export default function CleaningChecklist() {
         items,
         overallStatus: hasIssue ? "issue" : "ok",
       });
+      // Clear the draft after successful submit
+      clearDraft(branch, selectedZone, inspectionTime);
       setStep("done");
     } catch (err) {
       toast({ title: "저장 실패", description: String(err), variant: "destructive" });
     }
+  };
+
+  const hasDraft = (zone: string) => {
+    const draft = loadDraft(branch, zone, inspectionTime);
+    return Object.keys(draft).length > 0;
   };
 
   return (
@@ -229,6 +255,7 @@ export default function CleaningChecklist() {
                 <div className="flex flex-col gap-3">
                   {ZONES.map(zone => {
                     const zs = zoneScores[zone];
+                    const hasSavedDraft = hasDraft(zone);
                     return (
                       <button
                         key={zone}
@@ -236,7 +263,14 @@ export default function CleaningChecklist() {
                         className="flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-emerald-400 hover:bg-emerald-50 transition-all active:scale-[0.98] shadow-sm"
                         data-testid={`btn-zone-${zone}`}
                       >
-                        <span className="text-2xl font-bold">{zone}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl font-bold">{zone}</span>
+                          {hasSavedDraft && (
+                            <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                              작성 중
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-3">
                           {zs !== null ? (
                             <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(zs)}`}
@@ -314,7 +348,6 @@ export default function CleaningChecklist() {
                         <div className="flex items-center justify-between p-5">
                           <span className="text-xl font-bold text-secondary">{item}</span>
                           <div className="flex gap-3">
-                            {/* OK ○ button */}
                             <button
                               onClick={() => handleStatusSet(item, "ok")}
                               className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 border-2 transition-all active:scale-95 ${
@@ -326,7 +359,6 @@ export default function CleaningChecklist() {
                             >
                               <CheckCircle2 className="w-8 h-8" />
                             </button>
-                            {/* ISSUE ✗ button */}
                             <button
                               onClick={() => handleStatusSet(item, "issue")}
                               className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 border-2 transition-all active:scale-95 ${
@@ -341,7 +373,6 @@ export default function CleaningChecklist() {
                           </div>
                         </div>
 
-                        {/* Detail panel (expands when issue selected) */}
                         <AnimatePresence>
                           {status === "issue" && (
                             <motion.div
@@ -356,7 +387,6 @@ export default function CleaningChecklist() {
                                   <AlertCircle className="w-4 h-4" /> 문제 상세 기록
                                 </p>
 
-                                {/* Photo */}
                                 <button
                                   onClick={() => fileRefs.current[item]?.click()}
                                   className={`w-full h-28 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all active:scale-[0.98] ${
@@ -388,7 +418,6 @@ export default function CleaningChecklist() {
                                   onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, f); }}
                                 />
 
-                                {/* Memo */}
                                 <textarea
                                   placeholder="문제 내용을 간략히 메모하세요..."
                                   value={data?.memo || ""}
@@ -405,7 +434,6 @@ export default function CleaningChecklist() {
                   })}
                 </div>
 
-                {/* Progress indicator */}
                 <div className="flex items-center justify-between text-sm text-muted-foreground font-medium pt-2">
                   <span>{Object.values(itemData).filter(v => v.status != null).length} / {currentItems.length} 완료</span>
                   {issueCount > 0 && (
@@ -415,7 +443,6 @@ export default function CleaningChecklist() {
                   )}
                 </div>
 
-                {/* Submit */}
                 <button
                   onClick={handleSubmit}
                   disabled={!allChecked || createMutation.isPending}
