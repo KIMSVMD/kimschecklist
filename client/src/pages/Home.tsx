@@ -14,7 +14,7 @@ const MANUAL_SECTIONS = [
     subtitle: '앱 시작 및 메뉴 선택',
     steps: [
       '새 점검 등록 → VM 체크리스트 작성 시작',
-      '내 점검 목록 → 내가 올린 점검 확인/수정',
+      '점검 월별 피드백 → 내가 올린 점검 확인/수정',
       '관리자 메뉴 → 비밀번호 입력 후 대시보드',
     ],
   },
@@ -31,7 +31,7 @@ const MANUAL_SECTIONS = [
   },
   {
     id: 'staff',
-    title: '③ 내 점검 목록',
+    title: '③ 점검 월별 피드백',
     subtitle: '등록한 점검 확인 및 알림',
     steps: [
       '지점 선택 후 날짜별 점검 카드 확인',
@@ -168,7 +168,7 @@ export default function Home() {
                   <ClipboardList className="w-8 h-8 text-secondary" />
                 </div>
                 <div className="text-left">
-                  <h2 className="text-2xl font-bold">내 점검 목록</h2>
+                  <h2 className="text-2xl font-bold">점검 월별 피드백</h2>
                   <p className="text-muted-foreground font-medium mt-1">수정 및 삭제 가능</p>
                 </div>
               </div>
