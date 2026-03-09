@@ -215,11 +215,11 @@ export function useChecklistReplies(checklistId: number | null | undefined) {
 export function useAddChecklistReply() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, content, authorType, photoUrl }: { id: number; content: string; authorType: 'admin' | 'staff'; photoUrl?: string | null }) => {
+    mutationFn: async ({ id, content, authorType, photoUrl, photoUrls }: { id: number; content: string; authorType: 'admin' | 'staff'; photoUrl?: string | null; photoUrls?: string[] | null }) => {
       const res = await fetch(`/api/checklists/${id}/replies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, authorType, photoUrl: photoUrl ?? null }),
+        body: JSON.stringify({ content, authorType, photoUrl: photoUrl ?? null, photoUrls: photoUrls ?? null }),
         credentials: 'include',
       });
       if (!res.ok) throw new Error('답글 저장 실패');

@@ -275,13 +275,13 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
-      const { content, authorType, photoUrl } = req.body;
+      const { content, authorType, photoUrl, photoUrls } = req.body;
       if (!content || !authorType) return res.status(400).json({ message: "content and authorType required" });
       if (!['admin', 'staff'].includes(authorType)) return res.status(400).json({ message: "authorType must be admin or staff" });
       if (authorType === 'admin' && !(req.session as any).isAdmin) {
         return res.status(401).json({ message: "관리자 권한이 필요합니다." });
       }
-      const reply = await storage.addCleaningReply({ cleaningId: id, content, authorType, photoUrl: photoUrl ?? null });
+      const reply = await storage.addCleaningReply({ cleaningId: id, content, authorType, photoUrl: photoUrl ?? null, photoUrls: photoUrls ?? null });
       res.status(201).json(reply);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
@@ -489,13 +489,13 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
-      const { content, authorType, photoUrl } = req.body;
+      const { content, authorType, photoUrl, photoUrls } = req.body;
       if (!content || !authorType) return res.status(400).json({ message: "content and authorType required" });
       if (!['admin', 'staff'].includes(authorType)) return res.status(400).json({ message: "authorType must be admin or staff" });
       if (authorType === 'admin' && !(req.session as any).isAdmin) {
         return res.status(401).json({ message: "관리자 권한이 필요합니다." });
       }
-      const reply = await storage.addChecklistReply({ checklistId: id, content, authorType, photoUrl: photoUrl ?? null });
+      const reply = await storage.addChecklistReply({ checklistId: id, content, authorType, photoUrl: photoUrl ?? null, photoUrls: photoUrls ?? null });
       res.status(201).json(reply);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });

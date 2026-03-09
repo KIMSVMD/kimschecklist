@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { MessageSquare, CheckCheck, Send, Loader2, CornerDownRight, ShieldCheck, UserRound, Camera } from "lucide-react";
+import { MessageSquare, CheckCheck, Send, Loader2, CornerDownRight, ShieldCheck, UserRound, Camera, XCircle } from "lucide-react";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -23,10 +23,13 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
   const confirmMutation = useConfirmCleaningComment();
 
   const [replyText, setReplyText] = useState("");
-  const [replyPhoto, setReplyPhoto] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [replyPhotos, setReplyPhotos] = useState<string[]>([]);
+  const [replyPreviews, setReplyPreviews] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [showInput, setShowInput] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const replyPhotosRef = useRef<string[]>([]);
+  replyPhotosRef.current = replyPhotos;
 
   if (!adminComment) return null;
 
@@ -39,31 +42,52 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
     }
   };
 
-  const handlePhotoUpload = async (file: File) => {
-    setUploadingPhoto(true);
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+    const previews = files.map(f => URL.createObjectURL(f));
+    setReplyPreviews(prev => [...prev, ...previews]);
+    setUploadingCount(c => c + files.length);
     try {
       const { uploadFile } = await import("@/lib/upload");
-      const objectPath = await uploadFile(file);
-      setReplyPhoto(objectPath);
-    } catch {
-      toast({ title: "사진 업로드 실패", variant: "destructive" });
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      const uploaded: string[] = [];
+      const failedIndexes: number[] = [];
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') uploaded.push(r.value);
+        else failedIndexes.push(i);
+      });
+      if (uploaded.length > 0) setReplyPhotos([...replyPhotosRef.current, ...uploaded]);
+      if (failedIndexes.length > 0) {
+        const failedSet = new Set(failedIndexes.map(i => previews[i]));
+        setReplyPreviews(prev => prev.filter(p => !failedSet.has(p)));
+        toast({ title: `${failedIndexes.length}장 업로드 실패`, variant: "destructive" });
+      }
     } finally {
-      setUploadingPhoto(false);
+      setUploadingCount(0);
     }
+  };
+
+  const removeReplyPhoto = (index: number) => {
+    setReplyPhotos(prev => prev.filter((_, i) => i !== index));
+    setReplyPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSendReply = async () => {
     const trimmed = replyText.trim();
-    if (!trimmed && !replyPhoto) return;
+    if (!trimmed && replyPhotos.length === 0) return;
     try {
       await addReplyMutation.mutateAsync({
         id: cleaningId,
         content: trimmed || "(사진 첨부)",
         authorType: isAdmin ? "admin" : "staff",
-        photoUrl: replyPhoto,
+        photoUrl: replyPhotos[0] ?? null,
+        photoUrls: replyPhotos.length > 0 ? replyPhotos : null,
       });
       setReplyText("");
-      setReplyPhoto(null);
+      setReplyPhotos([]);
+      setReplyPreviews([]);
       setShowInput(false);
       toast({ title: "답글이 전송됐습니다" });
     } catch {
@@ -95,7 +119,6 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
         </>
       )}
 
-      {/* Confirm button — staff only, until confirmed */}
       {!isAdmin && !isConfirmed && (
         <div className="px-4 pb-3">
           <button
@@ -110,7 +133,6 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
         </div>
       )}
 
-      {/* Reply thread */}
       {canReply && (
         <div className={`${hideComment ? "pt-0" : "border-t border-emerald-200"} px-4 pt-3 pb-4 space-y-2`}>
           {!hideComment && (
@@ -126,10 +148,10 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
             </div>
           )}
 
-          {/* Existing replies */}
           <AnimatePresence initial={false}>
             {replies.map((reply: CleaningReply) => {
               const isAdminReply = reply.authorType === "admin";
+              const photos: string[] = (reply as any).photoUrls || ((reply as any).photoUrl ? [(reply as any).photoUrl] : []);
               return (
                 <motion.div
                   key={reply.id}
@@ -145,14 +167,14 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
                   </div>
                   <div className={`flex-1 min-w-0 ${isAdminReply ? "" : "text-right"}`}>
                     <div className={`inline-block text-left rounded-2xl px-3 py-2.5 max-w-[85%] ${isAdminReply ? "bg-white border border-border shadow-sm" : "bg-emerald-500 text-white"}`}>
-                      {(reply as any).photoUrl && (
-                        <PhotoThumbnail src={(reply as any).photoUrl} className="block mb-2">
-                          <img
-                            src={(reply as any).photoUrl}
-                            alt="첨부 사진"
-                            className="w-full max-w-[200px] rounded-xl object-cover"
-                          />
-                        </PhotoThumbnail>
+                      {photos.length > 0 && (
+                        <div className={`${photos.length > 1 ? "grid grid-cols-2 gap-1 mb-2" : "mb-2"}`}>
+                          {photos.map((src, pi) => (
+                            <PhotoThumbnail key={pi} src={src} className="block">
+                              <img src={src} alt="첨부 사진" className="w-full rounded-xl object-cover max-w-[200px]" />
+                            </PhotoThumbnail>
+                          ))}
+                        </div>
                       )}
                       {reply.content !== "(사진 첨부)" && (
                         <p className={`text-sm font-medium leading-relaxed ${isAdminReply ? "text-secondary" : "text-white"}`}>
@@ -170,29 +192,40 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
             })}
           </AnimatePresence>
 
-          {/* Reply input */}
           {showInput ? (
             <div className="space-y-2 pt-1">
-              {/* Photo preview / upload */}
+              {replyPreviews.length > 0 && (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {replyPreviews.map((preview, i) => (
+                    <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted">
+                      <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removeReplyPhoto(i)}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90"
+                        data-testid={`btn-remove-reply-photo-cleaning-${i}`}
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                      </button>
+                      {i >= replyPhotos.length && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <Loader2 className="w-4 h-4 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               <button
                 onClick={() => fileRef.current?.click()}
-                className={`w-full h-20 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
-                  replyPhoto ? "border-emerald-400 bg-emerald-50" : "border-slate-300 bg-white hover:bg-slate-50"
-                }`}
+                className="w-full h-12 rounded-xl border-2 border-dashed border-emerald-300 bg-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] hover:bg-emerald-50"
+                data-testid={`btn-add-reply-photo-cleaning-${cleaningId}`}
               >
-                {uploadingPhoto ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
-                ) : replyPhoto ? (
-                  <div className="relative w-full h-full">
-                    <img src={replyPhoto} alt="첨부" className="w-full h-full object-cover rounded-xl" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
-                      <span className="text-white text-xs font-bold">사진 변경</span>
-                    </div>
-                  </div>
+                {uploadingCount > 0 ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
                 ) : (
                   <>
-                    <Camera className="w-5 h-5 text-slate-400" />
-                    <span className="text-sm font-bold text-slate-500">완료 사진 첨부 (선택)</span>
+                    <Camera className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm font-bold text-slate-500">{replyPreviews.length > 0 ? "사진 추가" : "완료 사진 첨부 (선택)"}</span>
                   </>
                 )}
               </button>
@@ -200,9 +233,9 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
                 ref={fileRef}
                 type="file"
                 accept="image/*"
-               
+                multiple
                 className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); }}
+                onChange={handlePhotoUpload}
               />
 
               <textarea
@@ -216,7 +249,7 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
               <div className="flex gap-2">
                 <button
                   onClick={handleSendReply}
-                  disabled={addReplyMutation.isPending || (!replyText.trim() && !replyPhoto)}
+                  disabled={addReplyMutation.isPending || (!replyText.trim() && replyPhotos.length === 0)}
                   className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
                   data-testid={`btn-send-thread-reply-${cleaningId}`}
                 >
@@ -224,7 +257,7 @@ export function CleaningCommentThread({ cleaningId, adminComment, confirmed, isA
                   전송
                 </button>
                 <button
-                  onClick={() => { setReplyText(""); setReplyPhoto(null); setShowInput(false); }}
+                  onClick={() => { setReplyText(""); setReplyPhotos([]); setReplyPreviews([]); setShowInput(false); }}
                   className="px-4 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]"
                 >
                   취소

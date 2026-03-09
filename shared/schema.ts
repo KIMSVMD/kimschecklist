@@ -94,6 +94,7 @@ export const checklistReplies = pgTable("checklist_replies", {
   authorType: text("author_type").notNull(), // 'admin' | 'staff'
   content: text("content").notNull(),
   photoUrl: text("photo_url"),
+  photoUrls: text("photo_urls").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -107,6 +108,7 @@ export const cleaningReplies = pgTable("cleaning_replies", {
   authorType: text("author_type").notNull(), // 'admin' | 'staff'
   content: text("content").notNull(),
   photoUrl: text("photo_url"),
+  photoUrls: text("photo_urls").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

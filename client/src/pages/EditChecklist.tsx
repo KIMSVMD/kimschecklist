@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklist, useUpdateChecklist, useSaveChecklistComment, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
@@ -8,7 +7,6 @@ import { motion } from "framer-motion";
 import {
   Camera,
   CheckCircle2,
-  AlertTriangle,
   XOctagon,
   Image as ImageIcon,
   Loader2,
@@ -19,6 +17,7 @@ import {
   Send,
   CheckCheck,
   CornerDownRight,
+  XCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -42,8 +41,9 @@ export default function EditChecklist() {
   const confirmMutation = useConfirmChecklistComment();
   const replyMutation = useSaveChecklistReply();
 
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [localPreviews, setLocalPreviews] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [items, setItems] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
   const [commentText, setCommentText] = useState('');
@@ -51,13 +51,9 @@ export default function EditChecklist() {
   const [commentOpen, setCommentOpen] = useState(false);
   const [replyOpen, setReplyOpen] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const { uploadFile } = await import("@/lib/upload");
-      return uploadFile(file);
-    },
-  });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoUrlsRef = useRef<string[]>([]);
+  photoUrlsRef.current = photoUrls;
 
   const isAdmin = !!adminStatus?.isAdmin;
   const adminComment = (checklist as any)?.adminComment as string | null | undefined;
@@ -82,11 +78,11 @@ export default function EditChecklist() {
     }
   };
 
-  // Initialize form state once checklist loads
   useEffect(() => {
     if (checklist) {
-      setPhotoUrl(checklist.photoUrl || null);
-      setLocalPreview(checklist.photoUrl || null);
+      const existing: string[] = (checklist as any).photoUrls || (checklist.photoUrl ? [checklist.photoUrl] : []);
+      setPhotoUrls(existing);
+      setLocalPreviews(existing);
       setItems((checklist.items as Record<string, string>) || {});
       setNotes(checklist.notes || "");
       setCommentText((checklist as any).adminComment || "");
@@ -95,29 +91,48 @@ export default function EditChecklist() {
   }, [checklist]);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLocalPreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+    const previews = files.map(f => URL.createObjectURL(f));
+    setLocalPreviews(prev => [...prev, ...previews]);
+    setUploadingCount(c => c + files.length);
     try {
-      const url = await uploadMutation.mutateAsync(file);
-      setPhotoUrl(url);
-    } catch {
-      toast({ title: "업로드 실패", description: "사진을 다시 업로드해주세요.", variant: "destructive" });
-      setLocalPreview(checklist?.photoUrl || null);
+      const { uploadFile } = await import("@/lib/upload");
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      const uploaded: string[] = [];
+      const failedIndexes: number[] = [];
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') uploaded.push(r.value);
+        else failedIndexes.push(i);
+      });
+      if (uploaded.length > 0) setPhotoUrls([...photoUrlsRef.current, ...uploaded]);
+      if (failedIndexes.length > 0) {
+        const failedSet = new Set(failedIndexes.map(i => previews[i]));
+        setLocalPreviews(prev => prev.filter(p => !failedSet.has(p)));
+        toast({ title: `${failedIndexes.length}장 업로드 실패`, variant: "destructive" });
+      }
+    } finally {
+      setUploadingCount(0);
     }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotoUrls(photoUrls.filter((_, i) => i !== index));
+    setLocalPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
     if (!checklist) return;
     const hasNotok = Object.values(items).includes("notok") || Object.values(items).includes("poor");
     const finalStatus = hasNotok ? "poor" : "excellent";
-
     try {
       await updateMutation.mutateAsync({
         id,
         data: {
           status: finalStatus,
-          photoUrl: photoUrl || null,
+          photoUrl: photoUrls[0] || null,
+          photoUrls: photoUrls.length > 0 ? photoUrls : null,
           notes: notes || null,
           items,
         },
@@ -222,29 +237,46 @@ export default function EditChecklist() {
 
         {/* Photo Upload */}
         <div className="space-y-3">
-          <h3 className="text-xl font-bold text-secondary">현장 사진</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-secondary">현장 사진</h3>
+            {localPreviews.length > 0 && (
+              <span className="text-sm font-bold text-muted-foreground">{localPreviews.length}장</span>
+            )}
+          </div>
+
+          {localPreviews.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {localPreviews.map((preview, i) => (
+                <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted">
+                  <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => removePhoto(i)}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+                    data-testid={`btn-remove-photo-${i}`}
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
+                  {i >= photoUrls.length && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full relative aspect-video rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center overflow-hidden active:scale-[0.98] transition-all group"
+            className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 active:scale-[0.98] transition-all"
+            data-testid="btn-add-photo"
           >
-            {localPreview && (
-              <img src={localPreview} className="absolute inset-0 w-full h-full object-cover" alt="Preview" />
-            )}
-            {guideImage && (
-              <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply">
-                <img src={guideImage} className="w-full h-full object-contain bg-white grayscale" alt="Overlay" />
-              </div>
-            )}
-            <div className={`relative z-10 flex flex-col items-center p-6 rounded-2xl backdrop-blur-sm ${localPreview ? "bg-black/50 text-white" : "bg-white/80 text-primary"}`}>
-              {uploadMutation.isPending ? (
-                <Loader2 className="w-12 h-12 animate-spin mb-2" />
-              ) : (
-                <Camera className="w-12 h-12 mb-2" />
-              )}
-              <span className="font-bold text-lg">{localPreview ? "다시 촬영하기" : "탭하여 사진 촬영"}</span>
-            </div>
+            {uploadingCount > 0
+              ? <><Loader2 className="w-7 h-7 text-primary animate-spin" /><span className="font-bold text-primary text-lg">업로드 중...</span></>
+              : <><Camera className="w-7 h-7 text-primary" /><span className="font-bold text-primary text-lg">{localPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
+            }
           </button>
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFile} />
         </div>
 
         {/* Per-item Status */}
@@ -384,7 +416,6 @@ export default function EditChecklist() {
               </div>
             )}
 
-            {/* Reply section after confirming */}
             {commentConfirmed && (
               <div className="px-4 pb-4 border-t border-emerald-200 pt-3">
                 {(checklist as any)?.staffReply && !replyOpen ? (
@@ -442,7 +473,6 @@ export default function EditChecklist() {
           </div>
         ) : null}
 
-        {/* Last saved indicator */}
         {lastSaved && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
@@ -460,11 +490,11 @@ export default function EditChecklist() {
           <p className="text-center text-sm text-muted-foreground">모든 평가 항목을 선택해주세요</p>
         )}
 
-        {/* Save button */}
         <button
           onClick={handleSubmit}
-          disabled={updateMutation.isPending || uploadMutation.isPending || !allItemsEvaluated}
+          disabled={updateMutation.isPending || uploadingCount > 0 || !allItemsEvaluated}
           className="w-full py-6 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-white font-black text-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-3"
+          data-testid="btn-save-checklist"
         >
           {updateMutation.isPending
             ? <Loader2 className="w-8 h-8 animate-spin" />
@@ -472,7 +502,6 @@ export default function EditChecklist() {
           }
         </button>
 
-        {/* Go to dashboard */}
         <button
           onClick={() => setLocation("/dashboard")}
           className="w-full py-5 rounded-2xl border-2 border-border bg-white text-secondary font-bold text-xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:border-primary/40"
