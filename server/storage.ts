@@ -232,18 +232,6 @@ export class DatabaseStorage implements IStorage {
       .set({ items, overallStatus: hasIssue ? 'issue' : 'ok' })
       .where(eq(cleaningInspections.id, id))
       .returning();
-    if (updated && oldStatus !== newStatus) {
-      await db.insert(staffScoreNotifications).values({
-        targetType: 'cleaning',
-        branch: existing.branch,
-        cleaningId: id,
-        itemName,
-        oldStatus,
-        newStatus,
-        zone: existing.zone,
-        inspectionTime: existing.inspectionTime,
-      });
-    }
     return updated;
   }
 
@@ -498,18 +486,6 @@ export class DatabaseStorage implements IStorage {
       .set({ items: updatedItems, status: overallStatus })
       .where(eq(checklists.id, id))
       .returning();
-    if (updated && oldStatus !== newStatus) {
-      await db.insert(staffScoreNotifications).values({
-        targetType: 'vm',
-        branch: existing.branch,
-        checklistId: id,
-        itemName,
-        oldStatus,
-        newStatus,
-        product: existing.product,
-        category: existing.category,
-      });
-    }
     return updated;
   }
 }

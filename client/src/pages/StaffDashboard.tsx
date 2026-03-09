@@ -387,7 +387,7 @@ export default function StaffDashboard() {
             <div className="flex gap-0 border-b border-border/30 shrink-0">
               {([
                 { key: 'comment_reply' as const, label: '코멘트/답글', count: commentUnread },
-                { key: 'score_change' as const, label: '점수 변경', count: scoreUnread },
+                { key: 'score_change' as const, label: '점수 부여', count: scoreUnread },
               ]).map(tab => (
                 <button
                   key={tab.key}
@@ -450,18 +450,18 @@ export default function StaffDashboard() {
                         <p className="text-xs font-bold text-muted-foreground mb-0.5">
                           {isVm ? `VM · ${n.category} · ${n.product}` : `청소 · ${n.zone} · ${n.inspectionTime}`}
                           {' · '}
-                          {isScore ? '점수 변경' : n.type.includes('comment') ? '관리자 피드백' : '관리자 답글'}
+                          {isScore ? '점수 부여' : n.type.includes('comment') ? '관리자 피드백' : '관리자 답글'}
                         </p>
                         {isScore ? (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-secondary">{n.itemName}</span>
-                            {n.oldStatus && (
-                              <>
-                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${statusColor(n.oldStatus)}`}>{statusLabel(n.oldStatus)}</span>
-                                <span className="text-xs text-muted-foreground">→</span>
-                              </>
-                            )}
-                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${statusColor(n.newStatus)}`}>{statusLabel(n.newStatus)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-base font-black px-3 py-1 rounded-xl border ${
+                              parseInt(n.newStatus) >= 90 ? 'text-blue-600 bg-blue-50 border-blue-200' :
+                              parseInt(n.newStatus) >= 70 ? 'text-amber-600 bg-amber-50 border-amber-200' :
+                              'text-primary bg-red-50 border-red-200'
+                            }`}>
+                              ★ {n.newStatus}점
+                            </span>
+                            <span className="text-xs text-muted-foreground">이 확정됐습니다</span>
                           </div>
                         ) : (
                           <p className="text-sm font-medium text-secondary leading-snug line-clamp-2">{n.content}</p>

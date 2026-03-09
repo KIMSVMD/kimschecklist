@@ -2,12 +2,13 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { insertGuideSchema, insertProductSchema, insertCleaningSchema } from "@shared/schema";
+import { insertGuideSchema, insertProductSchema, insertCleaningSchema, staffScoreNotifications } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
 import fs from "fs";
 import express from "express";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { db } from "./db";
 
 // Keep /uploads/ static serving for any older records
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -374,6 +375,15 @@ export async function registerRoutes(
       if (isNaN(score) || score < 0 || score > 100) return res.status(400).json({ message: "점수는 0~100 사이여야 합니다." });
       const result = await storage.updateChecklist(id, { adminScore: score, adminItems: adminItems ?? null } as any);
       if (!result) return res.status(404).json({ message: "Not found" });
+      await db.insert(staffScoreNotifications).values({
+        targetType: 'vm',
+        branch: result.branch,
+        checklistId: id,
+        itemName: '점수 부여',
+        newStatus: score.toString(),
+        product: result.product,
+        category: result.category,
+      });
       res.json(result);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });

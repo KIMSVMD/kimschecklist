@@ -150,33 +150,28 @@ function AdminScoreInput({
   const itemKeys = Object.keys(staffItems);
   const totalItems = itemKeys.length;
 
-  const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok' | null>>(
-    () => Object.fromEntries(
-      itemKeys.map(k => [k, existingAdminItems?.[k] ?? null])
-    )
+  const initSel = () => Object.fromEntries(
+    itemKeys.map(k => {
+      if (existingAdminItems?.[k]) return [k, existingAdminItems[k]];
+      const sv = staffItems[k];
+      return [k, (sv === 'ok' || sv === 'excellent') ? 'ok' : 'notok'];
+    })
   );
 
+  const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok'>>(initSel);
+
   const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
-  const confirmedCount = Object.values(adminSel).filter(v => v !== null).length;
-  const allSelected = totalItems > 0 && confirmedCount === totalItems;
   const calcScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
 
-  const scoreColor = (s: number) =>
-    s >= 90 ? 'text-blue-600 bg-blue-50 border-blue-200' :
-    s >= 70 ? 'text-amber-600 bg-amber-50 border-amber-200' :
-    'text-primary bg-red-50 border-red-200';
+  const scoreColorClass = (s: number) =>
+    s >= 90 ? 'text-blue-600 bg-blue-50 border-blue-300' :
+    s >= 70 ? 'text-amber-600 bg-amber-50 border-amber-300' :
+    'text-primary bg-red-50 border-red-300';
 
   const handleSave = async () => {
-    if (!allSelected) {
-      toast({ title: `아직 ${totalItems - confirmedCount}개 항목이 미평가입니다`, variant: "destructive" });
-      return;
-    }
     const score = calcScore();
-    const adminItems = Object.fromEntries(
-      Object.entries(adminSel).map(([k, v]) => [k, v as 'ok' | 'notok'])
-    );
     try {
-      await scoreMutation.mutateAsync({ id, adminScore: score, adminItems });
+      await scoreMutation.mutateAsync({ id, adminScore: score, adminItems: adminSel });
       toast({ title: `○ ${okCount}/${totalItems} → ${score}점 확정` });
       setOpen(false);
     } catch {
@@ -185,117 +180,96 @@ function AdminScoreInput({
   };
 
   const score = existingScore != null ? existingScore : null;
-  const prevOk = existingAdminItems ? Object.values(existingAdminItems).filter(v => v === 'ok').length : null;
+  const confirmedOk = existingAdminItems ? Object.values(existingAdminItems).filter(v => v === 'ok').length : null;
 
   return (
     <div className="mt-3 border-t border-border/50 pt-3">
-      {/* Trigger button */}
+      {/* Header trigger */}
       <button
-        onClick={() => {
-          if (!open) {
-            setAdminSel(Object.fromEntries(itemKeys.map(k => [k, existingAdminItems?.[k] ?? null])));
-          }
-          setOpen(o => !o);
-        }}
-        className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
-          score != null ? `${scoreColor(score)} border` : 'bg-muted text-muted-foreground hover:text-secondary'
+        onClick={() => { if (!open) setAdminSel(initSel()); setOpen(o => !o); }}
+        className={`w-full flex items-center justify-between py-2 px-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+          score != null ? `${scoreColorClass(score)} border` : 'bg-muted text-muted-foreground hover:text-secondary'
         }`}
         data-testid={`btn-score-open-${id}`}
       >
         <div className="flex items-center gap-2">
           <Star className="w-4 h-4" />
           {score != null
-            ? <span>○ {prevOk}개/{totalItems}개 → {score}점 {open ? '(수정 중)' : '(확정)'}</span>
-            : <span>관리자 항목별 평가하기</span>}
+            ? <span>○ {confirmedOk}/{totalItems} → {score}점 {open ? '(수정 중)' : '(확정)'}</span>
+            : <span>관리자 평가 (항목 수정 후 확정)</span>}
         </div>
-        <span className="text-xs opacity-60">{open ? '▲ 닫기' : '▼ 열기'}</span>
+        <span className="text-[11px] opacity-50">{open ? '▲' : '▼'}</span>
       </button>
 
-      {/* Per-item evaluation panel */}
-      {open && (
-        <div className="mt-3 space-y-2">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold text-muted-foreground">항목별 확인 ({confirmedCount}/{totalItems})</p>
-            {allSelected && (
-              <span className={`text-sm font-black px-3 py-1 rounded-lg border ${scoreColor(calcScore())}`}>
-                {calcScore()}점
-              </span>
-            )}
+      {/* Compact per-item grid */}
+      {open && totalItems > 0 && (
+        <div className="mt-2 space-y-1">
+          {/* Live score bar */}
+          <div className={`flex items-center justify-between px-3 py-2 rounded-xl border font-bold text-sm mb-2 ${scoreColorClass(calcScore())}`}>
+            <span>○ {okCount}개 / {totalItems}개</span>
+            <span className="text-lg font-black">{calcScore()}점</span>
           </div>
 
-          {totalItems === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-4">이 점검에 등록된 항목이 없습니다.</p>
-          ) : (
-            itemKeys.map(key => {
-              const staffVal = staffItems[key];
-              const isStaffOk = staffVal === 'ok' || staffVal === 'excellent';
-              const adminVal = adminSel[key];
-              return (
-                <div key={key} className={`rounded-2xl border-2 p-3 transition-all ${
-                  adminVal === 'ok' ? 'border-blue-300 bg-blue-50/50' :
-                  adminVal === 'notok' ? 'border-primary/40 bg-red-50/50' :
-                  'border-border bg-muted/20'
+          {itemKeys.map(key => {
+            const staffVal = staffItems[key];
+            const isStaffOk = staffVal === 'ok' || staffVal === 'excellent';
+            const adminVal = adminSel[key];
+            return (
+              <div key={key} className="flex items-center gap-2 py-1.5 px-2 rounded-xl bg-muted/30 border border-border/40">
+                {/* Staff mark */}
+                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border ${
+                  isStaffOk ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-red-50 border-red-200 text-primary'
                 }`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-secondary leading-snug">{key}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        현장 제출: <span className={`font-black ${isStaffOk ? 'text-blue-600' : 'text-primary'}`}>
-                          {isStaffOk ? '○' : '✗'}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
-                        className={`w-14 h-14 rounded-2xl border-2 font-black text-xl flex items-center justify-center transition-all active:scale-95 ${
-                          adminVal === 'ok'
-                            ? 'bg-blue-500 border-blue-600 text-white shadow-md shadow-blue-200'
-                            : 'bg-white border-border text-muted-foreground hover:border-blue-300'
-                        }`}
-                        data-testid={`btn-admin-ok-${id}-${key}`}
-                      >○</button>
-                      <button
-                        onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
-                        className={`w-14 h-14 rounded-2xl border-2 font-black text-xl flex items-center justify-center transition-all active:scale-95 ${
-                          adminVal === 'notok'
-                            ? 'bg-primary border-red-700 text-white shadow-md shadow-red-200'
-                            : 'bg-white border-border text-muted-foreground hover:border-red-300'
-                        }`}
-                        data-testid={`btn-admin-notok-${id}-${key}`}
-                      >✗</button>
-                    </div>
-                  </div>
+                  {isStaffOk ? '○' : '✗'}
+                </span>
+                {/* Item name */}
+                <span className="flex-1 text-xs font-medium text-secondary leading-snug min-w-0">{key}</span>
+                {/* Admin toggle buttons */}
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'ok'
+                        ? 'bg-blue-500 border-blue-600 text-white'
+                        : 'bg-white border-border text-muted-foreground hover:border-blue-300 hover:text-blue-500'
+                    }`}
+                    data-testid={`btn-admin-ok-${id}-${key}`}
+                  >○</button>
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'notok'
+                        ? 'bg-primary border-red-700 text-white'
+                        : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
+                    }`}
+                    data-testid={`btn-admin-notok-${id}-${key}`}
+                  >✗</button>
                 </div>
-              );
-            })
-          )}
+              </div>
+            );
+          })}
 
-          {/* Score summary + confirm */}
-          {totalItems > 0 && (
-            <div className="pt-2 space-y-2">
-              <div className={`flex items-center justify-between p-4 rounded-2xl border-2 ${allSelected ? scoreColor(calcScore()) : 'border-border bg-muted/30 text-muted-foreground'}`}>
-                <span className="font-bold">○ {okCount}개 / {totalItems}개</span>
-                <span className="text-2xl font-black">{allSelected ? `${calcScore()}점` : `${confirmedCount}/${totalItems} 선택`}</span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSave}
-                  disabled={scoreMutation.isPending || !allSelected}
-                  className="flex-1 py-3 rounded-2xl bg-primary text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-40 shadow-md shadow-red-200"
-                  data-testid={`btn-score-save-${id}`}
-                >
-                  {scoreMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Star className="w-5 h-5" />}
-                  {allSelected ? `${calcScore()}점으로 확정` : `(${confirmedCount}/${totalItems} 완료 후 확정)`}
-                </button>
-                <button onClick={() => setOpen(false)}
-                  className="px-4 py-3 rounded-2xl bg-muted text-muted-foreground font-bold active:scale-[0.98]">
-                  취소
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Confirm row */}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={scoreMutation.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-primary text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-score-save-${id}`}
+            >
+              {scoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
+              {calcScore()}점으로 확정
+            </button>
+            <button onClick={() => setOpen(false)}
+              className="px-3 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
+              취소
+            </button>
+          </div>
         </div>
+      )}
+
+      {open && totalItems === 0 && (
+        <p className="text-center text-sm text-muted-foreground py-3">항목이 없습니다.</p>
       )}
     </div>
   );
