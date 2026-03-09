@@ -5,329 +5,303 @@ import { useCreateChecklist, useUploadPhoto } from "@/hooks/use-checklists";
 import { useGuideByProduct } from "@/hooks/use-guides";
 import { useProducts } from "@/hooks/use-products";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  MapPin, Layers, Package, Camera, CheckCircle2, XCircle,
-  Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets, Calendar,
+import {
+  MapPin, Package, Camera, CheckCircle2, XCircle,
+  Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
+  Calendar, BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
-const REGIONS = {
+const REGIONS: Record<string, string[]> = {
   '수도권': ['강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천'],
-  '지방': ['대전', '해운대', '괴정', '쇼핑', '수성']
+  '지방': ['대전', '해운대', '괴정', '쇼핑', '수성'],
 };
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
-const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
-type SelectStage = 'type' | 'yearMonth' | 'category' | 'group' | 'product';
+type VMStage = 'category' | 'group' | 'product' | 'items';
 
 export default function NewChecklist() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const [step, setStep] = useState(1);
+  const [branch, setBranch] = useState('');
+  const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
 
-  // Step 2 sub-stages
-  const [stage, setStage] = useState<SelectStage>('type');
+  const nowDate = new Date();
+  const [selYear, setSelYear] = useState(nowDate.getFullYear());
+  const [selMonth, setSelMonth] = useState(nowDate.getMonth() + 1);
+
+  const [vmStage, setVmStage] = useState<VMStage>('category');
   const [selCategory, setSelCategory] = useState('');
   const [selGroup, setSelGroup] = useState('');
+  const [selProduct, setSelProduct] = useState('');
+  const [items, setItems] = useState<Record<string, string>>({});
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [notes, setNotes] = useState('');
 
-  const now = new Date();
-  const [selYear, setSelYear] = useState(now.getFullYear());
-  const [selMonth, setSelMonth] = useState(now.getMonth() + 1); // 1-12
+  const currentYear = nowDate.getFullYear();
+  const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
 
-  const [formData, setFormData] = useState({
-    branch: "",
-    category: "",
-    product: "",
-    photoUrl: "",
-    notes: "",
-    items: {} as Record<string, string>,
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-  });
-
-  const updateForm = (key: string, value: any) =>
-    setFormData(prev => ({ ...prev, [key]: value }));
-
-  // Unified back navigation
-  const handlePrev = () => {
-    if (step === 3) {
-      setStage('product');
-      setStep(2);
-    } else if (step === 2) {
-      if (stage === 'product') { setStage('group'); setSelGroup(''); }
-      else if (stage === 'group') { setStage('category'); setSelCategory(''); }
-      else if (stage === 'category') { setStage('yearMonth'); }
-      else if (stage === 'yearMonth') { setStage('type'); }
-      else { setStep(1); } // stage === 'type'
-    }
+  const resetVm = () => {
+    setVmStage('category');
+    setSelCategory('');
+    setSelGroup('');
+    setSelProduct('');
+    setItems({});
+    setPhotoUrl('');
+    setNotes('');
   };
 
-  const backLabel = (() => {
-    if (step === 3) return '상품 선택';
-    if (step === 2) {
-      if (stage === 'product') return '그룹 선택';
-      if (stage === 'group') return '카테고리 선택';
-      if (stage === 'category') return '년월 선택';
-      if (stage === 'yearMonth') return '유형 선택';
-      return '지점 선택';
-    }
-    return '이전';
-  })();
-
-  const progressMap: Record<string, number> = {
-    '1-': 20, '2-type': 30, '2-yearMonth': 42, '2-category': 54, '2-group': 66, '2-product': 78, '3-': 100,
+  const handleTabChange = (tab: 'vm' | 'cleaning') => {
+    setActiveTab(tab);
+    if (tab === 'vm') resetVm();
   };
-  const progressKey = step === 2 ? `2-${stage}` : `${step}-`;
-  const progressPct = progressMap[progressKey] ?? 20;
 
   return (
     <Layout title="새 점검 등록" showBack={true}>
       <div className="flex flex-col h-full bg-background">
-        <div className="w-full bg-muted h-2">
-          <motion.div className="h-full bg-primary"
-            initial={{ width: "20%" }} animate={{ width: `${progressPct}%` }}
-            transition={{ duration: 0.3 }}
-          />
+
+        {/* ── Sticky filter header ── */}
+        <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
+
+          {/* Branch selector */}
+          <div className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-primary shrink-0" />
+            <select
+              value={branch}
+              onChange={e => { setBranch(e.target.value); resetVm(); }}
+              className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-bold text-lg focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
+              data-testid="select-new-branch"
+            >
+              <option value="">지점 선택</option>
+              <optgroup label="수도권">
+                {REGIONS['수도권'].map(b => <option key={b} value={b}>{b}점</option>)}
+              </optgroup>
+              <optgroup label="지방">
+                {REGIONS['지방'].map(b => <option key={b} value={b}>{b}점</option>)}
+              </optgroup>
+            </select>
+          </div>
+
+          {/* Tab switcher */}
+          <div className="flex gap-1 bg-muted p-1 rounded-2xl">
+            <button
+              onClick={() => handleTabChange('vm')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+              }`}
+              data-testid="tab-new-vm"
+            >
+              <BarChart3 className="w-4 h-4" /> VM 점검
+            </button>
+            <button
+              onClick={() => handleTabChange('cleaning')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
+              }`}
+              data-testid="tab-new-cleaning"
+            >
+              <Droplets className="w-4 h-4" /> 청소 점검
+            </button>
+          </div>
+
+          {/* Year/Month filter — VM tab */}
+          {activeTab === 'vm' && (
+            <div className="space-y-2">
+              <div className="flex gap-2 items-center">
+                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                <select
+                  value={selYear}
+                  onChange={e => { setSelYear(Number(e.target.value)); resetVm(); }}
+                  className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
+                >
+                  {yearOptions.map(y => (
+                    <option key={y} value={y}>{y}년</option>
+                  ))}
+                </select>
+                {/* Breadcrumb for current selection */}
+                {selCategory && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium overflow-hidden">
+                    <span className="shrink-0 text-primary font-bold">{selCategory}</span>
+                    {selGroup && <><ChevronRight className="w-3 h-3 shrink-0" /><span className="truncate">{selGroup}</span></>}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => { setSelMonth(m); resetVm(); }}
+                    className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                      selMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-secondary'
+                    }`}
+                    data-testid={`btn-new-month-${m}`}
+                  >
+                    {m}월
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar p-6">
+        {/* ── Content area ── */}
+        <div className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
-            {step === 1 && (
-              <Step1Branch key="step1" selected={formData.branch}
-                onSelect={(v) => { updateForm('branch', v); setStep(2); }} />
-            )}
-            {step === 2 && (
-              <Step2Select key="step2"
-                branch={formData.branch}
-                stage={stage} setStage={setStage}
-                selCategory={selCategory} setSelCategory={setSelCategory}
-                selGroup={selGroup} setSelGroup={setSelGroup}
-                selYear={selYear} setSelYear={setSelYear}
-                selMonth={selMonth} setSelMonth={setSelMonth}
-                onSelect={(category, product) => {
-                  updateForm('category', category);
-                  updateForm('product', product);
-                  updateForm('items', {});
-                  updateForm('year', selYear);
-                  updateForm('month', selMonth);
-                  setStep(3);
-                }}
+
+            {/* No branch selected */}
+            {!branch ? (
+              <motion.div key="no-branch"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="flex flex-col items-center justify-center flex-1 text-muted-foreground text-center space-y-3 p-6 py-24"
+              >
+                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+                  <MapPin className="w-10 h-10 text-primary/60" />
+                </div>
+                <p className="font-bold text-xl text-secondary">지점을 선택해주세요</p>
+                <p className="text-base">점검을 등록할 지점을 먼저 선택하세요</p>
+              </motion.div>
+            ) : activeTab === 'cleaning' ? (
+              /* Cleaning tab */
+              <motion.div key="cleaning"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                className="flex flex-col items-center justify-center py-20 px-6 text-center space-y-6"
+              >
+                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <Droplets className="w-10 h-10 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="font-black text-2xl text-secondary">{branch}점</p>
+                  <p className="text-muted-foreground mt-1">매장 청소 점검을 시작하세요</p>
+                </div>
+                <button
+                  onClick={() => setLocation(`/cleaning/new?branch=${encodeURIComponent(branch)}`)}
+                  className="w-full max-w-xs py-5 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-black text-xl shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                  data-testid="btn-start-cleaning"
+                >
+                  <Droplets className="w-7 h-7" /> 청소 점검 시작
+                </button>
+              </motion.div>
+            ) : (
+              /* VM tab stages */
+              <VMContent
+                key="vm"
+                branch={branch}
+                selYear={selYear}
+                selMonth={selMonth}
+                vmStage={vmStage}
+                setVmStage={setVmStage}
+                selCategory={selCategory}
+                setSelCategory={setSelCategory}
+                selGroup={selGroup}
+                setSelGroup={setSelGroup}
+                selProduct={selProduct}
+                setSelProduct={setSelProduct}
+                items={items}
+                setItems={setItems}
+                photoUrl={photoUrl}
+                setPhotoUrl={setPhotoUrl}
+                notes={notes}
+                setNotes={setNotes}
+                onReset={resetVm}
               />
-            )}
-            {step === 3 && (
-              <Step3Input key="step3" formData={formData} updateForm={updateForm} />
             )}
           </AnimatePresence>
         </div>
-
-        {(step >= 2) && (
-          <div className="p-4 bg-white/80 backdrop-blur-md border-t border-border/50">
-            <button onClick={handlePrev}
-              className="w-full py-4 rounded-2xl bg-muted text-secondary font-bold text-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-              data-testid="btn-prev-step">
-              <ChevronLeft className="w-5 h-5" /> {backLabel}로 돌아가기
-            </button>
-          </div>
-        )}
       </div>
     </Layout>
   );
 }
 
-// ─── Step 1: Branch ───────────────────────────────────────────────────────────
-function Step1Branch({ selected, onSelect }: { selected: string; onSelect: (v: string) => void }) {
-  const [region, setRegion] = useState<'수도권' | '지방'>('수도권');
-  return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-          <MapPin className="text-primary w-8 h-8" /> 지점 선택
-        </h2>
-        <p className="text-muted-foreground text-lg">점검을 진행할 지점을 선택해주세요.</p>
-      </div>
-      <div className="flex bg-muted p-1.5 rounded-2xl">
-        {(['수도권', '지방'] as const).map(r => (
-          <button key={r} onClick={() => setRegion(r)}
-            className={`flex-1 py-4 text-xl font-bold rounded-xl transition-all ${region === r ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'}`}>
-            {r}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        {REGIONS[region].map(branch => (
-          <button key={branch} onClick={() => onSelect(branch)}
-            className={`min-h-[4.5rem] px-4 rounded-2xl border-2 text-xl font-bold transition-all active:scale-[0.97] ${
-              selected === branch ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-white text-secondary'
-            }`}>
-            {branch}
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Step 2: Type/YearMonth/Category/Group/Product ───────────────────────────
-type Step2Props = {
+// ─── VM Content ───────────────────────────────────────────────────────────────
+type VMContentProps = {
   branch: string;
-  stage: SelectStage; setStage: (s: SelectStage) => void;
+  selYear: number; selMonth: number;
+  vmStage: VMStage; setVmStage: (s: VMStage) => void;
   selCategory: string; setSelCategory: (v: string) => void;
   selGroup: string; setSelGroup: (v: string) => void;
-  selYear: number; setSelYear: (v: number) => void;
-  selMonth: number; setSelMonth: (v: number) => void;
-  onSelect: (category: string, product: string) => void;
+  selProduct: string; setSelProduct: (v: string) => void;
+  items: Record<string, string>; setItems: (v: Record<string, string>) => void;
+  photoUrl: string; setPhotoUrl: (v: string) => void;
+  notes: string; setNotes: (v: string) => void;
+  onReset: () => void;
 };
 
-function Step2Select({ branch, stage, setStage, selCategory, setSelCategory, selGroup, setSelGroup, selYear, setSelYear, selMonth, setSelMonth, onSelect }: Step2Props) {
-  const [, setLocation] = useLocation();
+function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrl, setPhotoUrl, notes, setNotes, onReset }: VMContentProps) {
   const { data: dbProducts = [], isLoading } = useProducts(selCategory);
   const groups = Array.from(new Set(dbProducts.map(p => p.groupName)));
 
-  const currentYear = new Date().getFullYear();
-  const years = [currentYear - 1, currentYear, currentYear + 1];
-
   return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-
-      {/* ── TYPE ── */}
-      {stage === 'type' && (
-        <>
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-              <Layers className="text-primary w-8 h-8" /> 점검 유형 선택
-            </h2>
-            <p className="text-muted-foreground text-lg">어떤 점검을 진행하나요?</p>
-          </div>
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={() => setLocation(`/cleaning/new?branch=${encodeURIComponent(branch)}`)}
-              className="flex items-center justify-between p-6 rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all"
-              data-testid="btn-cleaning-select">
-              <div className="flex items-center gap-4">
-                <div className="bg-white/20 p-3 rounded-2xl"><Droplets className="w-8 h-8" /></div>
-                <div className="text-left">
-                  <h3 className="text-2xl font-black">매장 청소 점검</h3>
-                  <p className="text-emerald-100 text-sm mt-0.5">입구 · 농산 · 축산 · 수산 · 공산</p>
-                </div>
-              </div>
-              <ChevronRight className="w-8 h-8 opacity-70" />
-            </button>
-            <button
-              onClick={() => setStage('yearMonth')}
-              className="flex items-center justify-between p-6 rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-primary to-primary/80 text-white shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
-              data-testid="btn-vm-select">
-              <div className="flex items-center gap-4">
-                <div className="bg-white/20 p-3 rounded-2xl"><Package className="w-8 h-8" /></div>
-                <div className="text-left">
-                  <h3 className="text-2xl font-black">진열가이드 점검</h3>
-                  <p className="text-red-100 text-sm mt-0.5">VM 점검 · 농산 · 수산 · 축산 · 공산</p>
-                </div>
-              </div>
-              <ChevronRight className="w-8 h-8 opacity-70" />
-            </button>
-          </div>
-        </>
+    <div className="p-4 space-y-4">
+      {/* Stage back-nav */}
+      {vmStage !== 'category' && (
+        <button
+          onClick={() => {
+            if (vmStage === 'group') { setVmStage('category'); setSelCategory(''); }
+            else if (vmStage === 'product') { setVmStage('group'); setSelGroup(''); }
+            else if (vmStage === 'items') { setVmStage('product'); setSelProduct(''); }
+          }}
+          className="flex items-center gap-2 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
+          data-testid="btn-vm-back"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          {vmStage === 'group' ? '카테고리 선택으로' : vmStage === 'product' ? '그룹 선택으로' : '상품 선택으로'} 돌아가기
+        </button>
       )}
 
-      {/* ── YEAR/MONTH ── */}
-      {stage === 'yearMonth' && (
-        <>
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-              <Calendar className="text-primary w-8 h-8" /> 점검 년월 선택
-            </h2>
-            <p className="text-muted-foreground text-lg">이 점검이 해당하는 년도와 월을 선택하세요.</p>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-bold text-muted-foreground mb-2">년도</p>
-              <div className="flex gap-2">
-                {years.map(y => (
-                  <button key={y} onClick={() => setSelYear(y)}
-                    className={`flex-1 py-4 rounded-2xl border-2 text-xl font-bold transition-all active:scale-[0.97] ${
-                      selYear === y ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-white text-secondary'
-                    }`}>
-                    {y}년
-                  </button>
-                ))}
-              </div>
+      <AnimatePresence mode="wait">
+        {/* ── Category ── */}
+        {vmStage === 'category' && (
+          <motion.div key="cat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
+            <div className="mb-5">
+              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · VM 점검</p>
+              <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
             </div>
-            <div>
-              <p className="text-sm font-bold text-muted-foreground mb-2">월</p>
-              <div className="grid grid-cols-4 gap-2">
-                {MONTHS.map((m, i) => (
-                  <button key={i} onClick={() => setSelMonth(i + 1)}
-                    className={`py-4 rounded-2xl border-2 text-lg font-bold transition-all active:scale-[0.97] ${
-                      selMonth === i + 1 ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-white text-secondary'
-                    }`}>
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <button onClick={() => setStage('category')}
-            className="w-full py-5 rounded-2xl bg-primary text-white font-black text-xl shadow-lg shadow-primary/30 active:scale-[0.98] transition-all"
-            data-testid="btn-confirm-yearmonth">
-            {selYear}년 {selMonth}월로 계속하기
-          </button>
-        </>
-      )}
-
-      {/* ── CATEGORY ── */}
-      {stage === 'category' && (
-        <>
-          <div className="space-y-1">
-            <p className="text-sm font-bold text-primary">{selYear}년 {selMonth}월 진열가이드 점검</p>
-            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-              <Layers className="text-primary w-8 h-8" /> 카테고리 선택
-            </h2>
-          </div>
-          <div className="flex flex-col gap-3">
             {CATEGORIES.map(cat => (
               <button key={cat}
-                onClick={() => { setSelCategory(cat); setSelGroup(''); setStage('group'); }}
-                className="flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
-                data-testid={`btn-category-${cat}`}>
+                onClick={() => { setSelCategory(cat); setSelGroup(''); setVmStage('group'); }}
+                className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
+                data-testid={`btn-new-category-${cat}`}
+              >
                 <span className="text-3xl font-bold">{cat}</span>
                 <ChevronRight className="w-6 h-6 text-muted-foreground" />
               </button>
             ))}
-          </div>
-        </>
-      )}
+          </motion.div>
+        )}
 
-      {/* ── GROUP ── */}
-      {stage === 'group' && (
-        <>
-          <div className="space-y-1">
-            <p className="text-sm font-bold text-primary">{selYear}년 {selMonth}월 · {selCategory}</p>
-            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-              <Package className="text-primary w-8 h-8" /> 상품 그룹 선택
-            </h2>
-          </div>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
-          ) : groups.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>등록된 상품이 없습니다.</p>
+        {/* ── Group ── */}
+        {vmStage === 'group' && (
+          <motion.div key="grp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
+            <div className="mb-5">
+              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {selCategory}</p>
+              <h2 className="text-2xl font-black text-secondary">상품 그룹 선택</h2>
             </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {groups.map(group => {
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
+            ) : groups.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">등록된 상품 그룹이 없습니다</p>
+              </div>
+            ) : (
+              groups.map(group => {
                 const cnt = dbProducts.filter(p => p.groupName === group && p.productName).length;
                 return (
                   <button key={group}
                     onClick={() => {
                       const subs = dbProducts.filter(p => p.groupName === group && p.productName);
-                      if (subs.length === 0) { onSelect(selCategory, `[${group}]`); }
-                      else { setSelGroup(group); setStage('product'); }
+                      if (subs.length === 0) {
+                        setSelGroup(group); setSelProduct(`[${group}]`); setVmStage('items');
+                      } else {
+                        setSelGroup(group); setVmStage('product');
+                      }
                     }}
-                    className="flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/40 active:scale-[0.98] shadow-sm transition-all"
-                    data-testid={`btn-group-${group}`}>
+                    className="w-full flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/40 active:scale-[0.98] shadow-sm transition-all"
+                    data-testid={`btn-new-group-${group}`}
+                  >
                     <span className="text-2xl font-bold">{group}</span>
                     <div className="flex items-center gap-2">
                       {cnt > 0 && <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg font-medium">{cnt}개</span>}
@@ -335,46 +309,64 @@ function Step2Select({ branch, stage, setStage, selCategory, setSelCategory, sel
                     </div>
                   </button>
                 );
-              })}
-            </div>
-          )}
-        </>
-      )}
+              })
+            )}
+          </motion.div>
+        )}
 
-      {/* ── PRODUCT ── */}
-      {stage === 'product' && (
-        <>
-          <div className="space-y-1">
-            <p className="text-sm font-bold text-primary">{selYear}년 {selMonth}월 · {selCategory} · {selGroup}</p>
-            <h2 className="text-3xl font-black text-secondary flex items-center gap-3">
-              <Package className="text-primary w-8 h-8" /> 상품 선택
-            </h2>
-          </div>
-          <div className="flex flex-col gap-3">
+        {/* ── Product ── */}
+        {vmStage === 'product' && (
+          <motion.div key="prod" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
+            <div className="mb-5">
+              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {selCategory} · {selGroup}</p>
+              <h2 className="text-2xl font-black text-secondary">상품 선택</h2>
+            </div>
             {dbProducts.filter(p => p.groupName === selGroup && p.productName).map(p => (
               <button key={p.id}
-                onClick={() => onSelect(selCategory, `[${selGroup}]${p.productName}`)}
-                className="flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/30 active:scale-[0.98] shadow-sm transition-all"
-                data-testid={`btn-product-${p.id}`}>
+                onClick={() => { setSelProduct(`[${selGroup}]${p.productName}`); setVmStage('items'); }}
+                className="w-full flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/30 active:scale-[0.98] shadow-sm transition-all"
+                data-testid={`btn-new-product-${p.id}`}
+              >
                 <span className="text-2xl font-bold">{p.productName}</span>
                 <ChevronRight className="w-6 h-6 text-muted-foreground" />
               </button>
             ))}
-          </div>
-        </>
-      )}
-    </motion.div>
+          </motion.div>
+        )}
+
+        {/* ── Items form ── */}
+        {vmStage === 'items' && (
+          <ItemsForm
+            key="items"
+            branch={branch} selYear={selYear} selMonth={selMonth}
+            selCategory={selCategory} selProduct={selProduct}
+            items={items} setItems={setItems}
+            photoUrl={photoUrl} setPhotoUrl={setPhotoUrl}
+            notes={notes} setNotes={setNotes}
+            onReset={onReset}
+          />
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
-// ─── Step 3: Items Input ──────────────────────────────────────────────────────
-function Step3Input({ formData, updateForm }: { formData: any; updateForm: any }) {
+// ─── Items Form ───────────────────────────────────────────────────────────────
+type ItemsFormProps = {
+  branch: string; selYear: number; selMonth: number;
+  selCategory: string; selProduct: string;
+  items: Record<string, string>; setItems: (v: Record<string, string>) => void;
+  photoUrl: string; setPhotoUrl: (v: string) => void;
+  notes: string; setNotes: (v: string) => void;
+  onReset: () => void;
+};
+
+function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, setItems, photoUrl, setPhotoUrl, notes, setNotes, onReset }: ItemsFormProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
   const uploadMutation = useUploadPhoto();
-  const { data: dbGuide, isLoading: guideLoading } = useGuideByProduct(formData.product);
-
+  const { data: dbGuide, isLoading: guideLoading } = useGuideByProduct(selProduct);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -384,7 +376,7 @@ function Step3Input({ formData, updateForm }: { formData: any; updateForm: any }
     setLocalPreview(URL.createObjectURL(file));
     try {
       const url = await uploadMutation.mutateAsync(file);
-      updateForm('photoUrl', url);
+      setPhotoUrl(url);
     } catch {
       toast({ title: "업로드 실패", variant: "destructive" });
       setLocalPreview(null);
@@ -392,21 +384,22 @@ function Step3Input({ formData, updateForm }: { formData: any; updateForm: any }
   };
 
   const submitForm = async () => {
-    const hasNotok = Object.values(formData.items).includes('notok');
+    const hasNotok = Object.values(items).includes('notok');
     const finalStatus = hasNotok ? 'poor' : 'excellent';
     try {
       const created = await createMutation.mutateAsync({
-        branch: formData.branch,
-        category: formData.category,
-        product: formData.product,
+        branch,
+        category: selCategory,
+        product: selProduct,
         status: finalStatus,
-        photoUrl: formData.photoUrl || null,
-        notes: formData.notes || null,
-        items: formData.items,
-        year: formData.year,
-        month: formData.month,
+        photoUrl: photoUrl || null,
+        notes: notes || null,
+        items,
+        year: selYear,
+        month: selMonth,
       });
       toast({ title: "제출 완료!" });
+      onReset();
       setLocation(`/checklist/edit/${created.id}`);
     } catch (err) {
       toast({ title: "제출 실패", description: String(err), variant: "destructive" });
@@ -416,17 +409,15 @@ function Step3Input({ formData, updateForm }: { formData: any; updateForm: any }
   const guideImage = dbGuide?.imageUrl || null;
   const guidePoints: string[] = (dbGuide?.points as string[]) || [];
   const guideItems: string[] = (dbGuide?.items as string[])?.filter(Boolean) || [];
-  const allItemsChecked = guideItems.length === 0 || guideItems.every(item => formData.items[item]);
+  const allItemsChecked = guideItems.length === 0 || guideItems.every(item => items[item]);
 
-  const displayProduct = formData.product?.replace(/\[(.+?)\](.*)/, (_: string, g: string, rest: string) => rest ? `${g} > ${rest}` : g) || formData.product;
+  const displayProduct = selProduct?.replace(/\[(.+?)\](.*)/, (_: string, g: string, rest: string) => rest ? `${g} > ${rest}` : g) || selProduct;
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-10">
-      <div className="space-y-1 border-b-2 border-border pb-4">
-        <p className="text-sm text-muted-foreground font-medium">
-          {formData.branch}점 · {formData.category} · {formData.year}년 {formData.month}월
-        </p>
-        <h2 className="text-2xl font-black text-secondary">{displayProduct}</h2>
+      <div className="border-b-2 border-border pb-4">
+        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월</p>
+        <h2 className="text-xl font-black text-secondary mt-0.5">{displayProduct}</h2>
       </div>
 
       {/* Guide */}
@@ -516,25 +507,29 @@ function Step3Input({ formData, updateForm }: { formData: any; updateForm: any }
           </div>
           {guideItems.map((item) => (
             <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
-              formData.items[item] === 'ok' ? 'border-blue-300 bg-blue-50'
-              : formData.items[item] === 'notok' ? 'border-primary bg-red-50'
+              items[item] === 'ok' ? 'border-blue-300 bg-blue-50'
+              : items[item] === 'notok' ? 'border-primary bg-red-50'
               : 'border-border bg-white'
             }`}>
               <div className="flex items-center justify-between p-4">
                 <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
                 <div className="flex gap-3 shrink-0">
                   <button
-                    onClick={() => updateForm('items', { ...formData.items, [item]: 'ok' })}
-                    className={`w-16 h-16 rounded-2xl border-2 flex flex-col items-center justify-center transition-all active:scale-95 ${
-                      formData.items[item] === 'ok' ? 'bg-blue-500 border-blue-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
-                    }`}>
+                    onClick={() => setItems({ ...items, [item]: 'ok' })}
+                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                      items[item] === 'ok' ? 'bg-blue-500 border-blue-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                    }`}
+                    data-testid={`btn-item-ok-${item}`}
+                  >
                     <CheckCircle2 className="w-8 h-8" />
                   </button>
                   <button
-                    onClick={() => updateForm('items', { ...formData.items, [item]: 'notok' })}
-                    className={`w-16 h-16 rounded-2xl border-2 flex flex-col items-center justify-center transition-all active:scale-95 ${
-                      formData.items[item] === 'notok' ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
-                    }`}>
+                    onClick={() => setItems({ ...items, [item]: 'notok' })}
+                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                      items[item] === 'notok' ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                    }`}
+                    data-testid={`btn-item-notok-${item}`}
+                  >
                     <XCircle className="w-8 h-8" />
                   </button>
                 </div>
@@ -542,9 +537,9 @@ function Step3Input({ formData, updateForm }: { formData: any; updateForm: any }
             </div>
           ))}
           <div className="flex justify-between text-sm font-medium text-muted-foreground">
-            <span>{Object.keys(formData.items).length} / {guideItems.length} 완료</span>
-            {Object.values(formData.items).includes('notok') && (
-              <span className="text-primary font-bold">불일치 {Object.values(formData.items).filter(v => v === 'notok').length}건</span>
+            <span>{Object.keys(items).length} / {guideItems.length} 완료</span>
+            {Object.values(items).includes('notok') && (
+              <span className="text-primary font-bold">불일치 {Object.values(items).filter(v => v === 'notok').length}건</span>
             )}
           </div>
         </div>
@@ -556,15 +551,18 @@ function Step3Input({ formData, updateForm }: { formData: any; updateForm: any }
         <textarea
           placeholder="VM 집기 부족/파손/광고물 요청 등..."
           className="w-full p-5 rounded-2xl border-2 border-border bg-white text-lg focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all min-h-[8rem] resize-none"
-          value={formData.notes} onChange={(e) => updateForm('notes', e.target.value)}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
         />
       </div>
 
       {/* Submit */}
-      <button onClick={submitForm}
+      <button
+        onClick={submitForm}
         disabled={createMutation.isPending || uploadMutation.isPending || !allItemsChecked}
-        className="w-full py-6 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-white font-black text-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-2 mt-8"
-        data-testid="btn-submit-checklist">
+        className="w-full py-6 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-white font-black text-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-2 mt-4"
+        data-testid="btn-submit-checklist"
+      >
         {createMutation.isPending ? <Loader2 className="w-8 h-8 animate-spin" /> : "점검 완료 및 제출"}
       </button>
       {guideItems.length > 0 && !allItemsChecked && (
