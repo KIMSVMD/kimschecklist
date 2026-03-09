@@ -458,7 +458,6 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
-  const uploadMutation = useUploadPhoto();
   const { data: allGuides = [], isLoading: guideLoading } = useGuidesByProduct(selProduct);
   const { notifications: guideNotifs, dismiss: dismissGuide } = useGuideNotifications();
   const relevantGuideNotif = guideNotifs.find(n =>
@@ -475,24 +474,33 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const [localPreviews, setLocalPreviews] = useState<string[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoUrlsRef = useRef<string[]>([]);
+  photoUrlsRef.current = photoUrls;
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     e.target.value = '';
-    for (const file of files) {
-      const preview = URL.createObjectURL(file);
-      setLocalPreviews(prev => [...prev, preview]);
-      setUploadingCount(c => c + 1);
-      try {
-        const url = await uploadMutation.mutateAsync(file);
-        setPhotoUrls([...photoUrls, url]);
-        setUploadingCount(c => c - 1);
-      } catch {
-        toast({ title: "업로드 실패", variant: "destructive" });
-        setLocalPreviews(prev => prev.filter(p => p !== preview));
-        setUploadingCount(c => c - 1);
+    const previews = files.map(f => URL.createObjectURL(f));
+    setLocalPreviews(prev => [...prev, ...previews]);
+    setUploadingCount(c => c + files.length);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      const uploaded: string[] = [];
+      const failedIndexes: number[] = [];
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') uploaded.push(r.value);
+        else failedIndexes.push(i);
+      });
+      if (uploaded.length > 0) setPhotoUrls([...photoUrlsRef.current, ...uploaded]);
+      if (failedIndexes.length > 0) {
+        const failedSet = new Set(failedIndexes.map(i => previews[i]));
+        setLocalPreviews(prev => prev.filter(p => !failedSet.has(p)));
+        toast({ title: `${failedIndexes.length}장 업로드 실패`, variant: "destructive" });
       }
+    } finally {
+      setUploadingCount(0);
     }
   };
 

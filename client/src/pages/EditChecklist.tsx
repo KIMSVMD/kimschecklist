@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklist, useUploadPhoto, useUpdateChecklist, useSaveChecklistComment, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
+import { useChecklist, useUpdateChecklist, useSaveChecklistComment, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
 import { useGuideByProduct, useAdminStatus } from "@/hooks/use-guides";
 import { motion } from "framer-motion";
 import {
@@ -37,21 +37,14 @@ export default function EditChecklist() {
   const { data: dbGuide } = useGuideByProduct(checklist?.product || "");
   const { data: adminStatus } = useAdminStatus();
   const updateMutation = useUpdateChecklist();
-  const uploadMutation = useUploadPhoto();
   const saveCommentMutation = useSaveChecklistComment();
   const confirmMutation = useConfirmChecklistComment();
   const replyMutation = useSaveChecklistReply();
 
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [localPreview, setLocalPreview] = useState<string | null>(null);
-  const [items, setItems] = useState<Record<string, string>>({});
-  const [notes, setNotes] = useState("");
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [commentText, setCommentText] = useState("");
-  const [commentOpen, setCommentOpen] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [replyOpen, setReplyOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [localPreviews, setLocalPreviews] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [items, setItems]
 
   const isAdmin = !!adminStatus?.isAdmin;
   const adminComment = (checklist as any)?.adminComment as string | null | undefined;
