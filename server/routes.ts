@@ -130,14 +130,22 @@ export async function registerRoutes(
   // Guide notifications — public endpoint (staff use without branch auth)
   app.get('/api/guide-notifications', async (req, res) => {
     try {
-      const notifs = await db.select().from(staffScoreNotifications)
-        .where(and(
-          eq(staffScoreNotifications.branch, 'all'),
-          eq(staffScoreNotifications.targetType, 'guide'),
-          sql`${staffScoreNotifications.createdAt} > NOW() - INTERVAL '7 days'`
-        ))
-        .orderBy(desc(staffScoreNotifications.createdAt));
-      res.json(notifs);
+      const notifs = await db.execute(sql`
+        SELECT DISTINCT ON (product)
+          id,
+          category,
+          product,
+          item_name AS "itemName",
+          new_status AS "newStatus",
+          created_at AS "createdAt"
+        FROM staff_score_notifications
+        WHERE branch = 'all'
+          AND target_type = 'guide'
+          AND created_at > NOW() - INTERVAL '7 days'
+          AND product IN (SELECT product FROM guides)
+        ORDER BY product, created_at DESC
+      `);
+      res.json(notifs.rows);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -188,6 +196,15 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const guide = await storage.getGuide(id);
+      if (guide) {
+        await db.delete(staffScoreNotifications).where(
+          and(
+            eq(staffScoreNotifications.targetType, 'guide'),
+            eq(staffScoreNotifications.product, guide.product)
+          )
+        );
+      }
       await storage.deleteGuide(id);
       res.status(204).send();
     } catch (err) {
