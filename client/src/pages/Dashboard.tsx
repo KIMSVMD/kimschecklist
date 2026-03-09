@@ -136,62 +136,93 @@ function AdminCommentInput({
   );
 }
 
-function AdminScoreInput({ id, existingScore }: { id: number; existingScore?: number | null }) {
+function AdminScoreInput({ id, existingScore, totalItems }: { id: number; existingScore?: number | null; totalItems: number }) {
   const { toast } = useToast();
   const scoreMutation = useUpdateChecklistScore();
   const [editing, setEditing] = useState(false);
-  const [inputVal, setInputVal] = useState(existingScore != null ? String(existingScore) : '');
+
+  // Back-calculate selected count from existing score
+  const existingCount = (existingScore != null && totalItems > 0)
+    ? Math.round((existingScore / 100) * totalItems)
+    : null;
+  const [selectedCount, setSelectedCount] = useState<number | null>(existingCount);
+
+  const calcScore = (count: number) => totalItems > 0 ? Math.round((count / totalItems) * 100) : 0;
+  const scoreColorClass = (s: number) =>
+    s >= 90 ? 'bg-blue-500 text-white border-blue-600' :
+    s >= 70 ? 'bg-amber-500 text-white border-amber-600' :
+    'bg-primary text-white border-red-700';
 
   const handleSave = async () => {
-    const parsed = inputVal.trim() === '' ? null : parseInt(inputVal);
-    if (parsed !== null && (isNaN(parsed) || parsed < 0 || parsed > 100)) {
-      toast({ title: "0~100 사이 점수를 입력하세요", variant: "destructive" }); return;
-    }
+    const score = selectedCount != null ? calcScore(selectedCount) : null;
     try {
-      await scoreMutation.mutateAsync({ id, adminScore: parsed });
-      toast({ title: parsed != null ? `${parsed}점 저장됨` : "점수 삭제됨" });
+      await scoreMutation.mutateAsync({ id, adminScore: score });
+      toast({ title: score != null ? `○ ${selectedCount}개 → ${score}점 저장됨` : "점수 삭제됨" });
       setEditing(false);
     } catch {
       toast({ title: "저장 실패", variant: "destructive" });
     }
   };
 
-  const scoreNum = existingScore != null ? existingScore : null;
-  const scoreColorClass = scoreNum == null ? '' : scoreNum >= 80 ? 'text-blue-600 bg-blue-50 border-blue-200' : scoreNum >= 60 ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-primary bg-red-50 border-red-200';
+  const displayScore = existingScore != null ? existingScore : null;
+  const displayCount = existingCount;
+  const colorClass = displayScore == null ? '' :
+    displayScore >= 90 ? 'text-blue-600 bg-blue-50 border-blue-200' :
+    displayScore >= 70 ? 'text-amber-600 bg-amber-50 border-amber-200' :
+    'text-primary bg-red-50 border-red-200';
 
   return (
     <div className="mt-3 border-t border-border/50 pt-3">
       {!editing ? (
-        <button onClick={() => { setInputVal(scoreNum != null ? String(scoreNum) : ''); setEditing(true); }}
-          className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${
-            scoreNum != null ? `${scoreColorClass} border` : 'bg-muted text-muted-foreground hover:text-secondary'
+        <button onClick={() => { setSelectedCount(existingCount); setEditing(true); }}
+          className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+            displayScore != null ? `${colorClass} border` : 'bg-muted text-muted-foreground hover:text-secondary'
           }`}
           data-testid={`btn-score-open-${id}`}>
           <div className="flex items-center gap-2">
             <Star className="w-4 h-4" />
-            {scoreNum != null ? <span>{scoreNum}점 (관리자 평가)</span> : <span>관리자 점수 부여</span>}
+            {displayScore != null
+              ? <span>○ {displayCount}개 / {totalItems}개 → {displayScore}점</span>
+              : <span>관리자 평가 (○ 개수 선택)</span>}
           </div>
           <Pencil className="w-3.5 h-3.5 opacity-60" />
         </button>
       ) : (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <input
-              type="number" min="0" max="100"
-              value={inputVal}
-              onChange={e => setInputVal(e.target.value)}
-              placeholder="0~100"
-              className="flex-1 rounded-xl border border-border bg-muted/50 p-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
-              data-testid={`input-score-${id}`}
-            />
-            <span className="text-sm font-bold text-secondary">점</span>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-muted-foreground">○ 개수 선택 (전체 {totalItems}개)</p>
+            {selectedCount != null && (
+              <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${scoreColorClass(calcScore(selectedCount))}`}>
+                {calcScore(selectedCount)}점
+              </span>
+            )}
+          </div>
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(totalItems + 1, 5)}, 1fr)` }}>
+            {Array.from({ length: totalItems + 1 }, (_, i) => i).map(count => {
+              const score = calcScore(count);
+              const isSelected = selectedCount === count;
+              return (
+                <button key={count}
+                  onClick={() => setSelectedCount(count)}
+                  className={`py-3 rounded-xl font-bold text-sm flex flex-col items-center gap-0.5 transition-all active:scale-95 border-2 ${
+                    isSelected
+                      ? scoreColorClass(score)
+                      : 'bg-muted text-muted-foreground border-transparent hover:border-border'
+                  }`}
+                  data-testid={`btn-score-count-${count}-${id}`}
+                >
+                  <span className="text-base font-black">○{count}</span>
+                  <span className="text-xs opacity-80">{score}점</span>
+                </button>
+              );
+            })}
           </div>
           <div className="flex gap-2">
-            <button onClick={handleSave} disabled={scoreMutation.isPending}
+            <button onClick={handleSave} disabled={scoreMutation.isPending || selectedCount == null}
               className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
               data-testid={`btn-score-save-${id}`}>
               {scoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
-              저장
+              {selectedCount != null ? `○${selectedCount}개 · ${calcScore(selectedCount)}점 저장` : '저장'}
             </button>
             <button onClick={() => setEditing(false)}
               className="px-4 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
@@ -422,7 +453,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     </div>
                   )}
 
-                  <AdminScoreInput id={item.id} existingScore={(item as any).adminScore} />
+                  <AdminScoreInput id={item.id} existingScore={(item as any).adminScore} totalItems={Object.keys((item.items as Record<string, string>) || {}).length} />
 
                   <AdminCommentInput
                     id={item.id}
