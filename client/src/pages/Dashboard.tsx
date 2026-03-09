@@ -104,7 +104,7 @@ function AdminCommentInput({
           />
           <div className="flex gap-2">
             <button
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={saveMutation.isPending}
               className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
               data-testid={`btn-comment-save-${id}`}
