@@ -1008,7 +1008,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState<{ type: 'vm' | 'cleaning'; id: number; date?: string; branch?: string } | null>(null);
-  const { notifications, unreadCount, dismiss } = useAdminNotifications();
+  const { notifications, unreadCount, dismiss, dismissAll } = useAdminNotifications();
 
   useEffect(() => {
     if (!authLoading && !adminStatus?.isAdmin) {
@@ -1040,6 +1040,7 @@ export default function Dashboard() {
         onClose={() => setNotifOpen(false)}
         notifications={notifications}
         onDismiss={dismiss}
+        onDismissAll={dismissAll}
         onNavigate={(target, key) => {
           dismiss(key);
           setActiveTab(target.type);

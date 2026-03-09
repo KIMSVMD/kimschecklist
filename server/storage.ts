@@ -4,8 +4,8 @@ import { desc, eq, asc, gte, and, sql } from "drizzle-orm";
 
 export type StaffNotification = {
   id: number;
-  notifCategory: 'comment_reply' | 'score_change';
-  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply' | 'vm_score' | 'cleaning_score';
+  notifCategory: 'comment_reply' | 'score_change' | 'guide_update';
+  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply' | 'vm_score' | 'cleaning_score' | 'guide';
   createdAt: Date;
   branch: string;
   content?: string | null;
@@ -477,9 +477,33 @@ export class DatabaseStorage implements IStorage {
       inspectionTime: r.inspectionTime ?? undefined,
     }));
 
-    return [...commentReplies, ...scoreNotifs]
+    // Guide update notifications (global, 7-day TTL)
+    const guideNotifRows = await db
+      .select()
+      .from(staffScoreNotifications)
+      .where(and(
+        eq(staffScoreNotifications.branch, 'all'),
+        eq(staffScoreNotifications.targetType, 'guide'),
+        sql`${staffScoreNotifications.createdAt} > NOW() - INTERVAL '7 days'`
+      ))
+      .orderBy(desc(staffScoreNotifications.createdAt))
+      .limit(30);
+
+    const guideNotifs: StaffNotification[] = guideNotifRows.map(r => ({
+      id: r.id,
+      notifCategory: 'guide_update' as const,
+      type: 'guide' as const,
+      createdAt: r.createdAt,
+      branch: r.branch,
+      itemName: r.itemName,
+      newStatus: r.newStatus,
+      product: r.product ?? undefined,
+      category: r.category ?? undefined,
+    }));
+
+    return [...commentReplies, ...scoreNotifs, ...guideNotifs]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 100);
+      .slice(0, 120);
   }
 
   async updateChecklistItemStatus(id: number, itemName: string, newStatus: string): Promise<Checklist | undefined> {

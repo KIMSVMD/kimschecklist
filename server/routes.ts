@@ -1,14 +1,15 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { api } from "@shared/routes";
 import { insertGuideSchema, insertProductSchema, insertCleaningSchema, staffScoreNotifications } from "@shared/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import path from "path";
 import fs from "fs";
 import express from "express";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { db } from "./db";
 
 // Keep /uploads/ static serving for any older records
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -86,6 +87,15 @@ export async function registerRoutes(
     try {
       const input = insertGuideSchema.parse(req.body);
       const guide = await storage.createGuide(input);
+      // Notify all staff about the new guide
+      await db.insert(staffScoreNotifications).values({
+        targetType: 'guide',
+        branch: 'all',
+        itemName: guide.product,
+        newStatus: 'new_guide',
+        product: guide.product ?? null,
+        category: guide.category ?? null,
+      });
       res.status(201).json(guide);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -102,7 +112,32 @@ export async function registerRoutes(
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
       const guide = await storage.updateGuide(id, req.body);
       if (!guide) return res.status(404).json({ message: "Guide not found" });
+      // Notify all staff about the updated guide
+      await db.insert(staffScoreNotifications).values({
+        targetType: 'guide',
+        branch: 'all',
+        itemName: guide.product,
+        newStatus: 'updated_guide',
+        product: guide.product ?? null,
+        category: guide.category ?? null,
+      });
       res.json(guide);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Guide notifications — public endpoint (staff use without branch auth)
+  app.get('/api/guide-notifications', async (req, res) => {
+    try {
+      const notifs = await db.select().from(staffScoreNotifications)
+        .where(and(
+          eq(staffScoreNotifications.branch, 'all'),
+          eq(staffScoreNotifications.targetType, 'guide'),
+          sql`${staffScoreNotifications.createdAt} > NOW() - INTERVAL '7 days'`
+        ))
+        .orderBy(desc(staffScoreNotifications.createdAt));
+      res.json(notifs);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
     }

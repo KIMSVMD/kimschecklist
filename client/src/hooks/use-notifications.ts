@@ -3,8 +3,8 @@ import { useState, useCallback, useEffect } from "react";
 
 export type StaffNotification = {
   id: number;
-  notifCategory: 'comment_reply' | 'score_change';
-  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply' | 'vm_score' | 'cleaning_score';
+  notifCategory: 'comment_reply' | 'score_change' | 'guide_update';
+  type: 'vm_comment' | 'vm_reply' | 'cleaning_comment' | 'cleaning_reply' | 'vm_score' | 'cleaning_score' | 'guide';
   createdAt: string;
   branch: string;
   content?: string | null;
@@ -143,4 +143,64 @@ export function useAdminNotifications() {
   }, [allNotifications]);
 
   return { notifications, unreadCount, dismiss, dismissAll };
+}
+
+export type GuideNotification = {
+  id: number;
+  itemName: string;
+  newStatus: string;
+  product?: string;
+  category?: string;
+  createdAt: string;
+};
+
+const LS_GUIDE_KEY = 'guide_notif_dismissed_keys';
+
+function getGuideDissmissedKeys(): Set<string> {
+  try {
+    const stored = localStorage.getItem(LS_GUIDE_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveGuideDismissedKeys(keys: Set<string>) {
+  localStorage.setItem(LS_GUIDE_KEY, JSON.stringify([...keys]));
+}
+
+function guideNotifKey(n: GuideNotification): string {
+  return `guide-${n.id}`;
+}
+
+export function useGuideNotifications() {
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(getGuideDissmissedKeys);
+
+  const { data: allNotifications = [] } = useQuery<GuideNotification[]>({
+    queryKey: ['/api/guide-notifications'],
+    refetchInterval: 60_000,
+  });
+
+  const notifications = allNotifications.filter(n => !dismissedKeys.has(guideNotifKey(n)));
+  const unreadCount = notifications.length;
+
+  const dismiss = useCallback((n: GuideNotification) => {
+    setDismissedKeys(prev => {
+      const next = new Set(prev);
+      next.add(guideNotifKey(n));
+      saveGuideDismissedKeys(next);
+      return next;
+    });
+  }, []);
+
+  const dismissAll = useCallback(() => {
+    setDismissedKeys(prev => {
+      const next = new Set(prev);
+      allNotifications.forEach(n => next.add(guideNotifKey(n)));
+      saveGuideDismissedKeys(next);
+      return next;
+    });
+  }, [allNotifications]);
+
+  return { notifications, unreadCount, dismiss, dismissAll, guideNotifKey };
 }

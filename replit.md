@@ -33,6 +33,15 @@ Mobile-first, 장갑 착용 환경 고려한 대형 UI.
 
 6. **관리자 로그인** (`/admin/login`) - 비밀번호: `ADMIN_PASSWORD` 환경변수
 
+## 알림 시스템
+- **관리자 알림 패널**: 새 점검/답글 알림, "전체 지우기" 버튼으로 일괄 삭제
+- **직원 알림 패널**: 코멘트/답글 탭, 점수 부여 탭, **새 가이드 탭**
+  - 가이드 등록/수정 시 모든 직원에게 알림 자동 발송 (7일 TTL)
+  - `staffScoreNotifications` 테이블 재활용 (branch='all', targetType='guide')
+  - 직원 알림 "모두 읽음" 버튼이 가이드 알림도 함께 처리
+- **새 점검 등록 페이지 배너**: 해당 상품에 가이드 업데이트 알림이 있을 경우 파란 배너 표시
+- **API**: `GET /api/guide-notifications` (최근 7일 가이드 알림 공개 조회)
+
 ## 항목 평가 방식
 - 현장 직원: ○(일치, `ok`) / ✗(불일치, `notok`) 만 선택
 - 점수: 관리자가 adminScore(0~100) 입력 — `PATCH /api/checklists/:id/score`

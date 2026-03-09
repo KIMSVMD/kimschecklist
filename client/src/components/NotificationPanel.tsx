@@ -22,13 +22,14 @@ interface Props {
   notifications: AdminNotification[];
   onDismiss: (key: string) => void;
   onNavigate: (target: NavTarget, key: string) => void;
+  onDismissAll?: () => void;
 }
 
 function toLocalDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function NotificationPanel({ open, onClose, notifications, onDismiss, onNavigate }: Props) {
+export function NotificationPanel({ open, onClose, notifications, onDismiss, onNavigate, onDismissAll }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<NotifFilter>('전체');
 
@@ -87,13 +88,24 @@ export function NotificationPanel({ open, onClose, notifications, onDismiss, onN
                   </span>
                 )}
               </div>
-              <button
-                onClick={onClose}
-                className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center active:scale-95 transition-all"
-                data-testid="btn-notification-close"
-              >
-                <X className="w-4 h-4 text-muted-foreground" />
-              </button>
+              <div className="flex items-center gap-2">
+                {onDismissAll && notifications.length > 0 && (
+                  <button
+                    onClick={onDismissAll}
+                    className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-muted active:scale-95"
+                    data-testid="btn-notification-dismiss-all"
+                  >
+                    전체 지우기
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center active:scale-95 transition-all"
+                  data-testid="btn-notification-close"
+                >
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
             </div>
 
             {/* Filter tabs */}

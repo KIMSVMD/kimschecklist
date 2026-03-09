@@ -4,6 +4,7 @@ import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto } from "@/hooks/use-checklists";
 import { useGuidesByProduct } from "@/hooks/use-guides";
 import { useProducts } from "@/hooks/use-products";
+import { useGuideNotifications } from "@/hooks/use-notifications";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
@@ -385,6 +386,11 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const createMutation = useCreateChecklist();
   const uploadMutation = useUploadPhoto();
   const { data: allGuides = [], isLoading: guideLoading } = useGuidesByProduct(selProduct);
+  const { notifications: guideNotifs, dismiss: dismissGuide } = useGuideNotifications();
+  const relevantGuideNotif = guideNotifs.find(n =>
+    (!n.product || n.product === selProduct) &&
+    (!n.category || n.category === selCategory)
+  );
   const [selectedStoreType, setSelectedStoreType] = useState<string | null>(null);
   const storeTypeOptions = Array.from(new Set(allGuides.filter(g => g.storeType).map(g => g.storeType as string)));
   const hasStoreTypes = storeTypeOptions.length > 0;
@@ -450,6 +456,22 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
         <div className="flex items-center justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : dbGuide ? (
         <div className="space-y-4">
+          {relevantGuideNotif && (
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3" data-testid="banner-guide-update">
+              <span className="text-lg">📢</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-blue-700">가이드가 업데이트 됐습니다</p>
+                <p className="text-xs text-blue-600">새로운 점검을 등록해주세요</p>
+              </div>
+              <button
+                onClick={() => dismissGuide(relevantGuideNotif)}
+                className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 active:scale-95 transition-all"
+                data-testid="btn-guide-banner-dismiss"
+              >
+                <XCircle className="w-4 h-4 text-blue-400" />
+              </button>
+            </div>
+          )}
           <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-4">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">

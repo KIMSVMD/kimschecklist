@@ -16,7 +16,7 @@ import {
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
-import { useStaffNotifications, type StaffNotification } from "@/hooks/use-notifications";
+import { useStaffNotifications, useGuideNotifications, type StaffNotification } from "@/hooks/use-notifications";
 
 const REGIONS: Record<string, string[]> = {
   '수도권': ['강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천'],
@@ -42,9 +42,10 @@ export default function StaffDashboard() {
   const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const [filterZone, setFilterZone] = useState('전체');
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifTab, setNotifTab] = useState<'comment_reply' | 'score_change'>('comment_reply');
+  const [notifTab, setNotifTab] = useState<'comment_reply' | 'score_change' | 'guide_update'>('comment_reply');
   const { toast } = useToast();
   const { notifications, unreadCount, dismiss, dismissAll, staffNotifKey } = useStaffNotifications(filterBranch);
+  const { notifications: guideNotifs, unreadCount: guideUnread, dismiss: dismissGuide, dismissAll: dismissAllGuide } = useGuideNotifications();
 
   const commentReplies = notifications.filter(n => n.notifCategory === 'comment_reply');
   const scoreChanges = notifications.filter(n => n.notifCategory === 'score_change');
@@ -228,10 +229,10 @@ export default function StaffDashboard() {
                 className="relative w-12 h-12 rounded-2xl bg-muted flex items-center justify-center shrink-0 active:scale-95 transition-all"
                 data-testid="btn-staff-notif-bell"
               >
-                <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                {unreadCount > 0 && (
+                <Bell className={`w-5 h-5 ${(unreadCount + guideUnread) > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                {(unreadCount + guideUnread) > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center px-1">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {(unreadCount + guideUnread) > 9 ? '9+' : (unreadCount + guideUnread)}
                   </span>
                 )}
               </button>
@@ -373,8 +374,8 @@ export default function StaffDashboard() {
                 <span className="font-black text-secondary text-base">{filterBranch}점 알림</span>
               </div>
               <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
-                  <button onClick={dismissAll} className="text-xs font-bold text-muted-foreground px-2 py-1 rounded-lg hover:bg-muted transition-all" data-testid="btn-staff-notif-dismiss-all">
+                {(unreadCount + guideUnread) > 0 && (
+                  <button onClick={() => { dismissAll(); dismissAllGuide(); }} className="text-xs font-bold text-muted-foreground px-2 py-1 rounded-lg hover:bg-muted transition-all" data-testid="btn-staff-notif-dismiss-all">
                     모두 읽음
                   </button>
                 )}
@@ -388,6 +389,7 @@ export default function StaffDashboard() {
               {([
                 { key: 'comment_reply' as const, label: '코멘트/답글', count: commentUnread },
                 { key: 'score_change' as const, label: '점수 부여', count: scoreUnread },
+                { key: 'guide_update' as const, label: '새 가이드', count: guideUnread },
               ]).map(tab => (
                 <button
                   key={tab.key}
@@ -408,7 +410,41 @@ export default function StaffDashboard() {
             </div>
             {/* Notification list */}
             <div className="overflow-y-auto flex-1">
-              {(() => {
+              {notifTab === 'guide_update' ? (
+                guideNotifs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground space-y-2">
+                    <Bell className="w-10 h-10 opacity-20" />
+                    <p className="font-medium text-sm">새 가이드 알림이 없습니다</p>
+                  </div>
+                ) : (
+                  guideNotifs.map(n => (
+                    <div
+                      key={n.id}
+                      className="flex items-start gap-3 p-4 border-b border-border/30"
+                      data-testid={`staff-notif-guide-${n.id}`}
+                    >
+                      <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 bg-blue-50">
+                        <ClipboardList className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-muted-foreground mb-0.5">
+                          {n.category ? `${n.category} · ` : ''}{n.product ?? n.itemName}
+                          {' · '}{n.newStatus === 'new_guide' ? '새 가이드 등록' : '가이드 업데이트'}
+                        </p>
+                        <p className="text-sm font-medium text-secondary">새로운 점검을 등록해주세요</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{format(new Date(n.createdAt), 'M월 d일 HH:mm', { locale: ko })}</p>
+                      </div>
+                      <button
+                        onClick={() => dismissGuide(n)}
+                        className="shrink-0 w-7 h-7 rounded-lg bg-muted flex items-center justify-center active:scale-95 transition-all"
+                        data-testid={`btn-guide-notif-dismiss-${n.id}`}
+                      >
+                        <X className="w-3 h-3 text-muted-foreground" />
+                      </button>
+                    </div>
+                  ))
+                )
+              ) : (() => {
                 const list = notifTab === 'comment_reply' ? commentReplies : scoreChanges;
                 if (list.length === 0) return (
                   <div className="flex flex-col items-center justify-center py-10 text-muted-foreground space-y-2">
