@@ -40,7 +40,7 @@ export default function NewChecklist() {
   const [selGroup, setSelGroup] = useState('');
   const [selProduct, setSelProduct] = useState('');
   const [items, setItems] = useState<Record<string, string>>({});
-  const [photoUrl, setPhotoUrl] = useState('');
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
 
   const currentYear = nowDate.getFullYear();
@@ -87,7 +87,7 @@ export default function NewChecklist() {
     setSelGroup(group);
     setSelProduct(notif.product);
     setItems({});
-    setPhotoUrl('');
+    setPhotoUrls([]);
     setNotes('');
     setVmStage('items');
   };
@@ -98,7 +98,7 @@ export default function NewChecklist() {
     setSelGroup('');
     setSelProduct('');
     setItems({});
-    setPhotoUrl('');
+    setPhotoUrls([]);
     setNotes('');
   };
 
@@ -120,7 +120,7 @@ export default function NewChecklist() {
       setVmStage('product');
       setSelProduct('');
       setItems({});
-      setPhotoUrl('');
+      setPhotoUrls([]);
       setNotes('');
     }
   };
@@ -216,57 +216,6 @@ export default function NewChecklist() {
         {/* ── Content area ── */}
         <div className="flex-1 overflow-y-auto">
 
-          {/* Guide notification cards — shown at category stage after branch selected */}
-          {branch && activeTab === 'vm' && vmStage === 'category' && pendingGuideNotifs.length > 0 && (
-            <div className="p-4 space-y-3">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-black text-primary">📢 새 가이드 알림</span>
-                <span className="text-xs text-muted-foreground font-medium">— 점검이 필요한 항목이 있습니다</span>
-              </div>
-              {pendingGuideNotifs.map(notif => {
-                const notifDate = new Date(notif.createdAt);
-                const notifYear = notifDate.getFullYear();
-                const notifMonth = notifDate.getMonth() + 1;
-                const productDisplay = notif.product
-                  ? (notif.product.match(/^\[([^\]]+)\](.+)/) ? notif.product.replace(/^\[([^\]]+)\]/, '') : notif.product.replace(/^\[([^\]]+)\]$/, '$1'))
-                  : notif.itemName;
-                const groupDisplay = notif.product
-                  ? (notif.product.match(/^\[([^\]]+)\]/) || ['', ''])[1]
-                  : '';
-                return (
-                  <button
-                    key={notif.id}
-                    onClick={() => handleGuideNotifClick(notif)}
-                    className="w-full flex items-center gap-3 bg-white border-2 border-primary/20 rounded-2xl p-4 text-left shadow-sm hover:border-primary/50 active:scale-[0.98] transition-all"
-                    data-testid={`btn-guide-notif-${notif.id}`}
-                  >
-                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-2xl">📋</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                        <span className="text-[10px] font-black text-white bg-primary px-1.5 py-0.5 rounded-full shrink-0">새 가이드</span>
-                        <span className="text-xs font-bold text-muted-foreground">{notifYear}년 {notifMonth}월 · {notif.category}</span>
-                      </div>
-                      <p className="text-base font-black text-secondary truncate">
-                        {groupDisplay}{groupDisplay && productDisplay ? ' · ' : ''}{productDisplay}
-                      </p>
-                      <p className="text-xs text-primary font-bold mt-0.5">새 가이드 등록 - 점검을 시작해 주세요</p>
-                    </div>
-                    <div className="shrink-0 flex flex-col items-center gap-1">
-                      <div className="bg-primary text-white text-xs font-black px-3 py-2 rounded-xl">
-                        점검 시작
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-              <div className="border-t border-border/40 pt-3">
-                <p className="text-xs text-muted-foreground text-center font-medium">또는 아래에서 직접 카테고리를 선택하세요</p>
-              </div>
-            </div>
-          )}
-
           <AnimatePresence mode="wait">
 
             {/* No branch selected */}
@@ -319,11 +268,12 @@ export default function NewChecklist() {
                 setSelProduct={setSelProduct}
                 items={items}
                 setItems={setItems}
-                photoUrl={photoUrl}
-                setPhotoUrl={setPhotoUrl}
+                photoUrls={photoUrls}
+                setPhotoUrls={setPhotoUrls}
                 notes={notes}
                 setNotes={setNotes}
                 onReset={resetVm}
+                pendingGuideNotifs={pendingGuideNotifs}
               />
             )}
           </AnimatePresence>
@@ -342,14 +292,19 @@ type VMContentProps = {
   selGroup: string; setSelGroup: (v: string) => void;
   selProduct: string; setSelProduct: (v: string) => void;
   items: Record<string, string>; setItems: (v: Record<string, string>) => void;
-  photoUrl: string; setPhotoUrl: (v: string) => void;
+  photoUrls: string[]; setPhotoUrls: (v: string[]) => void;
   notes: string; setNotes: (v: string) => void;
   onReset: () => void;
+  pendingGuideNotifs: import('@/hooks/use-notifications').GuideNotification[];
 };
 
-function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrl, setPhotoUrl, notes, setNotes, onReset }: VMContentProps) {
+function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset, pendingGuideNotifs }: VMContentProps) {
   const { data: dbProducts = [], isLoading } = useProducts(selCategory);
   const groups = Array.from(new Set(dbProducts.map(p => p.groupName)));
+
+  const catBadge = (cat: string) => pendingGuideNotifs.filter(n => n.category === cat).length;
+  const groupBadge = (grp: string) => pendingGuideNotifs.filter(n => n.product && (n.product === `[${grp}]` || n.product.startsWith(`[${grp}]`))).length;
+  const productBadge = (product: string) => pendingGuideNotifs.filter(n => n.product === product).length > 0;
 
   return (
     <div className="p-4 space-y-4">
@@ -377,16 +332,24 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
               <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · VM 점검</p>
               <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
             </div>
-            {CATEGORIES.map(cat => (
-              <button key={cat}
-                onClick={() => { setSelCategory(cat); setSelGroup(''); setVmStage('group'); }}
-                className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
-                data-testid={`btn-new-category-${cat}`}
-              >
-                <span className="text-3xl font-bold">{cat}</span>
-                <ChevronRight className="w-6 h-6 text-muted-foreground" />
-              </button>
-            ))}
+            {CATEGORIES.map(cat => {
+              const badge = catBadge(cat);
+              return (
+                <button key={cat}
+                  onClick={() => { setSelCategory(cat); setSelGroup(''); setVmStage('group'); }}
+                  className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
+                  data-testid={`btn-new-category-${cat}`}
+                >
+                  <span className="text-3xl font-bold">{cat}</span>
+                  <div className="flex items-center gap-2">
+                    {badge > 0 && (
+                      <span className="w-7 h-7 rounded-full bg-primary text-white text-sm font-black flex items-center justify-center">{badge}</span>
+                    )}
+                    <ChevronRight className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                </button>
+              );
+            })}
           </motion.div>
         )}
 
@@ -407,6 +370,7 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
             ) : (
               groups.map(group => {
                 const cnt = dbProducts.filter(p => p.groupName === group && p.productName).length;
+                const badge = groupBadge(group);
                 return (
                   <button key={group}
                     onClick={() => {
@@ -423,6 +387,9 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
                     <span className="text-2xl font-bold">{group}</span>
                     <div className="flex items-center gap-2">
                       {cnt > 0 && <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg font-medium">{cnt}개</span>}
+                      {badge > 0 && (
+                        <span className="w-7 h-7 rounded-full bg-primary text-white text-sm font-black flex items-center justify-center">{badge}</span>
+                      )}
                       <ChevronRight className="w-6 h-6 text-muted-foreground" />
                     </div>
                   </button>
@@ -439,16 +406,24 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
               <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {selCategory} · {selGroup}</p>
               <h2 className="text-2xl font-black text-secondary">상품 선택</h2>
             </div>
-            {dbProducts.filter(p => p.groupName === selGroup && p.productName).map(p => (
-              <button key={p.id}
-                onClick={() => { setSelProduct(`[${selGroup}]${p.productName}`); setVmStage('items'); }}
-                className="w-full flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/30 active:scale-[0.98] shadow-sm transition-all"
-                data-testid={`btn-new-product-${p.id}`}
-              >
-                <span className="text-2xl font-bold">{p.productName}</span>
-                <ChevronRight className="w-6 h-6 text-muted-foreground" />
-              </button>
-            ))}
+            {dbProducts.filter(p => p.groupName === selGroup && p.productName).map(p => {
+              const hasBadge = productBadge(`[${selGroup}]${p.productName}`);
+              return (
+                <button key={p.id}
+                  onClick={() => { setSelProduct(`[${selGroup}]${p.productName}`); setVmStage('items'); }}
+                  className="w-full flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/30 active:scale-[0.98] shadow-sm transition-all"
+                  data-testid={`btn-new-product-${p.id}`}
+                >
+                  <span className="text-2xl font-bold">{p.productName}</span>
+                  <div className="flex items-center gap-2">
+                    {hasBadge && (
+                      <span className="w-7 h-7 rounded-full bg-primary text-white text-sm font-black flex items-center justify-center">1</span>
+                    )}
+                    <ChevronRight className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                </button>
+              );
+            })}
           </motion.div>
         )}
 
@@ -459,7 +434,7 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
             branch={branch} selYear={selYear} selMonth={selMonth}
             selCategory={selCategory} selProduct={selProduct}
             items={items} setItems={setItems}
-            photoUrl={photoUrl} setPhotoUrl={setPhotoUrl}
+            photoUrls={photoUrls} setPhotoUrls={setPhotoUrls}
             notes={notes} setNotes={setNotes}
             onReset={onReset}
           />
@@ -474,12 +449,12 @@ type ItemsFormProps = {
   branch: string; selYear: number; selMonth: number;
   selCategory: string; selProduct: string;
   items: Record<string, string>; setItems: (v: Record<string, string>) => void;
-  photoUrl: string; setPhotoUrl: (v: string) => void;
+  photoUrls: string[]; setPhotoUrls: (v: string[]) => void;
   notes: string; setNotes: (v: string) => void;
   onReset: () => void;
 };
 
-function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, setItems, photoUrl, setPhotoUrl, notes, setNotes, onReset }: ItemsFormProps) {
+function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset }: ItemsFormProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
@@ -497,20 +472,33 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
     ? (allGuides.find(g => g.storeType === (selectedStoreType || storeTypeOptions[0])) ?? allGuides[0])
     : allGuides[0] ?? null;
   const activeStoreType = hasStoreTypes ? (selectedStoreType || storeTypeOptions[0]) : null;
-  const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [localPreviews, setLocalPreviews] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLocalPreview(URL.createObjectURL(file));
-    try {
-      const url = await uploadMutation.mutateAsync(file);
-      setPhotoUrl(url);
-    } catch {
-      toast({ title: "업로드 실패", variant: "destructive" });
-      setLocalPreview(null);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+    for (const file of files) {
+      const preview = URL.createObjectURL(file);
+      setLocalPreviews(prev => [...prev, preview]);
+      setUploadingCount(c => c + 1);
+      try {
+        const url = await uploadMutation.mutateAsync(file);
+        setPhotoUrls([...photoUrls, url]);
+        setUploadingCount(c => c - 1);
+      } catch {
+        toast({ title: "업로드 실패", variant: "destructive" });
+        setLocalPreviews(prev => prev.filter(p => p !== preview));
+        setUploadingCount(c => c - 1);
+      }
     }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotoUrls(photoUrls.filter((_, i) => i !== index));
+    setLocalPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const submitForm = async () => {
@@ -522,7 +510,8 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
         category: selCategory,
         product: selProduct,
         status: finalStatus,
-        photoUrl: photoUrl || null,
+        photoUrl: photoUrls[0] || null,
+        photoUrls: photoUrls.length > 0 ? photoUrls : null,
         notes: notes || null,
         items,
         year: selYear,
@@ -648,21 +637,48 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
 
       {/* Photo Upload */}
       <div className="space-y-3">
-        <h3 className="text-xl font-bold text-secondary">현장 사진 촬영</h3>
-        <button onClick={() => fileInputRef.current?.click()}
-          className="w-full relative aspect-video rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center overflow-hidden active:scale-[0.98] transition-all">
-          {localPreview && <img src={localPreview} className="absolute inset-0 w-full h-full object-cover" alt="Preview" />}
-          {guideImage && !localPreview && (
-            <div className="absolute inset-0 opacity-30 pointer-events-none mix-blend-multiply">
-              <img src={guideImage} className="w-full h-full object-contain bg-white grayscale" alt="Overlay" />
-            </div>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-secondary">현장 사진 촬영</h3>
+          {localPreviews.length > 0 && (
+            <span className="text-sm font-bold text-muted-foreground">{localPreviews.length}장</span>
           )}
-          <div className={`relative z-10 flex flex-col items-center p-6 rounded-2xl backdrop-blur-sm ${localPreview ? 'bg-black/50 text-white' : 'bg-white/80 text-primary'}`}>
-            {uploadMutation.isPending ? <Loader2 className="w-12 h-12 animate-spin mb-2" /> : <Camera className="w-12 h-12 mb-2" />}
-            <span className="font-bold text-lg">{localPreview ? '다시 촬영하기' : '탭하여 사진 업로드'}</span>
+        </div>
+
+        {/* Uploaded photo grid */}
+        {localPreviews.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {localPreviews.map((preview, i) => (
+              <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted">
+                <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                <button
+                  onClick={() => removePhoto(i)}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+                  data-testid={`btn-remove-photo-${i}`}
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+                {i >= photoUrls.length && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+        )}
+
+        {/* Add photo button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 active:scale-[0.98] transition-all"
+          data-testid="btn-add-photo"
+        >
+          {uploadingCount > 0
+            ? <><Loader2 className="w-7 h-7 text-primary animate-spin" /><span className="font-bold text-primary text-lg">업로드 중...</span></>
+            : <><Camera className="w-7 h-7 text-primary" /><span className="font-bold text-primary text-lg">{localPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
+          }
         </button>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFile} />
       </div>
 
       {/* Per-item ○/✗ evaluation */}

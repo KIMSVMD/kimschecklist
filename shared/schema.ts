@@ -9,6 +9,7 @@ export const checklists = pgTable("checklists", {
   product: text("product").notNull(),
   status: text("status").notNull(),
   photoUrl: text("photo_url"),
+  photoUrls: text("photo_urls").array(),
   notes: text("notes"),
   items: jsonb("items").$type<Record<string, string>>(),
   adminComment: text("admin_comment"),

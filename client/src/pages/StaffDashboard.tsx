@@ -559,21 +559,42 @@ export default function StaffDashboard() {
                         ${hasNotok ? 'border-2 border-primary' : 'border border-border/50'}`}
                       data-testid={`card-checklist-${item.id}`}
                     >
-                      {item.photoUrl ? (
-                        <PhotoThumbnail src={item.photoUrl} className="w-full h-44 bg-muted relative block">
-                          <img src={item.photoUrl} alt="현장사진" className="w-full h-full object-cover" />
-                          {hasNotok && (
-                            <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
-                              <AlertCircle className="w-4 h-4" /> 불일치 항목 있음
+                      {(() => {
+                        const photos: string[] = (item as any).photoUrls?.length ? (item as any).photoUrls : item.photoUrl ? [item.photoUrl] : [];
+                        if (photos.length === 0) return (
+                          <div className="w-full h-28 bg-muted/50 flex flex-col items-center justify-center text-muted-foreground border-b border-border/50">
+                            <ImageIcon className="w-7 h-7 mb-1 opacity-40" />
+                            <span className="text-xs font-medium">사진 없음</span>
+                          </div>
+                        );
+                        if (photos.length === 1) return (
+                          <PhotoThumbnail src={photos[0]} className="w-full h-44 bg-muted relative block">
+                            <img src={photos[0]} alt="현장사진" className="w-full h-full object-cover" />
+                            {hasNotok && (
+                              <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
+                                <AlertCircle className="w-4 h-4" /> 불일치 항목 있음
+                              </div>
+                            )}
+                          </PhotoThumbnail>
+                        );
+                        return (
+                          <div className="relative border-b border-border/50">
+                            <div className="flex gap-1 overflow-x-auto no-scrollbar p-1">
+                              {photos.map((url, pi) => (
+                                <PhotoThumbnail key={pi} src={url} className="shrink-0 w-32 h-32 rounded-2xl overflow-hidden block">
+                                  <img src={url} alt={`사진 ${pi + 1}`} className="w-full h-full object-cover" />
+                                </PhotoThumbnail>
+                              ))}
                             </div>
-                          )}
-                        </PhotoThumbnail>
-                      ) : (
-                        <div className="w-full h-28 bg-muted/50 flex flex-col items-center justify-center text-muted-foreground border-b border-border/50">
-                          <ImageIcon className="w-7 h-7 mb-1 opacity-40" />
-                          <span className="text-xs font-medium">사진 없음</span>
-                        </div>
-                      )}
+                            {hasNotok && (
+                              <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
+                                <AlertCircle className="w-4 h-4" /> 불일치 항목 있음
+                              </div>
+                            )}
+                            <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full">{photos.length}장</div>
+                          </div>
+                        );
+                      })()}
 
                       <div className="p-5">
                         <div className="flex justify-between items-start mb-3">
