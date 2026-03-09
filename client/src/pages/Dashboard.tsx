@@ -366,7 +366,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
             className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
             {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
           </select>
-          <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1">
+          <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1 touch-pan-x">
             {monthOptions.map(m => (
               <button key={m} onClick={() => setFilterMonth(m)}
                 className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${

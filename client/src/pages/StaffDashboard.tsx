@@ -272,7 +272,7 @@ export default function StaffDashboard() {
                   ))}
                 </select>
               </div>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                   <button key={m} onClick={() => setVmFilterMonth(m)}
                     className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
