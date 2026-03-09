@@ -169,11 +169,11 @@ export function useSaveChecklistReply() {
 export function useUpdateChecklistScore() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, adminScore }: { id: number; adminScore: number | null }) => {
+    mutationFn: async ({ id, adminScore, adminItems }: { id: number; adminScore: number | null; adminItems?: Record<string, 'ok' | 'notok'> | null }) => {
       const res = await fetch(`/api/checklists/${id}/score`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminScore }),
+        body: JSON.stringify({ adminScore, adminItems: adminItems ?? null }),
         credentials: 'include',
       });
       if (!res.ok) throw new Error('점수 저장 실패');

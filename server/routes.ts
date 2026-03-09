@@ -364,15 +364,15 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
-      const { adminScore } = req.body;
+      const { adminScore, adminItems } = req.body;
       if (adminScore === undefined || adminScore === null) {
-        const result = await storage.updateChecklist(id, { adminScore: null } as any);
+        const result = await storage.updateChecklist(id, { adminScore: null, adminItems: null } as any);
         if (!result) return res.status(404).json({ message: "Not found" });
         return res.json(result);
       }
       const score = parseInt(adminScore);
       if (isNaN(score) || score < 0 || score > 100) return res.status(400).json({ message: "점수는 0~100 사이여야 합니다." });
-      const result = await storage.updateChecklist(id, { adminScore: score } as any);
+      const result = await storage.updateChecklist(id, { adminScore: score, adminItems: adminItems ?? null } as any);
       if (!result) return res.status(404).json({ message: "Not found" });
       res.json(result);
     } catch (err) {

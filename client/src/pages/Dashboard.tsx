@@ -136,99 +136,165 @@ function AdminCommentInput({
   );
 }
 
-function AdminScoreInput({ id, existingScore, totalItems }: { id: number; existingScore?: number | null; totalItems: number }) {
+function AdminScoreInput({
+  id, existingScore, staffItems, existingAdminItems
+}: {
+  id: number;
+  existingScore?: number | null;
+  staffItems: Record<string, string>;
+  existingAdminItems?: Record<string, 'ok' | 'notok'> | null;
+}) {
   const { toast } = useToast();
   const scoreMutation = useUpdateChecklistScore();
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
+  const itemKeys = Object.keys(staffItems);
+  const totalItems = itemKeys.length;
 
-  // Back-calculate selected count from existing score
-  const existingCount = (existingScore != null && totalItems > 0)
-    ? Math.round((existingScore / 100) * totalItems)
-    : null;
-  const [selectedCount, setSelectedCount] = useState<number | null>(existingCount);
+  const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok' | null>>(
+    () => Object.fromEntries(
+      itemKeys.map(k => [k, existingAdminItems?.[k] ?? null])
+    )
+  );
 
-  const calcScore = (count: number) => totalItems > 0 ? Math.round((count / totalItems) * 100) : 0;
-  const scoreColorClass = (s: number) =>
-    s >= 90 ? 'bg-blue-500 text-white border-blue-600' :
-    s >= 70 ? 'bg-amber-500 text-white border-amber-600' :
-    'bg-primary text-white border-red-700';
+  const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
+  const confirmedCount = Object.values(adminSel).filter(v => v !== null).length;
+  const allSelected = totalItems > 0 && confirmedCount === totalItems;
+  const calcScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
+
+  const scoreColor = (s: number) =>
+    s >= 90 ? 'text-blue-600 bg-blue-50 border-blue-200' :
+    s >= 70 ? 'text-amber-600 bg-amber-50 border-amber-200' :
+    'text-primary bg-red-50 border-red-200';
 
   const handleSave = async () => {
-    const score = selectedCount != null ? calcScore(selectedCount) : null;
+    if (!allSelected) {
+      toast({ title: `아직 ${totalItems - confirmedCount}개 항목이 미평가입니다`, variant: "destructive" });
+      return;
+    }
+    const score = calcScore();
+    const adminItems = Object.fromEntries(
+      Object.entries(adminSel).map(([k, v]) => [k, v as 'ok' | 'notok'])
+    );
     try {
-      await scoreMutation.mutateAsync({ id, adminScore: score });
-      toast({ title: score != null ? `○ ${selectedCount}개 → ${score}점 저장됨` : "점수 삭제됨" });
-      setEditing(false);
+      await scoreMutation.mutateAsync({ id, adminScore: score, adminItems });
+      toast({ title: `○ ${okCount}/${totalItems} → ${score}점 확정` });
+      setOpen(false);
     } catch {
       toast({ title: "저장 실패", variant: "destructive" });
     }
   };
 
-  const displayScore = existingScore != null ? existingScore : null;
-  const displayCount = existingCount;
-  const colorClass = displayScore == null ? '' :
-    displayScore >= 90 ? 'text-blue-600 bg-blue-50 border-blue-200' :
-    displayScore >= 70 ? 'text-amber-600 bg-amber-50 border-amber-200' :
-    'text-primary bg-red-50 border-red-200';
+  const score = existingScore != null ? existingScore : null;
+  const prevOk = existingAdminItems ? Object.values(existingAdminItems).filter(v => v === 'ok').length : null;
 
   return (
     <div className="mt-3 border-t border-border/50 pt-3">
-      {!editing ? (
-        <button onClick={() => { setSelectedCount(existingCount); setEditing(true); }}
-          className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
-            displayScore != null ? `${colorClass} border` : 'bg-muted text-muted-foreground hover:text-secondary'
-          }`}
-          data-testid={`btn-score-open-${id}`}>
-          <div className="flex items-center gap-2">
-            <Star className="w-4 h-4" />
-            {displayScore != null
-              ? <span>○ {displayCount}개 / {totalItems}개 → {displayScore}점</span>
-              : <span>관리자 평가 (○ 개수 선택)</span>}
-          </div>
-          <Pencil className="w-3.5 h-3.5 opacity-60" />
-        </button>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground">○ 개수 선택 (전체 {totalItems}개)</p>
-            {selectedCount != null && (
-              <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${scoreColorClass(calcScore(selectedCount))}`}>
-                {calcScore(selectedCount)}점
+      {/* Trigger button */}
+      <button
+        onClick={() => {
+          if (!open) {
+            setAdminSel(Object.fromEntries(itemKeys.map(k => [k, existingAdminItems?.[k] ?? null])));
+          }
+          setOpen(o => !o);
+        }}
+        className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+          score != null ? `${scoreColor(score)} border` : 'bg-muted text-muted-foreground hover:text-secondary'
+        }`}
+        data-testid={`btn-score-open-${id}`}
+      >
+        <div className="flex items-center gap-2">
+          <Star className="w-4 h-4" />
+          {score != null
+            ? <span>○ {prevOk}개/{totalItems}개 → {score}점 {open ? '(수정 중)' : '(확정)'}</span>
+            : <span>관리자 항목별 평가하기</span>}
+        </div>
+        <span className="text-xs opacity-60">{open ? '▲ 닫기' : '▼ 열기'}</span>
+      </button>
+
+      {/* Per-item evaluation panel */}
+      {open && (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-muted-foreground">항목별 확인 ({confirmedCount}/{totalItems})</p>
+            {allSelected && (
+              <span className={`text-sm font-black px-3 py-1 rounded-lg border ${scoreColor(calcScore())}`}>
+                {calcScore()}점
               </span>
             )}
           </div>
-          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(totalItems + 1, 5)}, 1fr)` }}>
-            {Array.from({ length: totalItems + 1 }, (_, i) => i).map(count => {
-              const score = calcScore(count);
-              const isSelected = selectedCount === count;
+
+          {totalItems === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-4">이 점검에 등록된 항목이 없습니다.</p>
+          ) : (
+            itemKeys.map(key => {
+              const staffVal = staffItems[key];
+              const isStaffOk = staffVal === 'ok' || staffVal === 'excellent';
+              const adminVal = adminSel[key];
               return (
-                <button key={count}
-                  onClick={() => setSelectedCount(count)}
-                  className={`py-3 rounded-xl font-bold text-sm flex flex-col items-center gap-0.5 transition-all active:scale-95 border-2 ${
-                    isSelected
-                      ? scoreColorClass(score)
-                      : 'bg-muted text-muted-foreground border-transparent hover:border-border'
-                  }`}
-                  data-testid={`btn-score-count-${count}-${id}`}
-                >
-                  <span className="text-base font-black">○{count}</span>
-                  <span className="text-xs opacity-80">{score}점</span>
-                </button>
+                <div key={key} className={`rounded-2xl border-2 p-3 transition-all ${
+                  adminVal === 'ok' ? 'border-blue-300 bg-blue-50/50' :
+                  adminVal === 'notok' ? 'border-primary/40 bg-red-50/50' :
+                  'border-border bg-muted/20'
+                }`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-secondary leading-snug">{key}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        현장 제출: <span className={`font-black ${isStaffOk ? 'text-blue-600' : 'text-primary'}`}>
+                          {isStaffOk ? '○' : '✗'}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
+                        className={`w-14 h-14 rounded-2xl border-2 font-black text-xl flex items-center justify-center transition-all active:scale-95 ${
+                          adminVal === 'ok'
+                            ? 'bg-blue-500 border-blue-600 text-white shadow-md shadow-blue-200'
+                            : 'bg-white border-border text-muted-foreground hover:border-blue-300'
+                        }`}
+                        data-testid={`btn-admin-ok-${id}-${key}`}
+                      >○</button>
+                      <button
+                        onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
+                        className={`w-14 h-14 rounded-2xl border-2 font-black text-xl flex items-center justify-center transition-all active:scale-95 ${
+                          adminVal === 'notok'
+                            ? 'bg-primary border-red-700 text-white shadow-md shadow-red-200'
+                            : 'bg-white border-border text-muted-foreground hover:border-red-300'
+                        }`}
+                        data-testid={`btn-admin-notok-${id}-${key}`}
+                      >✗</button>
+                    </div>
+                  </div>
+                </div>
               );
-            })}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={handleSave} disabled={scoreMutation.isPending || selectedCount == null}
-              className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
-              data-testid={`btn-score-save-${id}`}>
-              {scoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
-              {selectedCount != null ? `○${selectedCount}개 · ${calcScore(selectedCount)}점 저장` : '저장'}
-            </button>
-            <button onClick={() => setEditing(false)}
-              className="px-4 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
-              취소
-            </button>
-          </div>
+            })
+          )}
+
+          {/* Score summary + confirm */}
+          {totalItems > 0 && (
+            <div className="pt-2 space-y-2">
+              <div className={`flex items-center justify-between p-4 rounded-2xl border-2 ${allSelected ? scoreColor(calcScore()) : 'border-border bg-muted/30 text-muted-foreground'}`}>
+                <span className="font-bold">○ {okCount}개 / {totalItems}개</span>
+                <span className="text-2xl font-black">{allSelected ? `${calcScore()}점` : `${confirmedCount}/${totalItems} 선택`}</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSave}
+                  disabled={scoreMutation.isPending || !allSelected}
+                  className="flex-1 py-3 rounded-2xl bg-primary text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-40 shadow-md shadow-red-200"
+                  data-testid={`btn-score-save-${id}`}
+                >
+                  {scoreMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Star className="w-5 h-5" />}
+                  {allSelected ? `${calcScore()}점으로 확정` : `(${confirmedCount}/${totalItems} 완료 후 확정)`}
+                </button>
+                <button onClick={() => setOpen(false)}
+                  className="px-4 py-3 rounded-2xl bg-muted text-muted-foreground font-bold active:scale-[0.98]">
+                  취소
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -453,7 +519,12 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     </div>
                   )}
 
-                  <AdminScoreInput id={item.id} existingScore={(item as any).adminScore} totalItems={Object.keys((item.items as Record<string, string>) || {}).length} />
+                  <AdminScoreInput
+                    id={item.id}
+                    existingScore={(item as any).adminScore}
+                    staffItems={(item.items as Record<string, string>) || {}}
+                    existingAdminItems={(item as any).adminItems as Record<string, 'ok' | 'notok'> | null}
+                  />
 
                   <AdminCommentInput
                     id={item.id}
