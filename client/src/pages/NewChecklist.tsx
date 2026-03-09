@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useCreateChecklist, useUploadPhoto } from "@/hooks/use-checklists";
+import { useCreateChecklist, useUploadPhoto, useChecklists } from "@/hooks/use-checklists";
 import { useGuidesByProduct } from "@/hooks/use-guides";
 import { useProducts } from "@/hooks/use-products";
-import { useGuideNotifications } from "@/hooks/use-notifications";
+import { useGuideNotifications, type GuideNotification } from "@/hooks/use-notifications";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
@@ -44,6 +45,52 @@ export default function NewChecklist() {
 
   const currentYear = nowDate.getFullYear();
   const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
+
+  // Guide notifications — raw (not localStorage-filtered) for branch completion check
+  const { data: guideNotifs = [] } = useQuery<GuideNotification[]>({
+    queryKey: ['/api/guide-notifications'],
+    refetchInterval: 60_000,
+  });
+  const { data: branchChecklists = [] } = useChecklists({ branch: branch || undefined });
+
+  // Deduplicate by product: keep only the most recent notification per product
+  const latestGuideNotifByProduct = guideNotifs.reduce<typeof guideNotifs>((acc, notif) => {
+    if (!notif.product) return acc;
+    const existing = acc.find(n => n.product === notif.product);
+    if (!existing || new Date(notif.createdAt) > new Date(existing.createdAt)) {
+      return [...acc.filter(n => n.product !== notif.product), notif];
+    }
+    return acc;
+  }, []);
+
+  const pendingGuideNotifs = latestGuideNotifByProduct.filter(notif => {
+    if (!notif.product) return false;
+    const notifDate = new Date(notif.createdAt);
+    const notifYear = notifDate.getFullYear();
+    const notifMonth = notifDate.getMonth() + 1;
+    const alreadyDone = branchChecklists.some(c => {
+      const cy = (c as any).year;
+      const cm = (c as any).month;
+      return c.product === notif.product && cy === notifYear && cm === notifMonth;
+    });
+    return !alreadyDone;
+  });
+
+  const handleGuideNotifClick = (notif: typeof guideNotifs[0]) => {
+    if (!notif.product) return;
+    const notifDate = new Date(notif.createdAt);
+    setSelYear(notifDate.getFullYear());
+    setSelMonth(notifDate.getMonth() + 1);
+    const match = notif.product.match(/^\[([^\]]+)\](.*)/);
+    const group = match ? match[1] : notif.product;
+    setSelCategory(notif.category ?? '');
+    setSelGroup(group);
+    setSelProduct(notif.product);
+    setItems({});
+    setPhotoUrl('');
+    setNotes('');
+    setVmStage('items');
+  };
 
   const resetVm = () => {
     setVmStage('category');
@@ -168,6 +215,58 @@ export default function NewChecklist() {
 
         {/* ── Content area ── */}
         <div className="flex-1 overflow-y-auto">
+
+          {/* Guide notification cards — shown at category stage after branch selected */}
+          {branch && activeTab === 'vm' && vmStage === 'category' && pendingGuideNotifs.length > 0 && (
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-black text-primary">📢 새 가이드 알림</span>
+                <span className="text-xs text-muted-foreground font-medium">— 점검이 필요한 항목이 있습니다</span>
+              </div>
+              {pendingGuideNotifs.map(notif => {
+                const notifDate = new Date(notif.createdAt);
+                const notifYear = notifDate.getFullYear();
+                const notifMonth = notifDate.getMonth() + 1;
+                const productDisplay = notif.product
+                  ? (notif.product.match(/^\[([^\]]+)\](.+)/) ? notif.product.replace(/^\[([^\]]+)\]/, '') : notif.product.replace(/^\[([^\]]+)\]$/, '$1'))
+                  : notif.itemName;
+                const groupDisplay = notif.product
+                  ? (notif.product.match(/^\[([^\]]+)\]/) || ['', ''])[1]
+                  : '';
+                return (
+                  <button
+                    key={notif.id}
+                    onClick={() => handleGuideNotifClick(notif)}
+                    className="w-full flex items-center gap-3 bg-white border-2 border-primary/20 rounded-2xl p-4 text-left shadow-sm hover:border-primary/50 active:scale-[0.98] transition-all"
+                    data-testid={`btn-guide-notif-${notif.id}`}
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-2xl">📋</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                        <span className="text-[10px] font-black text-white bg-primary px-1.5 py-0.5 rounded-full shrink-0">새 가이드</span>
+                        <span className="text-xs font-bold text-muted-foreground">{notifYear}년 {notifMonth}월 · {notif.category}</span>
+                      </div>
+                      <p className="text-base font-black text-secondary truncate">
+                        {groupDisplay}{groupDisplay && productDisplay ? ' · ' : ''}{productDisplay}
+                      </p>
+                      <p className="text-xs text-primary font-bold mt-0.5">새 가이드가 등록됐습니다 — 점검을 시작해 주세요</p>
+                    </div>
+                    <div className="shrink-0 flex flex-col items-center gap-1">
+                      <div className="bg-primary text-white text-xs font-black px-3 py-2 rounded-xl">
+                        점검 시작
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+              <div className="border-t border-border/40 pt-3">
+                <p className="text-xs text-muted-foreground text-center font-medium">또는 아래에서 직접 카테고리를 선택하세요</p>
+              </div>
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
 
             {/* No branch selected */}
