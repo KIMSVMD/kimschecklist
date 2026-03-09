@@ -533,7 +533,7 @@ function Step4Input({ formData, updateForm }: { formData: any, updateForm: any, 
           ref={fileInputRef}
           type="file" 
           accept="image/*" 
-          capture="environment" 
+          
           className="hidden" 
           onChange={handleFile}
         />

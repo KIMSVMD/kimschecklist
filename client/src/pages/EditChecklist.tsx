@@ -239,7 +239,7 @@ export default function EditChecklist() {
               <span className="font-bold text-lg">{localPreview ? "다시 촬영하기" : "탭하여 사진 촬영"}</span>
             </div>
           </button>
-          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
         </div>
 
         {/* Per-item Status */}
