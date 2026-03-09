@@ -33,6 +33,7 @@ export const guides = pgTable("guides", {
   id: serial("id").primaryKey(),
   category: text("category").notNull(),
   product: text("product").notNull(),
+  storeType: text("store_type"),
   imageUrl: text("image_url"),
   points: text("points").array().notNull().default([]),
   items: text("items").array().notNull().default([]),

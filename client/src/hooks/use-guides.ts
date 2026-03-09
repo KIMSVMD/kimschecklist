@@ -26,6 +26,19 @@ export function useGuideByProduct(product: string) {
   });
 }
 
+export function useGuidesByProduct(product: string) {
+  return useQuery<Guide[]>({
+    queryKey: ['/api/guides/product', product, 'all'],
+    queryFn: async () => {
+      if (!product) return [];
+      const res = await fetch(`/api/guides/product/${encodeURIComponent(product)}/all`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch guides');
+      return res.json();
+    },
+    enabled: !!product,
+  });
+}
+
 export function useAdminStatus() {
   return useQuery<{ isAdmin: boolean }>({
     queryKey: ['/api/admin/me'],
@@ -73,6 +86,7 @@ export function useAdminLogout() {
 type GuidePayload = {
   category: string;
   product: string;
+  storeType?: string | null;
   points: string[];
   items: string[];
   imageUrl?: string | null;

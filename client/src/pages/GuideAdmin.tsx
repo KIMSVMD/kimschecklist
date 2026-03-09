@@ -36,6 +36,7 @@ const CATEGORIES = ['농산', '수산', '축산', '공산'];
 type GuideFormData = {
   category: string;
   product: string;
+  storeType?: string | null;
   points: string[];
   items: string[];
   imageFile?: File | null;
@@ -56,6 +57,7 @@ function GuideForm({
   const [form, setForm] = useState<GuideFormData>({
     category: initial?.category || '농산',
     product: initial?.product || '',
+    storeType: initial?.storeType ?? null,
     points: initial?.points || [''],
     items: initial?.items || [''],
     imageFile: null,
@@ -178,6 +180,29 @@ function GuideForm({
           선택된 상품: <span className="font-black">{form.product}</span>
         </div>
       )}
+
+      <div className="space-y-2">
+        <label className="text-sm font-bold text-secondary">점포 유형 (선택)</label>
+        <div className="flex gap-2">
+          {(['전체(공통)', '대형점', '중소형점'] as const).map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setForm(f => ({ ...f, storeType: t === '전체(공통)' ? null : t }))}
+              className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
+                (t === '전체(공통)' && !form.storeType) || form.storeType === t
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-muted text-muted-foreground border-transparent'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        {form.storeType && (
+          <p className="text-xs text-muted-foreground">같은 상품에 대형점·중소형점 가이드를 각각 등록하면 점검 시 선택 가능합니다.</p>
+        )}
+      </div>
 
       <div className="space-y-2">
         <label className="text-sm font-bold text-secondary">표준 진열 가이드 이미지</label>
@@ -495,6 +520,7 @@ export default function GuideAdmin() {
     return {
       category: data.category,
       product: data.product,
+      storeType: data.storeType || null,
       points: data.points.filter((p: string) => p.trim()),
       items: data.items.filter((i: string) => i.trim()),
       imageUrl: imageUrl || null,
@@ -671,6 +697,7 @@ export default function GuideAdmin() {
                             initial={{
                               category: guide.category,
                               product: guide.product,
+                              storeType: guide.storeType,
                               points: guide.points as string[],
                               items: guide.items as string[],
                               imageUrl: guide.imageUrl || '',
@@ -695,6 +722,11 @@ export default function GuideAdmin() {
                                 <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${categoryColor[guide.category] || 'bg-muted text-secondary'}`}>
                                   {guide.category}
                                 </span>
+                                {guide.storeType && (
+                                  <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-700">
+                                    {guide.storeType}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-lg font-black text-secondary truncate">{guide.product}</p>
                               <p className="text-sm text-muted-foreground">평가항목 {(guide.items as string[]).filter(Boolean).length}개</p>

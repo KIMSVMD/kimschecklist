@@ -49,7 +49,8 @@ export interface IStorage {
   deleteChecklist(id: number): Promise<void>;
   getGuides(): Promise<Guide[]>;
   getGuide(id: number): Promise<Guide | undefined>;
-  getGuideByProduct(product: string): Promise<Guide | undefined>;
+  getGuideByProduct(product: string, storeType?: string | null): Promise<Guide | undefined>;
+  getGuidesByProduct(product: string): Promise<Guide[]>;
   createGuide(guide: InsertGuide): Promise<Guide>;
   updateGuide(id: number, guide: Partial<InsertGuide>): Promise<Guide | undefined>;
   deleteGuide(id: number): Promise<void>;
@@ -106,9 +107,19 @@ export class DatabaseStorage implements IStorage {
     return guide;
   }
 
-  async getGuideByProduct(product: string): Promise<Guide | undefined> {
+  async getGuideByProduct(product: string, storeType?: string | null): Promise<Guide | undefined> {
+    if (storeType) {
+      const [guide] = await db.select().from(guides).where(
+        and(eq(guides.product, product), eq(guides.storeType, storeType))
+      );
+      return guide;
+    }
     const [guide] = await db.select().from(guides).where(eq(guides.product, product));
     return guide;
+  }
+
+  async getGuidesByProduct(product: string): Promise<Guide[]> {
+    return await db.select().from(guides).where(eq(guides.product, product));
   }
 
   async createGuide(insertGuide: InsertGuide): Promise<Guide> {

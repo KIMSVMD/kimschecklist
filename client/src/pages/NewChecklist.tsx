@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto } from "@/hooks/use-checklists";
-import { useGuideByProduct } from "@/hooks/use-guides";
+import { useGuidesByProduct } from "@/hooks/use-guides";
 import { useProducts } from "@/hooks/use-products";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -384,7 +384,14 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
   const uploadMutation = useUploadPhoto();
-  const { data: dbGuide, isLoading: guideLoading } = useGuideByProduct(selProduct);
+  const { data: allGuides = [], isLoading: guideLoading } = useGuidesByProduct(selProduct);
+  const [selectedStoreType, setSelectedStoreType] = useState<string | null>(null);
+  const storeTypeOptions = Array.from(new Set(allGuides.filter(g => g.storeType).map(g => g.storeType as string)));
+  const hasStoreTypes = storeTypeOptions.length > 0;
+  const dbGuide = hasStoreTypes
+    ? (allGuides.find(g => g.storeType === (selectedStoreType || storeTypeOptions[0])) ?? allGuides[0])
+    : allGuides[0] ?? null;
+  const activeStoreType = hasStoreTypes ? (selectedStoreType || storeTypeOptions[0]) : null;
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -444,9 +451,30 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
       ) : dbGuide ? (
         <div className="space-y-4">
           <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <ImageIcon className="text-primary w-6 h-6" />
-              <h3 className="text-xl font-bold">표준 진열 가이드</h3>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="text-primary w-6 h-6" />
+                <h3 className="text-xl font-bold">표준 진열 가이드</h3>
+              </div>
+              {hasStoreTypes && (
+                <div className="flex gap-1">
+                  {storeTypeOptions.map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setSelectedStoreType(t)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                        activeStoreType === t
+                          ? 'bg-primary text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                      data-testid={`btn-store-type-${t}`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {guideImage ? (
               <Dialog>

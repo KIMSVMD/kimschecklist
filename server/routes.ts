@@ -62,9 +62,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/guides/product/:product/all', async (req, res) => {
+    try {
+      const guideList = await storage.getGuidesByProduct(decodeURIComponent(req.params.product));
+      res.json(guideList);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get('/api/guides/product/:product', async (req, res) => {
     try {
-      const guide = await storage.getGuideByProduct(decodeURIComponent(req.params.product));
+      const storeType = req.query.storeType as string | undefined;
+      const guide = await storage.getGuideByProduct(decodeURIComponent(req.params.product), storeType || null);
       if (!guide) return res.status(404).json({ message: "Guide not found" });
       res.json(guide);
     } catch (err) {
