@@ -750,7 +750,7 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
       {/* Submit */}
       <button
         onClick={submitForm}
-        disabled={createMutation.isPending || uploadMutation.isPending || !allItemsChecked}
+        disabled={createMutation.isPending || uploadingCount > 0 || !allItemsChecked}
         className="w-full py-6 rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-white font-black text-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-2 mt-4"
         data-testid="btn-submit-checklist"
       >

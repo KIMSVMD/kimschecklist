@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklist, useUpdateChecklist, useSaveChecklistComment, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
@@ -41,10 +42,22 @@ export default function EditChecklist() {
   const confirmMutation = useConfirmChecklistComment();
   const replyMutation = useSaveChecklistReply();
 
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [localPreviews, setLocalPreviews] = useState<string[]>([]);
-  const [uploadingCount, setUploadingCount] = useState(0);
-  const [items, setItems]
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [items, setItems] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState('');
+  const [commentText, setCommentText] = useState('');
+  const [replyText, setReplyText] = useState('');
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const { uploadFile } = await import("@/lib/upload");
+      return uploadFile(file);
+    },
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = !!adminStatus?.isAdmin;
   const adminComment = (checklist as any)?.adminComment as string | null | undefined;
