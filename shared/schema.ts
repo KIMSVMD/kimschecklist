@@ -14,6 +14,9 @@ export const checklists = pgTable("checklists", {
   adminComment: text("admin_comment"),
   commentConfirmed: boolean("comment_confirmed").default(false),
   staffReply: text("staff_reply"),
+  year: integer("year"),
+  month: integer("month"),
+  adminScore: integer("admin_score"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

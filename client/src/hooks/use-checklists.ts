@@ -166,6 +166,25 @@ export function useSaveChecklistReply() {
   });
 }
 
+export function useUpdateChecklistScore() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, adminScore }: { id: number; adminScore: number | null }) => {
+      const res = await fetch(`/api/checklists/${id}/score`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminScore }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('점수 저장 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+    },
+  });
+}
+
 export function useUpdateChecklistItemStatus() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -103,9 +103,8 @@ export default function EditChecklist() {
 
   const handleSubmit = async () => {
     if (!checklist) return;
-    const hasPoor = Object.values(items).includes("poor");
-    const hasAverage = Object.values(items).includes("average");
-    const finalStatus = hasPoor ? "poor" : hasAverage ? "average" : "excellent";
+    const hasNotok = Object.values(items).includes("notok") || Object.values(items).includes("poor");
+    const finalStatus = hasNotok ? "poor" : "excellent";
 
     try {
       await updateMutation.mutateAsync({
@@ -244,29 +243,45 @@ export default function EditChecklist() {
 
         {/* Per-item Status */}
         {guideItems.length > 0 && (
-          <div className="space-y-6">
-            <h3 className="text-xl font-bold text-secondary">항목별 진열 상태 평가</h3>
-            {guideItems.map((item) => (
-              <div key={item} className="space-y-3 p-4 bg-muted/30 rounded-2xl border border-border/50">
-                <h4 className="text-lg font-bold text-secondary">{item}</h4>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "excellent", label: "우수", icon: CheckCircle2, active: "bg-blue-500 border-blue-600 text-white shadow-md", inactive: "bg-white border-border text-muted-foreground" },
-                    { id: "average", label: "보통", icon: AlertTriangle, active: "bg-amber-500 border-amber-600 text-white shadow-md", inactive: "bg-white border-border text-muted-foreground" },
-                    { id: "poor", label: "미흡", icon: XOctagon, active: "bg-primary border-red-700 text-white shadow-md", inactive: "bg-white border-border text-muted-foreground" },
-                  ].map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => setItems((prev) => ({ ...prev, [item]: s.id }))}
-                      className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-all active:scale-95 ${items[item] === s.id ? s.active : s.inactive}`}
-                    >
-                      <s.icon className="w-8 h-8 mb-1" />
-                      <span className="text-sm font-bold">{s.label}</span>
-                    </button>
-                  ))}
+          <div className="space-y-5">
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-secondary">항목별 가이드 일치 여부</h3>
+              <p className="text-sm text-muted-foreground">진열 가이드와 일치하면 ○, 다르면 ✗를 선택하세요.</p>
+            </div>
+            {guideItems.map((item) => {
+              const currentVal = items[item];
+              const isOk = currentVal === 'ok' || currentVal === 'excellent';
+              const isNotok = currentVal === 'notok' || currentVal === 'poor';
+              return (
+                <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
+                  isOk ? 'border-blue-300 bg-blue-50' : isNotok ? 'border-primary bg-red-50' : 'border-border bg-white'
+                }`}>
+                  <div className="flex items-center justify-between p-4">
+                    <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                    <div className="flex gap-3 shrink-0">
+                      <button
+                        onClick={() => setItems(prev => ({ ...prev, [item]: 'ok' }))}
+                        className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                          isOk ? 'bg-blue-500 border-blue-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                        }`}
+                        data-testid={`btn-item-ok-${item}`}
+                      >
+                        <CheckCircle2 className="w-8 h-8" />
+                      </button>
+                      <button
+                        onClick={() => setItems(prev => ({ ...prev, [item]: 'notok' }))}
+                        className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                          isNotok ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                        }`}
+                        data-testid={`btn-item-notok-${item}`}
+                      >
+                        <XOctagon className="w-8 h-8" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -359,14 +359,35 @@ export async function registerRoutes(
     }
   });
 
-  // Admin override individual VM item status (poor → excellent)
+  // Admin assign score to VM checklist
+  app.patch('/api/checklists/:id/score', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { adminScore } = req.body;
+      if (adminScore === undefined || adminScore === null) {
+        const result = await storage.updateChecklist(id, { adminScore: null } as any);
+        if (!result) return res.status(404).json({ message: "Not found" });
+        return res.json(result);
+      }
+      const score = parseInt(adminScore);
+      if (isNaN(score) || score < 0 || score > 100) return res.status(400).json({ message: "점수는 0~100 사이여야 합니다." });
+      const result = await storage.updateChecklist(id, { adminScore: score } as any);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin override individual VM item status (ok → notok or vice versa)
   app.patch('/api/checklists/:id/item-status', requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
       const { itemName, newStatus } = req.body;
       if (!itemName || !newStatus) return res.status(400).json({ message: "itemName and newStatus required" });
-      if (!['excellent', 'average', 'poor'].includes(newStatus)) return res.status(400).json({ message: "newStatus must be excellent, average, or poor" });
+      if (!['excellent', 'average', 'poor', 'ok', 'notok'].includes(newStatus)) return res.status(400).json({ message: "newStatus must be excellent, average, poor, ok, or notok" });
       const result = await storage.updateChecklistItemStatus(id, itemName, newStatus);
       if (!result) return res.status(404).json({ message: "Not found" });
       res.json(result);

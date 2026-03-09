@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus } from "@/hooks/use-checklists";
+import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus, useUpdateChecklistScore } from "@/hooks/use-checklists";
 import { useAdminStatus } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { calcVMScore, calcCleaningScore, scoreColor } from "@/lib/scoring";
+import { calcCleaningScore, scoreColor } from "@/lib/scoring";
 import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
   MessageSquare, Send, CheckCheck, CornerDownRight,
-  ChevronLeft, ChevronRight, Calendar, Bell,
+  ChevronLeft, ChevronRight, Calendar, Bell, Star,
 } from "lucide-react";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { VMCommentThread } from "@/components/VMCommentThread";
@@ -136,10 +136,85 @@ function AdminCommentInput({
   );
 }
 
+function AdminScoreInput({ id, existingScore }: { id: number; existingScore?: number | null }) {
+  const { toast } = useToast();
+  const scoreMutation = useUpdateChecklistScore();
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState(existingScore != null ? String(existingScore) : '');
+
+  const handleSave = async () => {
+    const parsed = inputVal.trim() === '' ? null : parseInt(inputVal);
+    if (parsed !== null && (isNaN(parsed) || parsed < 0 || parsed > 100)) {
+      toast({ title: "0~100 사이 점수를 입력하세요", variant: "destructive" }); return;
+    }
+    try {
+      await scoreMutation.mutateAsync({ id, adminScore: parsed });
+      toast({ title: parsed != null ? `${parsed}점 저장됨` : "점수 삭제됨" });
+      setEditing(false);
+    } catch {
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  const scoreNum = existingScore != null ? existingScore : null;
+  const scoreColorClass = scoreNum == null ? '' : scoreNum >= 80 ? 'text-blue-600 bg-blue-50 border-blue-200' : scoreNum >= 60 ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-primary bg-red-50 border-red-200';
+
+  return (
+    <div className="mt-3 border-t border-border/50 pt-3">
+      {!editing ? (
+        <button onClick={() => { setInputVal(scoreNum != null ? String(scoreNum) : ''); setEditing(true); }}
+          className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${
+            scoreNum != null ? `${scoreColorClass} border` : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid={`btn-score-open-${id}`}>
+          <div className="flex items-center gap-2">
+            <Star className="w-4 h-4" />
+            {scoreNum != null ? <span>{scoreNum}점 (관리자 평가)</span> : <span>관리자 점수 부여</span>}
+          </div>
+          <Pencil className="w-3.5 h-3.5 opacity-60" />
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="number" min="0" max="100"
+              value={inputVal}
+              onChange={e => setInputVal(e.target.value)}
+              placeholder="0~100"
+              className="flex-1 rounded-xl border border-border bg-muted/50 p-3 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-primary/40"
+              data-testid={`input-score-${id}`}
+            />
+            <span className="text-sm font-bold text-secondary">점</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={scoreMutation.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-score-save-${id}`}>
+              {scoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
+              저장
+            </button>
+            <button onClick={() => setEditing(false)}
+              className="px-4 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlightBranch?: string }) {
+  const now = new Date();
   const [filterBranch, setFilterBranch] = useState('전체');
   const [filterCategory, setFilterCategory] = useState('전체');
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const { toast } = useToast();
+
+  const currentYear = now.getFullYear();
+  const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
+  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
   useEffect(() => {
     if (!highlightId) return;
@@ -155,21 +230,35 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     }, 300);
     return () => clearTimeout(timer);
   }, [highlightId, highlightBranch]);
+
   const deleteMutation = useDeleteChecklist();
   const itemStatusMutation = useUpdateChecklistItemStatus();
 
-  const handleItemResolve = async (id: number, itemName: string) => {
+  const handleItemToggle = async (id: number, itemName: string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'ok' ? 'notok' : 'ok';
     try {
-      await itemStatusMutation.mutateAsync({ id, itemName, newStatus: 'excellent' });
-      toast({ title: "수정 완료 처리됨", description: `'${itemName}' 항목이 우수로 변경됐습니다.` });
+      await itemStatusMutation.mutateAsync({ id, itemName, newStatus: nextStatus });
+      toast({ title: nextStatus === 'ok' ? "일치로 변경됨" : "불일치로 변경됨" });
     } catch {
       toast({ title: "변경 실패", variant: "destructive" });
     }
   };
 
-  const { data: checklists, isLoading } = useChecklists({
+  const { data: allChecklists, isLoading } = useChecklists({
     branch: filterBranch !== '전체' ? filterBranch : undefined,
     category: filterCategory !== '전체' ? filterCategory : undefined,
+  });
+
+  // Filter by year/month client-side
+  const checklists = (allChecklists ?? []).filter(item => {
+    const itemYear = (item as any).year;
+    const itemMonth = (item as any).month;
+    if (itemYear && itemMonth) {
+      return itemYear === filterYear && itemMonth === filterMonth;
+    }
+    // Fallback: filter by createdAt month for old records without year/month
+    const d = new Date(item.createdAt);
+    return d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth;
   });
 
   const handleDelete = async (id: number, label: string) => {
@@ -182,13 +271,6 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     }
   };
 
-  const statusColors = {
-    excellent: 'bg-blue-100 text-blue-700',
-    average: 'bg-amber-100 text-amber-700',
-    poor: 'bg-red-100 text-primary border-primary font-bold'
-  };
-  const statusLabels = { excellent: '우수', average: '보통', poor: '미흡' };
-
   return (
     <>
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
@@ -197,20 +279,32 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
           <span>필터링</span>
         </div>
         <div className="flex gap-2">
-          <select
-            value={filterBranch}
-            onChange={e => setFilterBranch(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
-          >
+          <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)}
+            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
             {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
           </select>
-          <select
-            value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
-          >
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+        </div>
+        {/* Year/Month filter */}
+        <div className="flex gap-2 items-center">
+          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+          <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
+            {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
+          </select>
+          <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1">
+            {monthOptions.map(m => (
+              <button key={m} onClick={() => setFilterMonth(m)}
+                className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                  filterMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground'
+                }`}>
+                {m}월
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -220,16 +314,17 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
             <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
             데이터를 불러오는 중...
           </div>
-        ) : !checklists?.length ? (
+        ) : !checklists.length ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
               <AlertCircle className="w-8 h-8 opacity-50" />
             </div>
-            <p className="font-medium text-lg">조건에 맞는 점검 기록이 없습니다.</p>
+            <p className="font-medium text-lg">{filterYear}년 {filterMonth}월 점검 기록이 없습니다.</p>
           </div>
         ) : (
           checklists.map((item, index) => {
-            const isPoor = item.status === 'poor';
+            const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
+            const adminScore = (item as any).adminScore as number | null | undefined;
             return (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -237,15 +332,15 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                 transition={{ delay: index * 0.05 }}
                 key={item.id}
                 id={`vm-card-${item.id}`}
-                className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5 transition-all ${isPoor ? 'border-2 border-primary' : 'border border-border/50 hover:shadow-xl'}`}
+                className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5 transition-all ${hasNotok ? 'border-2 border-primary' : 'border border-border/50 hover:shadow-xl'}`}
                 data-testid={`card-checklist-${item.id}`}
               >
                 {item.photoUrl ? (
                   <PhotoThumbnail src={item.photoUrl} className="w-full h-48 bg-muted relative block">
                     <img src={item.photoUrl} alt="Checklist" className="w-full h-full object-cover" />
-                    {isPoor && (
+                    {hasNotok && (
                       <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" /> 긴급 조치 요망
+                        <AlertCircle className="w-4 h-4" /> 불일치 항목 있음
                       </div>
                     )}
                   </PhotoThumbnail>
@@ -265,44 +360,52 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                       </h3>
                     </div>
                     <div className="flex items-center gap-2">
-                      {item.items && Object.keys(item.items as object).length > 0 && (() => {
-                        const score = calcVMScore(item.items as Record<string, string>, item.photoUrl);
-                        return (
-                          <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(score)}`}
-                            data-testid={`text-score-${item.id}`}>
-                            {score}점
-                          </div>
-                        );
-                      })()}
-                      <div className={`px-3 py-1.5 rounded-xl text-sm ${statusColors[item.status as keyof typeof statusColors]}`}>
-                        {statusLabels[item.status as keyof typeof statusLabels]}
-                      </div>
+                      {adminScore != null ? (
+                        <div className={`px-3 py-1.5 rounded-xl border text-sm font-black flex items-center gap-1 ${
+                          adminScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                          adminScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                          'bg-red-50 border-red-200 text-primary'
+                        }`} data-testid={`text-admin-score-${item.id}`}>
+                          <Star className="w-3.5 h-3.5" />{adminScore}점
+                        </div>
+                      ) : (
+                        <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
+                      )}
                     </div>
                   </div>
+
+                  {/* Year/Month display */}
+                  {((item as any).year && (item as any).month) && (
+                    <p className="text-xs font-bold text-primary/70 mb-2 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {(item as any).year}년 {(item as any).month}월 점검
+                    </p>
+                  )}
 
                   {item.items && Object.keys(item.items as object).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {Object.entries(item.items as Record<string, string>).map(([name, status]) => (
                         <div key={name} className="flex items-center gap-1">
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                            status === 'ok' ? 'bg-blue-50 border-blue-200 text-blue-600' :
+                            status === 'notok' ? 'bg-red-50 border-red-200 text-red-600' :
                             status === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
-                            status === 'average' ? 'bg-amber-50 border-amber-200 text-amber-600' :
                             'bg-red-50 border-red-200 text-red-600'
                           }`}>
-                            {name}: {status === 'excellent' ? '우수' : status === 'average' ? '보통' : '미흡'}
+                            {name}: {status === 'ok' || status === 'excellent' ? '○' : '✗'}
                           </span>
-                          {(status === 'poor' || status === 'average') && (
-                            <button
-                              onClick={() => handleItemResolve(item.id, name)}
-                              disabled={itemStatusMutation.isPending}
-                              className="flex items-center gap-0.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full disabled:opacity-50 transition-all active:scale-95"
-                              title={`'${name}' 수정 완료 처리`}
-                              data-testid={`btn-vm-item-resolve-${item.id}-${name}`}
-                            >
-                              <CheckCircle2 className="w-2.5 h-2.5" />
-                              <span>완료</span>
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleItemToggle(item.id, name, status)}
+                            disabled={itemStatusMutation.isPending}
+                            className={`flex items-center gap-0.5 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full disabled:opacity-50 transition-all active:scale-95 ${
+                              status === 'ok' || status === 'excellent' ? 'bg-primary hover:bg-red-700' : 'bg-blue-500 hover:bg-blue-600'
+                            }`}
+                            title={`'${name}' 상태 변경`}
+                            data-testid={`btn-vm-item-toggle-${item.id}-${name}`}
+                          >
+                            {status === 'ok' || status === 'excellent' ? <XCircle className="w-2.5 h-2.5" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
+                            <span>{status === 'ok' || status === 'excellent' ? '✗' : '○'}</span>
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -318,6 +421,8 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                       {item.notes}
                     </div>
                   )}
+
+                  <AdminScoreInput id={item.id} existingScore={(item as any).adminScore} />
 
                   <AdminCommentInput
                     id={item.id}

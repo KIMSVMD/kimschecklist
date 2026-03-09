@@ -11,33 +11,36 @@ Mobile-first, 장갑 착용 환경 고려한 대형 UI.
 - **업로드**: Multer → `/uploads/` 정적 서빙
 
 ## 주요 기능
-1. **새 점검 등록** (`/checklist/new`) - 4단계 위저드
+1. **새 점검 등록** (`/checklist/new`) - 단계별 위저드
    - Step1: 지점 선택 (수도권/지방)
-   - Step2: 점검 유형 선택 — 상단 "매장 청소 점검" 버튼 또는 VM 카테고리 선택
-   - Step3: 2단계 상품 선택 (그룹 → 세부상품, DB 기반)
-   - Step4: 사진 촬영 + 가이드 확인 + 항목별 평가 + 제출
+   - Step2: 점검 유형 선택 — "매장 청소 점검" 또는 "진열가이드 점검(VM)"
+   - Step3(VM만): 년도/월 선택 (기본값: 현재 월)
+   - Step4: 카테고리 → 그룹 → 세부상품 (2단계 상품 선택, DB 기반)
+   - Step5: 사진 촬영 + 가이드 확인 + 항목별 ○/✗ 평가 (ok/notok) + 제출
 
 2. **매장 청소 점검** (`/cleaning/new?branch=X`) - 구역별 청소 점검 위저드
-   - 오픈/마감 시간대 선택
-   - 5개 구역 (입구/농산/축산/수산/공산) 선택
-   - 항목별 OK/문제있음 체크 → 문제 시 사진+메모 기록
 
-3. **현장 직원 대시보드** (`/staff-dashboard`) - 지점 필터 + 수정/삭제
+3. **점검 월별 피드백** (`/staff-dashboard`) - 현장 직원 대시보드
+   - VM 탭: 년도/월 선택으로 월별 점검 기록 조회
+   - 관리자가 부여한 점수(adminScore) 표시
+   - 청소 탭: 일별 조회 (기존)
 
 4. **관리자 대시보드** (`/dashboard`) - 관리자 로그인 필요
-   - VM 점검 탭: 전체 VM 점검 기록 열람/삭제
-   - 청소 점검 탭: 오늘의 구역별 현황 + 문제 목록 + 전체 기록 열람/삭제
+   - VM 점검 탭: 년도/월 필터 + 관리자 점수(0~100) 부여 기능
+   - 청소 점검 탭: 일별 현황 + 문제 목록
 
 5. **관리자 메뉴** (`/admin/guides`) - 가이드 관리 + 상품 관리 탭
-   - 가이드 관리: 진열 가이드 이미지/핵심포인트/평가항목 CRUD
-   - 상품 관리: 카테고리별 그룹/세부상품 추가/삭제
 
 6. **관리자 로그인** (`/admin/login`) - 비밀번호: `ADMIN_PASSWORD` 환경변수
 
+## 항목 평가 방식
+- 현장 직원: ○(일치, `ok`) / ✗(불일치, `notok`) 만 선택
+- 점수: 관리자가 adminScore(0~100) 입력 — `PATCH /api/checklists/:id/score`
+
 ## DB 스키마
-- `checklists`: VM 점검 기록 (branch, category, product, status, photoUrl, notes, items JSONB)
+- `checklists`: VM 점검 기록 (branch, category, product, status, photoUrl, notes, items JSONB, **year INT, month INT, adminScore INT**)
 - `guides`: 진열 가이드 (category, product, imageUrl, points[], items[])
-- `products`: 상품 카탈로그 (category, groupName, productName) — 관리자가 CRUD 가능
+- `products`: 상품 카탈로그 (category, groupName, productName)
 - `cleaning_inspections`: 청소 점검 기록 (branch, zone, inspectionTime, items JSONB, overallStatus)
 
 ## 상품 저장 형식

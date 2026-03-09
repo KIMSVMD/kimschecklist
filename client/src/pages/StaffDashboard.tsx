@@ -11,11 +11,11 @@ import { ko } from "date-fns/locale";
 import {
   ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin,
   CheckCheck, Droplets, Sun, Moon, XCircle, BarChart3,
-  ChevronLeft, ChevronRight, Calendar, Bell, X, MessageCircle,
+  ChevronLeft, ChevronRight, Calendar, Bell, X, MessageCircle, Star,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { calcVMScore, calcCleaningScore, scoreColor } from "@/lib/scoring";
+import { calcCleaningScore, scoreColor } from "@/lib/scoring";
 import { useStaffNotifications, type StaffNotification } from "@/hooks/use-notifications";
 
 const REGIONS: Record<string, string[]> = {
@@ -35,6 +35,9 @@ export default function StaffDashboard() {
   const [filterBranch, setFilterBranch] = useState('');
   const [filterCategory, setFilterCategory] = useState('전체');
   const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
+  const nowDate = new Date();
+  const [vmFilterYear, setVmFilterYear] = useState(nowDate.getFullYear());
+  const [vmFilterMonth, setVmFilterMonth] = useState(nowDate.getMonth() + 1);
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const [filterZone, setFilterZone] = useState('전체');
@@ -66,9 +69,19 @@ export default function StaffDashboard() {
   const deleteMutation = useDeleteChecklist();
   const deleteCleaningMutation = useDeleteCleaning();
 
-  const { data: checklists, isLoading: vmLoading } = useChecklists({
+  const { data: allVmChecklists, isLoading: vmLoading } = useChecklists({
     branch: filterBranch || undefined,
-    category: filterCategory !== '전체' ? filterCategory : undefined,
+  });
+
+  // Filter by year/month client-side
+  const checklists = (allVmChecklists ?? []).filter(item => {
+    const itemYear = (item as any).year;
+    const itemMonth = (item as any).month;
+    if (itemYear && itemMonth) {
+      return itemYear === vmFilterYear && itemMonth === vmFilterMonth;
+    }
+    const d = new Date(item.createdAt);
+    return d.getFullYear() === vmFilterYear && d.getMonth() + 1 === vmFilterMonth;
   });
 
   const { data: cleaningRecords = [], isLoading: cleaningLoading } = useCleaningInspections(
@@ -187,7 +200,7 @@ export default function StaffDashboard() {
     .filter(r => filterZone === '전체' || r.zone === filterZone);
 
   return (
-    <Layout title="내 점검 목록" showBack={true}>
+    <Layout title="점검 월별 피드백" showBack={true}>
       <div className="flex flex-col h-full bg-background">
 
         {/* Filter header */}
@@ -247,22 +260,29 @@ export default function StaffDashboard() {
             </button>
           </div>
 
-          {/* Category filter — VM tab */}
+          {/* Year/Month filter — VM tab */}
           {activeTab === 'vm' && (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setFilterCategory(cat)}
-                  className={`shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                    filterCategory === cat
-                      ? 'bg-primary text-white shadow-sm'
-                      : 'bg-muted text-muted-foreground hover:text-secondary'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            <div className="space-y-2">
+              <div className="flex gap-2 items-center">
+                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                <select value={vmFilterYear} onChange={e => setVmFilterYear(Number(e.target.value))}
+                  className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
+                  {[nowDate.getFullYear() - 1, nowDate.getFullYear(), nowDate.getFullYear() + 1].map(y => (
+                    <option key={y} value={y}>{y}년</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <button key={m} onClick={() => setVmFilterMonth(m)}
+                    className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                      vmFilterMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-secondary'
+                    }`}
+                    data-testid={`btn-staff-vm-month-${m}`}>
+                    {m}월
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -464,7 +484,7 @@ export default function StaffDashboard() {
               <MapPin className="w-10 h-10 text-primary/60" />
             </div>
             <p className="font-bold text-xl text-secondary">지점을 선택해주세요</p>
-            <p className="text-base">내 점검 목록을 확인할 지점을 먼저 선택하세요</p>
+            <p className="text-base">점검 월별 피드백을 확인할 지점을 먼저 선택하세요</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -476,12 +496,12 @@ export default function StaffDashboard() {
                   <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                   불러오는 중...
                 </div>
-              ) : !checklists?.length ? (
+              ) : !checklists.length ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-3">
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
                     <ClipboardList className="w-8 h-8 opacity-40" />
                   </div>
-                  <p className="font-medium text-lg">등록된 VM 점검 기록이 없습니다</p>
+                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 VM 점검 기록이 없습니다</p>
                   <Link href="/checklist/new">
                     <button className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-base">
                       새 점검 등록하기
@@ -490,10 +510,8 @@ export default function StaffDashboard() {
                 </div>
               ) : (
                 checklists.map((item, index) => {
-                  const isPoor = item.status === 'poor';
-                  const score = item.items && Object.keys(item.items as object).length > 0
-                    ? calcVMScore(item.items as Record<string, string>, item.photoUrl)
-                    : null;
+                  const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
+                  const adminScore = (item as any).adminScore as number | null | undefined;
                   return (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -502,15 +520,15 @@ export default function StaffDashboard() {
                       key={item.id}
                       id={`staff-vm-card-${item.id}`}
                       className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5 transition-all
-                        ${isPoor ? 'border-2 border-primary' : 'border border-border/50'}`}
+                        ${hasNotok ? 'border-2 border-primary' : 'border border-border/50'}`}
                       data-testid={`card-checklist-${item.id}`}
                     >
                       {item.photoUrl ? (
                         <PhotoThumbnail src={item.photoUrl} className="w-full h-44 bg-muted relative block">
                           <img src={item.photoUrl} alt="현장사진" className="w-full h-full object-cover" />
-                          {isPoor && (
+                          {hasNotok && (
                             <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
-                              <AlertCircle className="w-4 h-4" /> 미흡 — 조치 필요
+                              <AlertCircle className="w-4 h-4" /> 불일치 항목 있음
                             </div>
                           )}
                         </PhotoThumbnail>
@@ -526,16 +544,24 @@ export default function StaffDashboard() {
                           <div>
                             <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{item.category}</span>
                             <h3 className="text-xl font-black text-secondary mt-1">{item.product}</h3>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {score !== null && (
-                              <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(score)}`}>
-                                {score}점
-                              </div>
+                            {((item as any).year && (item as any).month) && (
+                              <p className="text-xs text-primary/60 font-bold mt-0.5 flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />{(item as any).year}년 {(item as any).month}월 점검
+                              </p>
                             )}
-                            <span className={`px-3 py-1.5 rounded-xl text-sm border ${statusColors[item.status as keyof typeof statusColors]}`}>
-                              {statusLabels[item.status as keyof typeof statusLabels]}
-                            </span>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5">
+                            {adminScore != null ? (
+                              <div className={`px-3 py-1.5 rounded-xl border text-sm font-black flex items-center gap-1 ${
+                                adminScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                                adminScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                                'bg-red-50 border-red-200 text-primary'
+                              }`} data-testid={`text-admin-score-${item.id}`}>
+                                <Star className="w-3.5 h-3.5" /> {adminScore}점
+                              </div>
+                            ) : (
+                              <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
+                            )}
                           </div>
                         </div>
 
@@ -543,11 +569,10 @@ export default function StaffDashboard() {
                           <div className="flex flex-wrap gap-1.5 mb-3">
                             {Object.entries(item.items as Record<string, string>).map(([name, st]) => (
                               <span key={name} className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                                st === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
-                                st === 'average' ? 'bg-amber-50 border-amber-200 text-amber-600' :
+                                st === 'ok' || st === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
                                 'bg-red-50 border-red-200 text-red-600'
                               }`}>
-                                {name.split(':')[0]}: {st === 'excellent' ? '우수' : st === 'average' ? '보통' : '미흡'}
+                                {name}: {st === 'ok' || st === 'excellent' ? '○' : '✗'}
                               </span>
                             ))}
                           </div>
