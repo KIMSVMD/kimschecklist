@@ -6,10 +6,19 @@ interface LayoutProps {
   children: ReactNode;
   title?: string;
   showBack?: boolean;
+  onBack?: () => void;
 }
 
-export function Layout({ children, title = "KIMS CLUB VMD", showBack = true }: LayoutProps) {
-  const [location, setLocation] = useLocation();
+export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onBack }: LayoutProps) {
+  const [location] = useLocation();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      window.history.back();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto shadow-2xl relative overflow-hidden bg-white/50 md:border-x md:border-border/50">
@@ -17,7 +26,7 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true }: L
         <div className="flex items-center w-16">
           {showBack && location !== "/" && (
             <button 
-              onClick={() => window.history.back()}
+              onClick={handleBack}
               className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-all text-secondary"
             >
               <ChevronLeft className="w-7 h-7" />

@@ -59,8 +59,26 @@ export default function NewChecklist() {
     if (tab === 'vm') resetVm();
   };
 
+  const handleBack = () => {
+    if (activeTab === 'cleaning' || vmStage === 'category') {
+      window.history.back();
+    } else if (vmStage === 'group') {
+      setVmStage('category');
+      setSelCategory('');
+    } else if (vmStage === 'product') {
+      setVmStage('group');
+      setSelGroup('');
+    } else if (vmStage === 'items') {
+      setVmStage('product');
+      setSelProduct('');
+      setItems({});
+      setPhotoUrl('');
+      setNotes('');
+    }
+  };
+
   return (
-    <Layout title="새 점검 등록" showBack={true}>
+    <Layout title="새 점검 등록" showBack={true} onBack={handleBack}>
       <div className="flex flex-col h-full bg-background">
 
         {/* ── Sticky filter header ── */}
