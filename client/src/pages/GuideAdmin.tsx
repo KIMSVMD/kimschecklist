@@ -12,7 +12,6 @@ import {
 import { useProducts, useCreateProduct, useDeleteProduct } from "@/hooks/use-products";
 import type { Guide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
 import {
   Plus,
   Pencil,
@@ -26,9 +25,6 @@ import {
   BarChart3,
   Package,
   BookOpen,
-  Download,
-  Upload,
-  RefreshCw,
 } from "lucide-react";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
@@ -456,52 +452,6 @@ export default function GuideAdmin() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
-
-  const handleExport = async () => {
-    try {
-      const res = await fetch('/api/admin/guides/export', { credentials: 'include' });
-      if (!res.ok) throw new Error('내보내기 실패');
-      const data = await res.json();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `guides-export-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast({ title: `가이드 ${data.length}개 내보내기 완료` });
-    } catch {
-      toast({ title: '내보내기 실패', variant: 'destructive' });
-    }
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsSyncing(true);
-    try {
-      const text = await file.text();
-      const json = JSON.parse(text);
-      const res = await fetch('/api/admin/guides/import', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(json),
-      });
-      if (!res.ok) throw new Error('가져오기 실패');
-      const result = await res.json();
-      queryClient.invalidateQueries({ queryKey: ['/api/guides'] });
-      toast({ title: `가이드 동기화 완료`, description: `신규 ${result.created}개, 업데이트 ${result.updated}개` });
-    } catch {
-      toast({ title: '가져오기 실패', description: 'JSON 파일을 확인해주세요', variant: 'destructive' });
-    } finally {
-      setIsSyncing(false);
-      if (importInputRef.current) importInputRef.current.value = '';
-    }
-  };
-
   useEffect(() => {
     if (!authLoading && !adminStatus?.isAdmin) {
       setLocation('/admin/login');
@@ -645,44 +595,6 @@ export default function GuideAdmin() {
                   <Plus className="w-7 h-7" /> 새 가이드 추가
                 </button>
               )}
-
-              {/* 데이터 동기화 */}
-              <div className="rounded-2xl border border-border bg-muted/40 p-4">
-                <p className="text-sm font-bold text-secondary mb-3 flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4" /> 데이터 동기화
-                </p>
-                <p className="text-xs text-muted-foreground mb-4">
-                  미리보기(개발)↔배포 환경 간 가이드를 동기화합니다.<br />
-                  ① 미리보기에서 <b>내보내기</b> → JSON 저장<br />
-                  ② 배포 링크에서 <b>가져오기</b> → JSON 업로드
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleExport}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white border border-border font-bold text-sm text-secondary active:scale-[0.97] transition-all"
-                    data-testid="button-export-guides"
-                  >
-                    <Download className="w-4 h-4" /> 내보내기
-                  </button>
-                  <button
-                    onClick={() => importInputRef.current?.click()}
-                    disabled={isSyncing}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white font-bold text-sm active:scale-[0.97] transition-all disabled:opacity-50"
-                    data-testid="button-import-guides"
-                  >
-                    {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    가져오기
-                  </button>
-                </div>
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept=".json"
-                  className="hidden"
-                  onChange={handleImport}
-                  data-testid="input-import-file"
-                />
-              </div>
 
               {showAddForm && (
                 <GuideForm
