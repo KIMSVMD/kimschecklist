@@ -251,7 +251,7 @@ export default function NewChecklist() {
                       <p className="text-base font-black text-secondary truncate">
                         {groupDisplay}{groupDisplay && productDisplay ? ' · ' : ''}{productDisplay}
                       </p>
-                      <p className="text-xs text-primary font-bold mt-0.5">새 가이드가 등록됐습니다 — 점검을 시작해 주세요</p>
+                      <p className="text-xs text-primary font-bold mt-0.5">새 가이드 등록 - 점검을 시작해 주세요</p>
                     </div>
                     <div className="shrink-0 flex flex-col items-center gap-1">
                       <div className="bg-primary text-white text-xs font-black px-3 py-2 rounded-xl">
