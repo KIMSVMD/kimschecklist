@@ -452,6 +452,7 @@ export default function GuideAdmin() {
   const deleteMutation = useDeleteGuide();
 
   const [activeTab, setActiveTab] = useState<'guides' | 'products'>('guides');
+  const [guideCategory, setGuideCategory] = useState<string>('농산');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -619,6 +620,22 @@ export default function GuideAdmin() {
             <ProductManager />
           ) : (
             <>
+              {/* Category filter tabs */}
+              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setGuideCategory(cat)}
+                    className={`shrink-0 px-5 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 ${
+                      guideCategory === cat ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+                    }`}
+                    data-testid={`tab-guide-category-${cat}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
               {!showAddForm && (
                 <button
                   onClick={() => setShowAddForm(true)}
@@ -679,13 +696,13 @@ export default function GuideAdmin() {
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-10 h-10 animate-spin text-primary" />
                 </div>
-              ) : (guides || []).length === 0 ? (
+              ) : (guides || []).filter((g: Guide) => g.category === guideCategory).length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground text-lg">
-                  등록된 가이드가 없습니다.<br />새 가이드를 추가해주세요.
+                  {guideCategory} 카테고리에 등록된 가이드가 없습니다.<br />새 가이드를 추가해주세요.
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {(guides || []).map((guide: Guide) => (
+                  {(guides || []).filter((g: Guide) => g.category === guideCategory).map((guide: Guide) => (
                     <div
                       key={guide.id}
                       className="bg-white rounded-3xl border-2 border-border shadow-sm overflow-hidden"
