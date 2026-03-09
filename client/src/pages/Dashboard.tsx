@@ -146,7 +146,7 @@ function AdminScoreInput({
 }) {
   const { toast } = useToast();
   const scoreMutation = useUpdateChecklistScore();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(existingScore == null);
   const itemKeys = Object.keys(staffItems);
   const totalItems = itemKeys.length;
 
@@ -455,30 +455,32 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
 
                   {item.items && Object.keys(item.items as object).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      {Object.entries(item.items as Record<string, string>).map(([name, status]) => (
-                        <div key={name} className="flex items-center gap-1">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                            status === 'ok' ? 'bg-blue-50 border-blue-200 text-blue-600' :
-                            status === 'notok' ? 'bg-red-50 border-red-200 text-red-600' :
-                            status === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
-                            'bg-red-50 border-red-200 text-red-600'
+                      {Object.entries(item.items as Record<string, string>).map(([name, status]) => {
+                        const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
+                        const adminVal = adminItems?.[name];
+                        const staffIsOk = status === 'ok' || status === 'excellent';
+                        const adminIsOk = adminVal === 'ok';
+                        const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                        return (
+                          <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                            wasChanged
+                              ? 'bg-amber-50 border-amber-300 text-amber-700'
+                              : staffIsOk ? 'bg-blue-50 border-blue-200 text-blue-600'
+                              : 'bg-red-50 border-red-200 text-red-600'
                           }`}>
-                            {name}: {status === 'ok' || status === 'excellent' ? '○' : '✗'}
+                            {name}:&nbsp;
+                            {wasChanged ? (
+                              <>
+                                <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                              </>
+                            ) : (
+                              <span>{staffIsOk ? '○' : '✗'}</span>
+                            )}
                           </span>
-                          <button
-                            onClick={() => handleItemToggle(item.id, name, status)}
-                            disabled={itemStatusMutation.isPending}
-                            className={`flex items-center gap-0.5 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full disabled:opacity-50 transition-all active:scale-95 ${
-                              status === 'ok' || status === 'excellent' ? 'bg-primary hover:bg-red-700' : 'bg-blue-500 hover:bg-blue-600'
-                            }`}
-                            title={`'${name}' 상태 변경`}
-                            data-testid={`btn-vm-item-toggle-${item.id}-${name}`}
-                          >
-                            {status === 'ok' || status === 'excellent' ? <XCircle className="w-2.5 h-2.5" /> : <CheckCircle2 className="w-2.5 h-2.5" />}
-                            <span>{status === 'ok' || status === 'excellent' ? '✗' : '○'}</span>
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 

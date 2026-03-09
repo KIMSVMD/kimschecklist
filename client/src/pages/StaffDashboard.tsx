@@ -565,18 +565,52 @@ export default function StaffDashboard() {
                           </div>
                         </div>
 
-                        {item.items && Object.keys(item.items as object).length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mb-3">
-                            {Object.entries(item.items as Record<string, string>).map(([name, st]) => (
-                              <span key={name} className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                                st === 'ok' || st === 'excellent' ? 'bg-blue-50 border-blue-200 text-blue-600' :
-                                'bg-red-50 border-red-200 text-red-600'
-                              }`}>
-                                {name}: {st === 'ok' || st === 'excellent' ? '○' : '✗'}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        {item.items && Object.keys(item.items as object).length > 0 && (() => {
+                          const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
+                          const entries = Object.entries(item.items as Record<string, string>);
+                          const changedCount = entries.filter(([name, st]) => {
+                            const av = adminItems?.[name];
+                            if (!av) return false;
+                            const sOk = st === 'ok' || st === 'excellent';
+                            return (av === 'ok') !== sOk;
+                          }).length;
+                          return (
+                            <div className="mb-3">
+                              {changedCount > 0 && (
+                                <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-xl bg-amber-50 border border-amber-200 w-fit">
+                                  <span className="text-[10px] font-black text-amber-700">관리자 수정 {changedCount}항목</span>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap gap-1.5">
+                                {entries.map(([name, st]) => {
+                                  const adminVal = adminItems?.[name];
+                                  const staffIsOk = st === 'ok' || st === 'excellent';
+                                  const adminIsOk = adminVal === 'ok';
+                                  const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                  return (
+                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                      wasChanged
+                                        ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                        : staffIsOk ? 'bg-blue-50 border-blue-200 text-blue-600'
+                                        : 'bg-red-50 border-red-200 text-red-600'
+                                    }`}>
+                                      {name}:&nbsp;
+                                      {wasChanged ? (
+                                        <>
+                                          <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                          <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                          <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                        </>
+                                      ) : (
+                                        <span>{staffIsOk ? '○' : '✗'}</span>
+                                      )}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         <p className="text-sm text-muted-foreground mb-3">
                           {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
