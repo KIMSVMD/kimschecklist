@@ -669,6 +669,61 @@ export default function StaffDashboard() {
                           );
                         })()}
 
+                        {(item as any).adItems && Object.keys((item as any).adItems).length > 0 && (() => {
+                          const adItems = (item as any).adItems as Record<string, string>;
+                          const adAdminItems = (item as any).adAdminItems as Record<string, 'ok' | 'notok'> | null;
+                          const adAdminScore = (item as any).adAdminScore as number | null | undefined;
+                          const adEntries = Object.entries(adItems);
+                          const adChangedCount = adEntries.filter(([name, st]) => {
+                            const av = adAdminItems?.[name];
+                            if (!av) return false;
+                            return (av === 'ok') !== (st === 'ok');
+                          }).length;
+                          return (
+                            <div className="mb-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-amber-50 border-amber-300 text-amber-700 inline-flex items-center gap-1">📢 광고</span>
+                                {adAdminScore != null && (
+                                  <span className={`text-[10px] px-2 py-1 rounded-full font-black border inline-flex items-center gap-1 ${
+                                    adAdminScore >= 80 ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                                    adAdminScore >= 60 ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                                    'bg-red-50 border-red-200 text-red-600'
+                                  }`}>{adAdminScore}점</span>
+                                )}
+                                {adChangedCount > 0 && (
+                                  <span className="text-[10px] px-2 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-black">관리자 수정 {adChangedCount}항목</span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {adEntries.map(([name, st]) => {
+                                  const adminVal = adAdminItems?.[name];
+                                  const staffIsOk = st === 'ok';
+                                  const adminIsOk = adminVal === 'ok';
+                                  const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                  return (
+                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                      wasChanged ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                      : staffIsOk ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                      : 'bg-red-50 border-red-200 text-red-600'
+                                    }`}>
+                                      {name}:&nbsp;
+                                      {wasChanged ? (
+                                        <>
+                                          <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                          <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                          <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                        </>
+                                      ) : (
+                                        <span>{staffIsOk ? '○' : '✗'}</span>
+                                      )}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         <p className="text-sm text-muted-foreground mb-3">
                           {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                         </p>

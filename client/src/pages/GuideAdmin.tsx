@@ -33,6 +33,7 @@ type GuideFormData = {
   category: string;
   product: string;
   storeType?: string | null;
+  guideType: 'vm' | 'ad';
   points: string[];
   items: string[];
   imageFile?: File | null;
@@ -54,6 +55,7 @@ function GuideForm({
     category: initial?.category || '농산',
     product: initial?.product || '',
     storeType: initial?.storeType ?? null,
+    guideType: (initial as any)?.guideType || 'vm',
     points: initial?.points || [''],
     items: initial?.items || [''],
     imageFile: null,
@@ -176,6 +178,27 @@ function GuideForm({
           선택된 상품: <span className="font-black">{form.product}</span>
         </div>
       )}
+
+      <div className="space-y-2">
+        <label className="text-sm font-bold text-secondary">가이드 종류</label>
+        <div className="flex gap-2">
+          {([['vm', 'VM 진열'], ['ad', '광고']] as const).map(([val, label]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setForm(f => ({ ...f, guideType: val }))}
+              className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
+                form.guideType === val
+                  ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500' : 'bg-primary text-white border-primary'
+                  : 'bg-muted text-muted-foreground border-transparent'
+              }`}
+              data-testid={`btn-guide-type-${val}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="space-y-2">
         <label className="text-sm font-bold text-secondary">점포 유형 (선택)</label>
@@ -472,6 +495,7 @@ export default function GuideAdmin() {
       category: data.category,
       product: data.product,
       storeType: data.storeType || null,
+      guideType: data.guideType || 'vm',
       points: data.points.filter((p: string) => p.trim()),
       items: data.items.filter((i: string) => i.trim()),
       imageUrl: imageUrl || null,
@@ -627,6 +651,7 @@ export default function GuideAdmin() {
                               category: guide.category,
                               product: guide.product,
                               storeType: guide.storeType,
+                              guideType: ((guide as any).guideType || 'vm') as 'vm' | 'ad',
                               points: guide.points as string[],
                               items: guide.items as string[],
                               imageUrl: guide.imageUrl || '',
@@ -651,7 +676,10 @@ export default function GuideAdmin() {
                                 <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${categoryColor[guide.category] || 'bg-muted text-secondary'}`}>
                                   {guide.category}
                                 </span>
-                                {guide.storeType && (
+                                <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${(guide as any).guideType === 'ad' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'}`}>
+                                  {(guide as any).guideType === 'ad' ? '광고' : 'VM 진열'}
+                                </span>
+                              {guide.storeType && (
                                   <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-700">
                                     {guide.storeType}
                                   </span>

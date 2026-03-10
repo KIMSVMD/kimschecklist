@@ -185,6 +185,25 @@ export function useUpdateChecklistScore() {
   });
 }
 
+export function useUpdateChecklistAdScore() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, adAdminScore, adAdminItems }: { id: number; adAdminScore: number | null; adAdminItems?: Record<string, 'ok' | 'notok'> | null }) => {
+      const res = await fetch(`/api/checklists/${id}/ad-score`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adAdminScore, adAdminItems: adAdminItems ?? null }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('광고 점수 저장 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+    },
+  });
+}
+
 export function useUpdateChecklistItemStatus() {
   const queryClient = useQueryClient();
   return useMutation({

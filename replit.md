@@ -45,9 +45,18 @@ Mobile-first, 장갑 착용 환경 고려한 대형 UI.
 ## 항목 평가 방식
 - 현장 직원: ○(일치, `ok`) / ✗(불일치, `notok`) 만 선택
 - 점수: 관리자가 adminScore(0~100) 입력 — `PATCH /api/checklists/:id/score`
+- 광고 점수: 관리자가 adAdminScore(0~100) 입력 — `PATCH /api/checklists/:id/ad-score`
+
+## 광고(광고) 점검 플로우
+- VM 점검 흐름 내에 광고 점검 섹션이 포함됨 (상품에 광고 가이드가 있는 경우만 표시)
+- 가이드 타입: `guides.guideType` - 'vm' 또는 'ad'
+  - VM 가이드: `/api/guides/product/:product/all` (guideType='vm' 필터)
+  - 광고 가이드: `/api/ad-guides/:product/all` (guideType='ad' 필터)
+- 광고 점검 데이터: `adItems`, `adPhotoUrls`, `adAdminScore`, `adAdminItems` (checklists 테이블)
+- 관리자 채점: AdminAdScoreInput 컴포넌트 (Dashboard.tsx)
 
 ## DB 스키마
-- `checklists`: VM 점검 기록 (branch, category, product, status, photoUrl, notes, items JSONB, **year INT, month INT, adminScore INT**)
+- `checklists`: VM 점검 기록 (branch, category, product, status, photoUrl, notes, items JSONB, **year INT, month INT, adminScore INT, adItems JSONB, adPhotoUrls JSONB, adAdminScore INT, adAdminItems JSONB**)
 - `guides`: 진열 가이드 (category, product, imageUrl, points[], items[])
 - `products`: 상품 카탈로그 (category, groupName, productName)
 - `cleaning_inspections`: 청소 점검 기록 (branch, zone, inspectionTime, items JSONB, overallStatus)

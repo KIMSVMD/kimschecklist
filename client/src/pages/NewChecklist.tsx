@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto, useChecklists } from "@/hooks/use-checklists";
-import { useGuidesByProduct } from "@/hooks/use-guides";
+import { useGuidesByProduct, useAdGuidesByProduct } from "@/hooks/use-guides";
 import { useProducts } from "@/hooks/use-products";
 import { useGuideNotifications, type GuideNotification } from "@/hooks/use-notifications";
 import { useQuery } from "@tanstack/react-query";
@@ -459,6 +459,7 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
   const { data: allGuides = [], isLoading: guideLoading } = useGuidesByProduct(selProduct);
+  const { data: allAdGuides = [] } = useAdGuidesByProduct(selProduct);
   const { notifications: guideNotifs, dismiss: dismissGuide } = useGuideNotifications();
   const relevantGuideNotif = guideNotifs.find(n =>
     (!n.product || n.product === selProduct) &&
@@ -471,6 +472,16 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
     ? (allGuides.find(g => g.storeType === (selectedStoreType || storeTypeOptions[0])) ?? allGuides[0])
     : allGuides[0] ?? null;
   const activeStoreType = hasStoreTypes ? (selectedStoreType || storeTypeOptions[0]) : null;
+  const adGuide = allAdGuides[0] ?? null;
+  const adGuideItems: string[] = (adGuide?.items as string[])?.filter(Boolean) || [];
+  const adGuidePoints: string[] = (adGuide?.points as string[]) || [];
+  const [adItems, setAdItems] = useState<Record<string, string>>({});
+  const [adPhotoUrls, setAdPhotoUrls] = useState<string[]>([]);
+  const [adLocalPreviews, setAdLocalPreviews] = useState<string[]>([]);
+  const [adUploadingCount, setAdUploadingCount] = useState(0);
+  const adFileInputRef = useRef<HTMLInputElement>(null);
+  const adPhotoUrlsRef = useRef<string[]>([]);
+  adPhotoUrlsRef.current = adPhotoUrls;
   const [localPreviews, setLocalPreviews] = useState<string[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -509,6 +520,29 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
     setLocalPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleAdFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+    const previews = files.map(f => URL.createObjectURL(f));
+    setAdLocalPreviews(prev => [...prev, ...previews]);
+    setAdUploadingCount(c => c + files.length);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      const uploaded: string[] = [];
+      results.forEach((r) => { if (r.status === 'fulfilled') uploaded.push(r.value); });
+      if (uploaded.length > 0) setAdPhotoUrls([...adPhotoUrlsRef.current, ...uploaded]);
+    } finally {
+      setAdUploadingCount(0);
+    }
+  };
+
+  const removeAdPhoto = (index: number) => {
+    setAdPhotoUrls(adPhotoUrls.filter((_, i) => i !== index));
+    setAdLocalPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   const submitForm = async () => {
     const hasNotok = Object.values(items).includes('notok');
     const finalStatus = hasNotok ? 'poor' : 'excellent';
@@ -524,7 +558,11 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
         items,
         year: selYear,
         month: selMonth,
-      });
+        ...(adGuideItems.length > 0 && {
+          adItems: Object.keys(adItems).length > 0 ? adItems : null,
+          adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
+        }),
+      } as any);
       toast({ title: "제출 완료!" });
       onReset();
       setLocation(`/checklist/edit/${created.id}`);
@@ -746,6 +784,151 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
           onChange={(e) => setNotes(e.target.value)}
         />
       </div>
+
+      {/* Ad Inspection Section (only shown if ad guide exists) */}
+      {adGuide && (
+        <div className="space-y-5 pt-2">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-border" />
+            <div className="px-4 py-2 bg-amber-50 border-2 border-amber-200 rounded-2xl flex items-center gap-2">
+              <span className="text-lg">📢</span>
+              <span className="font-black text-amber-700 text-base">광고 점검</span>
+            </div>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          {adGuide.imageUrl && (
+            <div className="bg-amber-900 text-white rounded-3xl p-4 shadow-xl space-y-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="text-amber-300 w-6 h-6" />
+                <h3 className="text-xl font-bold">광고 가이드</h3>
+              </div>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
+                    <img src={adGuide.imageUrl} alt="Ad Guide" className="w-full h-full object-contain bg-white" />
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm">클릭하여 확대</span>
+                    </div>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
+                  <div className="w-full h-full flex items-center justify-center p-4">
+                    <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit>
+                      <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+                        <img src={adGuide.imageUrl} alt="Ad Guide Full" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto" />
+                      </TransformComponent>
+                    </TransformWrapper>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
+          {adGuidePoints.length > 0 && (
+            <div className="bg-amber-50 rounded-3xl border border-amber-200 p-5 space-y-3">
+              <h4 className="text-lg font-bold text-amber-800 flex items-center gap-2">
+                <div className="w-2 h-6 bg-amber-500 rounded-full" />광고 핵심 포인트
+              </h4>
+              <div className="space-y-2">
+                {adGuidePoints.map((point, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-amber-200/50 shadow-sm">
+                    <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                    <p className="text-base font-medium text-secondary leading-tight">{point}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Ad photo upload */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-secondary">광고 현장 사진</h3>
+              {adLocalPreviews.length > 0 && <span className="text-sm font-bold text-muted-foreground">{adLocalPreviews.length}장</span>}
+            </div>
+            {adLocalPreviews.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {adLocalPreviews.map((preview, i) => (
+                  <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-amber-200 bg-muted">
+                    <img src={preview} alt={`광고 사진 ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeAdPhoto(i)}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+                      data-testid={`btn-remove-ad-photo-${i}`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                    {i >= adPhotoUrls.length && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => adFileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-amber-300 bg-amber-50 active:scale-[0.98] transition-all"
+              data-testid="btn-add-ad-photo"
+            >
+              {adUploadingCount > 0
+                ? <><Loader2 className="w-7 h-7 text-amber-500 animate-spin" /><span className="font-bold text-amber-600 text-lg">업로드 중...</span></>
+                : <><Camera className="w-7 h-7 text-amber-500" /><span className="font-bold text-amber-600 text-lg">{adLocalPreviews.length > 0 ? '광고 사진 추가' : '광고 사진 업로드'}</span></>
+              }
+            </button>
+            <input ref={adFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAdFile} />
+          </div>
+
+          {/* Ad items evaluation */}
+          {adGuideItems.length > 0 && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h3 className="text-xl font-bold text-secondary">광고 항목 점검</h3>
+                <p className="text-sm text-muted-foreground">광고 가이드와 일치하면 ○, 다르면 ✗를 선택하세요.</p>
+              </div>
+              {adGuideItems.map((item) => (
+                <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
+                  adItems[item] === 'ok' ? 'border-amber-300 bg-amber-50'
+                  : adItems[item] === 'notok' ? 'border-primary bg-red-50'
+                  : 'border-border bg-white'
+                }`}>
+                  <div className="flex items-center justify-between p-4">
+                    <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                    <div className="flex gap-3 shrink-0">
+                      <button
+                        onClick={() => setAdItems({ ...adItems, [item]: 'ok' })}
+                        className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                          adItems[item] === 'ok' ? 'bg-amber-500 border-amber-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                        }`}
+                        data-testid={`btn-ad-item-ok-${item}`}
+                      >
+                        <CheckCircle2 className="w-8 h-8" />
+                      </button>
+                      <button
+                        onClick={() => setAdItems({ ...adItems, [item]: 'notok' })}
+                        className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                          adItems[item] === 'notok' ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                        }`}
+                        data-testid={`btn-ad-item-notok-${item}`}
+                      >
+                        <XCircle className="w-8 h-8" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm font-medium text-muted-foreground">
+                <span>{Object.keys(adItems).length} / {adGuideItems.length} 완료</span>
+                {Object.values(adItems).includes('notok') && (
+                  <span className="text-primary font-bold">불일치 {Object.values(adItems).filter(v => v === 'notok').length}건</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Submit */}
       <button

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus, useUpdateChecklistScore } from "@/hooks/use-checklists";
+import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus, useUpdateChecklistScore, useUpdateChecklistAdScore } from "@/hooks/use-checklists";
 import { useAdminStatus } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
@@ -277,6 +277,131 @@ function AdminScoreInput({
   );
 }
 
+function AdminAdScoreInput({
+  id, existingScore, staffAdItems, existingAdminItems
+}: {
+  id: number;
+  existingScore?: number | null;
+  staffAdItems: Record<string, string>;
+  existingAdminItems?: Record<string, 'ok' | 'notok'> | null;
+}) {
+  const { toast } = useToast();
+  const adScoreMutation = useUpdateChecklistAdScore();
+  const [open, setOpen] = useState(existingScore == null);
+  const itemKeys = Object.keys(staffAdItems);
+  const totalItems = itemKeys.length;
+
+  const initSel = () => Object.fromEntries(
+    itemKeys.map(k => {
+      if (existingAdminItems?.[k]) return [k, existingAdminItems[k]];
+      const sv = staffAdItems[k];
+      return [k, (sv === 'ok' || sv === 'excellent') ? 'ok' : 'notok'];
+    })
+  );
+
+  const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok'>>(initSel);
+  const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
+  const calcScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
+
+  const scoreColorClass = (s: number) =>
+    s >= 90 ? 'text-amber-600 bg-amber-50 border-amber-300' :
+    s >= 70 ? 'text-orange-600 bg-orange-50 border-orange-300' :
+    'text-primary bg-red-50 border-red-300';
+
+  const handleSave = async () => {
+    const score = calcScore();
+    try {
+      await adScoreMutation.mutateAsync({ id, adAdminScore: score, adAdminItems: adminSel });
+      toast({ title: `광고 ○ ${okCount}/${totalItems} → ${score}점 확정` });
+      setOpen(false);
+    } catch {
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  const score = existingScore != null ? existingScore : null;
+  const confirmedOk = existingAdminItems ? Object.values(existingAdminItems).filter(v => v === 'ok').length : null;
+
+  return (
+    <div className="mt-3 border-t border-amber-200/60 pt-3">
+      <button
+        onClick={() => { if (!open) setAdminSel(initSel()); setOpen(o => !o); }}
+        className={`w-full flex items-center justify-between py-2 px-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+          score != null ? `${scoreColorClass(score)} border` : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+        }`}
+        data-testid={`btn-ad-score-open-${id}`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm">📢</span>
+          {score != null
+            ? <span>광고 ○ {confirmedOk}/{totalItems} → {score}점 {open ? '(수정 중)' : '(확정)'}</span>
+            : <span>광고 평가 (항목 확인 후 확정)</span>}
+        </div>
+        <span className="text-[11px] opacity-50">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && totalItems > 0 && (
+        <div className="mt-2 space-y-1">
+          <div className={`flex items-center justify-between px-3 py-2 rounded-xl border font-bold text-sm mb-2 ${scoreColorClass(calcScore())}`}>
+            <span>○ {okCount}개 / {totalItems}개</span>
+            <span className="text-lg font-black">{calcScore()}점</span>
+          </div>
+          {itemKeys.map(key => {
+            const staffVal = staffAdItems[key];
+            const isStaffOk = staffVal === 'ok' || staffVal === 'excellent';
+            const adminVal = adminSel[key];
+            return (
+              <div key={key} className="flex items-center gap-2 py-1.5 px-2 rounded-xl bg-amber-50/40 border border-amber-200/40">
+                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border ${
+                  isStaffOk ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-red-50 border-red-200 text-primary'
+                }`}>
+                  {isStaffOk ? '○' : '✗'}
+                </span>
+                <span className="flex-1 text-xs font-medium text-secondary leading-snug min-w-0">{key}</span>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'ok' ? 'bg-amber-500 border-amber-600 text-white' : 'bg-white border-border text-muted-foreground hover:border-amber-300 hover:text-amber-500'
+                    }`}
+                    data-testid={`btn-admin-ad-ok-${id}-${key}`}
+                  >○</button>
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'notok' ? 'bg-primary border-red-700 text-white' : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
+                    }`}
+                    data-testid={`btn-admin-ad-notok-${id}-${key}`}
+                  >✗</button>
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={adScoreMutation.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-ad-score-save-${id}`}
+            >
+              {adScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>📢</span>}
+              광고 {calcScore()}점으로 확정
+            </button>
+            <button onClick={() => setOpen(false)}
+              className="px-3 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {open && totalItems === 0 && (
+        <p className="text-center text-sm text-muted-foreground py-3">광고 항목이 없습니다.</p>
+      )}
+    </div>
+  );
+}
+
 function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlightBranch?: string }) {
   const now = new Date();
   const [filterBranch, setFilterBranch] = useState('전체');
@@ -398,6 +523,8 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
           checklists.map((item, index) => {
             const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
             const adminScore = (item as any).adminScore as number | null | undefined;
+            const adAdminScore = (item as any).adAdminScore as number | null | undefined;
+            const hasAdItems = (item as any).adItems && Object.keys((item as any).adItems).length > 0;
             return (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -453,7 +580,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                         {item.branch}점 <span className="font-medium text-muted-foreground text-lg ml-1">| {item.product}</span>
                       </h3>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
                       {adminScore != null ? (
                         <div className={`px-3 py-1.5 rounded-xl border text-sm font-black flex items-center gap-1 ${
                           adminScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
@@ -464,6 +591,21 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                         </div>
                       ) : (
                         <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
+                      )}
+                      {hasAdItems && (
+                        adAdminScore != null ? (
+                          <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
+                            adAdminScore >= 80 ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                            adAdminScore >= 60 ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                            'bg-red-50 border-red-200 text-primary'
+                          }`} data-testid={`text-ad-score-${item.id}`}>
+                            <span className="text-[11px]">📢</span>{adAdminScore}점
+                          </div>
+                        ) : (
+                          <div className="px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium flex items-center gap-1">
+                            <span className="text-[11px]">📢</span>광고미평가
+                          </div>
+                        )
                       )}
                     </div>
                   </div>
@@ -524,6 +666,48 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     staffItems={(item.items as Record<string, string>) || {}}
                     existingAdminItems={(item as any).adminItems as Record<string, 'ok' | 'notok'> | null}
                   />
+
+                  {(item as any).adItems && Object.keys((item as any).adItems).length > 0 && (() => {
+                    const adItems = (item as any).adItems as Record<string, string>;
+                    const adAdminItems = (item as any).adAdminItems as Record<string, 'ok' | 'notok'> | null;
+                    return (
+                      <>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-amber-50 border-amber-300 text-amber-700 inline-flex items-center gap-1">📢 광고</span>
+                          {Object.entries(adItems).map(([name, status]) => {
+                            const adminVal = adAdminItems?.[name];
+                            const staffIsOk = status === 'ok';
+                            const adminIsOk = adminVal === 'ok';
+                            const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                            return (
+                              <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                wasChanged ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                : staffIsOk ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                : 'bg-red-50 border-red-200 text-red-600'
+                              }`}>
+                                {name}:&nbsp;
+                                {wasChanged ? (
+                                  <>
+                                    <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                    <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                    <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                  </>
+                                ) : (
+                                  <span>{staffIsOk ? '○' : '✗'}</span>
+                                )}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        <AdminAdScoreInput
+                          id={item.id}
+                          existingScore={(item as any).adAdminScore}
+                          staffAdItems={adItems}
+                          existingAdminItems={adAdminItems}
+                        />
+                      </>
+                    );
+                  })()}
 
                   <AdminCommentInput
                     id={item.id}

@@ -19,6 +19,10 @@ export const checklists = pgTable("checklists", {
   month: integer("month"),
   adminScore: integer("admin_score"),
   adminItems: jsonb("admin_items").$type<Record<string, 'ok' | 'notok'>>(),
+  adItems: jsonb("ad_items").$type<Record<string, string>>(),
+  adPhotoUrls: text("ad_photo_urls").array(),
+  adAdminScore: integer("ad_admin_score"),
+  adAdminItems: jsonb("ad_admin_items").$type<Record<string, 'ok' | 'notok'>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at"),
 });
@@ -40,6 +44,7 @@ export const guides = pgTable("guides", {
   imageUrl: text("image_url"),
   points: text("points").array().notNull().default([]),
   items: text("items").array().notNull().default([]),
+  guideType: text("guide_type").notNull().default('vm'),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
