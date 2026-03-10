@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto, useChecklists } from "@/hooks/use-checklists";
-import { useGuidesByProduct, useAdGuidesByProduct } from "@/hooks/use-guides";
+import { useGuidesByProduct, useAdGuidesByProduct, useAllAdGuideProducts } from "@/hooks/use-guides";
 import { useProducts } from "@/hooks/use-products";
 import { useGuideNotifications, type GuideNotification } from "@/hooks/use-notifications";
 import { useQuery } from "@tanstack/react-query";
@@ -52,6 +52,7 @@ export default function NewChecklist() {
     refetchInterval: 60_000,
   });
   const { data: branchChecklists = [] } = useChecklists({ branch: branch || undefined });
+  const { data: adGuideProducts = [] } = useAllAdGuideProducts();
 
   // Deduplicate by product: keep only the most recent notification per product
   const latestGuideNotifByProduct = guideNotifs.reduce<typeof guideNotifs>((acc, notif) => {
@@ -63,6 +64,7 @@ export default function NewChecklist() {
     return acc;
   }, []);
 
+  // VM tab: pending if no vm-type checklist submitted this month
   const pendingGuideNotifs = latestGuideNotifByProduct.filter(notif => {
     if (!notif.product) return false;
     const notifDate = new Date(notif.createdAt);
@@ -71,7 +73,24 @@ export default function NewChecklist() {
     const alreadyDone = branchChecklists.some(c => {
       const cy = (c as any).year;
       const cm = (c as any).month;
-      return c.product === notif.product && cy === notifYear && cm === notifMonth;
+      const ct = (c as any).checklistType || 'vm';
+      return c.product === notif.product && cy === notifYear && cm === notifMonth && ct !== 'ad';
+    });
+    return !alreadyDone;
+  });
+
+  // Ad tab: pending only if product has an ad guide AND no ad-type checklist submitted this month
+  const pendingAdGuideNotifs = latestGuideNotifByProduct.filter(notif => {
+    if (!notif.product) return false;
+    if (!adGuideProducts.includes(notif.product)) return false;
+    const notifDate = new Date(notif.createdAt);
+    const notifYear = notifDate.getFullYear();
+    const notifMonth = notifDate.getMonth() + 1;
+    const alreadyDone = branchChecklists.some(c => {
+      const cy = (c as any).year;
+      const cm = (c as any).month;
+      const ct = (c as any).checklistType || 'vm';
+      return c.product === notif.product && cy === notifYear && cm === notifMonth && ct === 'ad';
     });
     return !alreadyDone;
   });
@@ -262,7 +281,7 @@ export default function NewChecklist() {
                 notes={notes}
                 setNotes={setNotes}
                 onReset={resetVm}
-                pendingGuideNotifs={[]}
+                pendingGuideNotifs={pendingAdGuideNotifs}
               />
             ) : activeTab === 'cleaning' ? (
               /* Cleaning tab */

@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "@shared/schema";
-import { desc, eq, asc, gte, and, sql } from "drizzle-orm";
+import { desc, eq, asc, gte, and, sql, isNotNull } from "drizzle-orm";
 
 export type StaffNotification = {
   id: number;
@@ -52,6 +52,7 @@ export interface IStorage {
   getGuideByProduct(product: string, storeType?: string | null): Promise<Guide | undefined>;
   getGuidesByProduct(product: string): Promise<Guide[]>;
   getAdGuidesByProduct(product: string): Promise<Guide[]>;
+  getAllAdGuideProducts(): Promise<string[]>;
   createGuide(guide: InsertGuide): Promise<Guide>;
   updateGuide(id: number, guide: Partial<InsertGuide>): Promise<Guide | undefined>;
   deleteGuide(id: number): Promise<void>;
@@ -129,6 +130,13 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(guides).where(
       and(eq(guides.product, product), eq(guides.guideType, 'ad'))
     );
+  }
+
+  async getAllAdGuideProducts(): Promise<string[]> {
+    const rows = await db.selectDistinct({ product: guides.product }).from(guides).where(
+      and(eq(guides.guideType, 'ad'), isNotNull(guides.product))
+    );
+    return rows.map(r => r.product as string).filter(Boolean);
   }
 
   async createGuide(insertGuide: InsertGuide): Promise<Guide> {

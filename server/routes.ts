@@ -72,6 +72,15 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/ad-guides', async (req, res) => {
+    try {
+      const products = await storage.getAllAdGuideProducts();
+      res.json(products);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get('/api/ad-guides/:product/all', async (req, res) => {
     try {
       const guideList = await storage.getAdGuidesByProduct(decodeURIComponent(req.params.product));

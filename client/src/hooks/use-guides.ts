@@ -39,6 +39,17 @@ export function useGuidesByProduct(product: string) {
   });
 }
 
+export function useAllAdGuideProducts() {
+  return useQuery<string[]>({
+    queryKey: ['/api/ad-guides'],
+    queryFn: async () => {
+      const res = await fetch('/api/ad-guides', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch ad guide products');
+      return res.json();
+    },
+  });
+}
+
 export function useAdGuidesByProduct(product: string) {
   return useQuery<Guide[]>({
     queryKey: ['/api/ad-guides', product, 'all'],
