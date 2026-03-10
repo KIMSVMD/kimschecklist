@@ -262,7 +262,7 @@ export default function NewChecklist() {
                 notes={notes}
                 setNotes={setNotes}
                 onReset={resetVm}
-                pendingGuideNotifs={pendingGuideNotifs}
+                pendingGuideNotifs={[]}
               />
             ) : activeTab === 'cleaning' ? (
               /* Cleaning tab */
