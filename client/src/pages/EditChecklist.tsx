@@ -56,6 +56,7 @@ export default function EditChecklist() {
   const [adPhotoUrls, setAdPhotoUrls] = useState<string[]>([]);
   const [adLocalPreviews, setAdLocalPreviews] = useState<string[]>([]);
   const [adUploadingCount, setAdUploadingCount] = useState(0);
+  const [adNotes, setAdNotes] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoUrlsRef = useRef<string[]>([]);
   photoUrlsRef.current = photoUrls;
@@ -99,6 +100,7 @@ export default function EditChecklist() {
       setAdPhotoUrls(existingAdPhotos);
       setAdLocalPreviews(existingAdPhotos);
       setAdItems((checklist as any).adItems || {});
+      setAdNotes((checklist as any).adNotes || '');
     }
   }, [checklist]);
 
@@ -174,9 +176,12 @@ export default function EditChecklist() {
           photoUrls: photoUrls.length > 0 ? photoUrls : null,
           notes: notes || null,
           items,
-          ...(adGuideItems.length > 0 && {
-            adItems: Object.keys(adItems).length > 0 ? adItems : null,
+          ...(adGuide && {
             adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
+            adNotes: adNotes || null,
+            ...(adGuideItems.length > 0 && {
+              adItems: Object.keys(adItems).length > 0 ? adItems : null,
+            }),
           }),
         } as any,
       });
@@ -510,6 +515,17 @@ export default function EditChecklist() {
                 })}
               </div>
             )}
+
+            <div className="space-y-3">
+              <h3 className="text-xl font-bold text-amber-700">광고 특이사항 (선택)</h3>
+              <textarea
+                placeholder="광고물 훼손/누락/요청사항 등..."
+                className="w-full p-5 rounded-2xl border-2 border-amber-200 bg-amber-50/50 text-lg focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-200/40 transition-all min-h-[7rem] resize-none"
+                value={adNotes}
+                onChange={(e) => setAdNotes(e.target.value)}
+                data-testid="textarea-ad-notes"
+              />
+            </div>
           </div>
         )}
 

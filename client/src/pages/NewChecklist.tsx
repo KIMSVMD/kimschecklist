@@ -479,6 +479,7 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const [adPhotoUrls, setAdPhotoUrls] = useState<string[]>([]);
   const [adLocalPreviews, setAdLocalPreviews] = useState<string[]>([]);
   const [adUploadingCount, setAdUploadingCount] = useState(0);
+  const [adNotes, setAdNotes] = useState('');
   const adFileInputRef = useRef<HTMLInputElement>(null);
   const adPhotoUrlsRef = useRef<string[]>([]);
   adPhotoUrlsRef.current = adPhotoUrls;
@@ -558,9 +559,10 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
         items,
         year: selYear,
         month: selMonth,
-        ...(adGuideItems.length > 0 && {
+        ...(adGuide && {
           adItems: Object.keys(adItems).length > 0 ? adItems : null,
           adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
+          adNotes: adNotes.trim() || null,
         }),
       } as any);
       toast({ title: "제출 완료!" });
@@ -925,6 +927,20 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
                   <span className="text-primary font-bold">불일치 {Object.values(adItems).filter(v => v === 'notok').length}건</span>
                 )}
               </div>
+            </div>
+          )}
+
+          {adGuide && (
+            <div className="space-y-2">
+              <label className="text-base font-bold text-amber-700">광고 특이사항 (선택)</label>
+              <textarea
+                value={adNotes}
+                onChange={e => setAdNotes(e.target.value)}
+                placeholder="광고 관련 특이사항을 입력하세요..."
+                rows={3}
+                className="w-full rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-base text-secondary placeholder:text-amber-300 focus:outline-none focus:border-amber-400 resize-none"
+                data-testid="textarea-ad-notes"
+              />
             </div>
           )}
         </div>

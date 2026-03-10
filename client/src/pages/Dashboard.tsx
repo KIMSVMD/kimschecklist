@@ -149,6 +149,7 @@ function AdminScoreInput({
   const { toast } = useToast();
   const scoreMutation = useUpdateChecklistScore();
   const [open, setOpen] = useState(existingScore == null);
+  const [manualScore, setManualScore] = useState<string>(existingScore != null ? String(existingScore) : '');
   const itemKeys = Object.keys(staffItems);
   const totalItems = itemKeys.length;
 
@@ -271,7 +272,40 @@ function AdminScoreInput({
       )}
 
       {open && totalItems === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-3">항목이 없습니다.</p>
+        <div className="mt-2 space-y-2">
+          <p className="text-xs text-muted-foreground px-1">항목이 없는 가이드입니다. 사진 확인 후 직접 점수를 입력하세요.</p>
+          <div className="flex gap-2 items-center">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={manualScore}
+              onChange={e => setManualScore(e.target.value)}
+              placeholder="0–100"
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-border text-base font-bold focus:outline-none focus:border-primary text-center"
+              data-testid={`input-manual-score-${id}`}
+            />
+            <span className="font-bold text-muted-foreground text-lg">점</span>
+            <button
+              onClick={async () => {
+                const s = Math.min(100, Math.max(0, parseInt(manualScore) || 0));
+                try {
+                  await scoreMutation.mutateAsync({ id, adminScore: s, adminItems: {} });
+                  toast({ title: `${s}점으로 확정` });
+                  setOpen(false);
+                } catch {
+                  toast({ title: "저장 실패", variant: "destructive" });
+                }
+              }}
+              disabled={scoreMutation.isPending || manualScore === ''}
+              className="px-4 py-3 rounded-xl bg-primary text-white font-black text-sm flex items-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-manual-score-save-${id}`}
+            >
+              {scoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
+              확정
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -288,6 +322,7 @@ function AdminAdScoreInput({
   const { toast } = useToast();
   const adScoreMutation = useUpdateChecklistAdScore();
   const [open, setOpen] = useState(existingScore == null);
+  const [manualScore, setManualScore] = useState<string>(existingScore != null ? String(existingScore) : '');
   const itemKeys = Object.keys(staffAdItems);
   const totalItems = itemKeys.length;
 
@@ -396,7 +431,40 @@ function AdminAdScoreInput({
       )}
 
       {open && totalItems === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-3">광고 항목이 없습니다.</p>
+        <div className="mt-2 space-y-2">
+          <p className="text-xs text-muted-foreground px-1">항목이 없는 광고 가이드입니다. 사진 확인 후 직접 점수를 입력하세요.</p>
+          <div className="flex gap-2 items-center">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={manualScore}
+              onChange={e => setManualScore(e.target.value)}
+              placeholder="0–100"
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-amber-200 text-base font-bold focus:outline-none focus:border-amber-400 text-center bg-amber-50"
+              data-testid={`input-manual-ad-score-${id}`}
+            />
+            <span className="font-bold text-muted-foreground text-lg">점</span>
+            <button
+              onClick={async () => {
+                const s = Math.min(100, Math.max(0, parseInt(manualScore) || 0));
+                try {
+                  await adScoreMutation.mutateAsync({ id, adAdminScore: s, adAdminItems: {} });
+                  toast({ title: `광고 ${s}점으로 확정` });
+                  setOpen(false);
+                } catch {
+                  toast({ title: "저장 실패", variant: "destructive" });
+                }
+              }}
+              disabled={adScoreMutation.isPending || manualScore === ''}
+              className="px-4 py-3 rounded-xl bg-amber-500 text-white font-black text-sm flex items-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-manual-ad-score-save-${id}`}
+            >
+              {adScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>📢</span>}
+              확정
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -408,6 +476,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   const [filterCategory, setFilterCategory] = useState('전체');
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
+  const [viewFilter, setViewFilter] = useState<'all' | 'vm' | 'ad'>('all');
   const { toast } = useToast();
 
   const currentYear = now.getFullYear();
@@ -451,12 +520,18 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   const checklists = (allChecklists ?? []).filter(item => {
     const itemYear = (item as any).year;
     const itemMonth = (item as any).month;
+    let matchesDate: boolean;
     if (itemYear && itemMonth) {
-      return itemYear === filterYear && itemMonth === filterMonth;
+      matchesDate = itemYear === filterYear && itemMonth === filterMonth;
+    } else {
+      const d = new Date(item.createdAt);
+      matchesDate = d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth;
     }
-    // Fallback: filter by createdAt month for old records without year/month
-    const d = new Date(item.createdAt);
-    return d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth;
+    if (!matchesDate) return false;
+    const hasAd = !!(((item as any).adItems && Object.keys((item as any).adItems).length > 0) || ((item as any).adPhotoUrls && (item as any).adPhotoUrls.length > 0));
+    if (viewFilter === 'ad') return hasAd;
+    if (viewFilter === 'vm') return !hasAd;
+    return true;
   });
 
   const handleDelete = async (id: number, label: string) => {
@@ -472,6 +547,23 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   return (
     <>
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
+        <div className="flex gap-1.5">
+          {([['all', '전체'], ['vm', 'VM 진열'], ['ad', '📢 광고']] as const).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setViewFilter(val)}
+              className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
+                viewFilter === val
+                  ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                  : 'bg-primary text-white border-primary shadow-sm'
+                  : 'bg-muted text-muted-foreground border-transparent'
+              }`}
+              data-testid={`btn-view-filter-${val}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-2 text-secondary font-bold">
           <Filter className="w-5 h-5" />
           <span>필터링</span>
@@ -524,7 +616,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
             const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
             const adminScore = (item as any).adminScore as number | null | undefined;
             const adAdminScore = (item as any).adAdminScore as number | null | undefined;
-            const hasAdItems = (item as any).adItems && Object.keys((item as any).adItems).length > 0;
+            const hasAdItems = !!(((item as any).adItems && Object.keys((item as any).adItems).length > 0) || ((item as any).adPhotoUrls && (item as any).adPhotoUrls.length > 0) || (item as any).adNotes);
             return (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -667,42 +759,56 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     existingAdminItems={(item as any).adminItems as Record<string, 'ok' | 'notok'> | null}
                   />
 
-                  {(item as any).adItems && Object.keys((item as any).adItems).length > 0 && (() => {
-                    const adItems = (item as any).adItems as Record<string, string>;
+                  {(() => {
+                    const adItems = (item as any).adItems as Record<string, string> | null;
+                    const adPhotoUrls = (item as any).adPhotoUrls as string[] | null;
+                    const adNotes = (item as any).adNotes as string | null;
+                    const hasAdItems = adItems && Object.keys(adItems).length > 0;
+                    const hasAdPhotos = adPhotoUrls && adPhotoUrls.length > 0;
+                    const hasAdData = hasAdItems || hasAdPhotos || adNotes;
+                    if (!hasAdData) return null;
                     const adAdminItems = (item as any).adAdminItems as Record<string, 'ok' | 'notok'> | null;
                     return (
                       <>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-amber-50 border-amber-300 text-amber-700 inline-flex items-center gap-1">📢 광고</span>
-                          {Object.entries(adItems).map(([name, status]) => {
-                            const adminVal = adAdminItems?.[name];
-                            const staffIsOk = status === 'ok';
-                            const adminIsOk = adminVal === 'ok';
-                            const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
-                            return (
-                              <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                wasChanged ? 'bg-amber-50 border-amber-300 text-amber-700'
-                                : staffIsOk ? 'bg-amber-50 border-amber-200 text-amber-600'
-                                : 'bg-red-50 border-red-200 text-red-600'
-                              }`}>
-                                {name}:&nbsp;
-                                {wasChanged ? (
-                                  <>
-                                    <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
-                                    <span>→ {adminIsOk ? '○' : '✗'}</span>
-                                    <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
-                                  </>
-                                ) : (
-                                  <span>{staffIsOk ? '○' : '✗'}</span>
-                                )}
-                              </span>
-                            );
-                          })}
-                        </div>
+                        {hasAdItems && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-amber-50 border-amber-300 text-amber-700 inline-flex items-center gap-1">📢 광고</span>
+                            {Object.entries(adItems!).map(([name, status]) => {
+                              const adminVal = adAdminItems?.[name];
+                              const staffIsOk = status === 'ok';
+                              const adminIsOk = adminVal === 'ok';
+                              const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                              return (
+                                <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                  wasChanged ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                  : staffIsOk ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                  : 'bg-red-50 border-red-200 text-red-600'
+                                }`}>
+                                  {name}:&nbsp;
+                                  {wasChanged ? (
+                                    <>
+                                      <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                      <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                      <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                    </>
+                                  ) : (
+                                    <span>{staffIsOk ? '○' : '✗'}</span>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {adNotes && (
+                          <div className="mt-3 p-3 bg-amber-50/80 rounded-2xl border border-amber-200">
+                            <strong className="block mb-1 text-[11px] text-amber-700 font-black">📢 광고 특이사항:</strong>
+                            <p className="text-sm text-secondary">{adNotes}</p>
+                          </div>
+                        )}
                         <AdminAdScoreInput
                           id={item.id}
                           existingScore={(item as any).adAdminScore}
-                          staffAdItems={adItems}
+                          staffAdItems={adItems || {}}
                           existingAdminItems={adAdminItems}
                         />
                       </>

@@ -729,9 +729,16 @@ export default function StaffDashboard() {
                         </p>
 
                         {item.notes && (
-                          <div className="mb-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
+                          <div className="mb-3 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
                             <strong className="block mb-1 text-xs text-muted-foreground">특이사항:</strong>
                             {item.notes}
+                          </div>
+                        )}
+
+                        {(item as any).adNotes && (
+                          <div className="mb-3 p-4 bg-amber-50 rounded-2xl text-secondary text-sm border border-amber-200">
+                            <strong className="block mb-1 text-[11px] text-amber-700 font-black">📢 광고 특이사항:</strong>
+                            {(item as any).adNotes}
                           </div>
                         )}
 
