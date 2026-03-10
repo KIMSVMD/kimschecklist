@@ -29,7 +29,7 @@ export default function NewChecklist() {
   const { toast } = useToast();
 
   const [branch, setBranch] = useState('');
-  const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
+  const [activeTab, setActiveTab] = useState<'vm' | 'ad' | 'cleaning'>('vm');
 
   const nowDate = new Date();
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
@@ -102,9 +102,9 @@ export default function NewChecklist() {
     setNotes('');
   };
 
-  const handleTabChange = (tab: 'vm' | 'cleaning') => {
+  const handleTabChange = (tab: 'vm' | 'ad' | 'cleaning') => {
     setActiveTab(tab);
-    if (tab === 'vm') resetVm();
+    if (tab !== 'cleaning') resetVm();
   };
 
   const handleBack = () => {
@@ -155,26 +155,35 @@ export default function NewChecklist() {
           <div className="flex gap-1 bg-muted p-1 rounded-2xl">
             <button
               onClick={() => handleTabChange('vm')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-new-vm"
             >
-              <BarChart3 className="w-4 h-4" /> VM/광고 점검
+              <BarChart3 className="w-4 h-4" /> VM 점검
+            </button>
+            <button
+              onClick={() => handleTabChange('ad')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'ad' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
+              }`}
+              data-testid="tab-new-ad"
+            >
+              <span className="text-base leading-none">📢</span> 광고 점검
             </button>
             <button
               onClick={() => handleTabChange('cleaning')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-new-cleaning"
             >
-              <Droplets className="w-4 h-4" /> 청소 점검
+              <Droplets className="w-4 h-4" /> 청소
             </button>
           </div>
 
-          {/* Year/Month filter — VM tab */}
-          {activeTab === 'vm' && (
+          {/* Year/Month filter — VM / Ad tabs */}
+          {(activeTab === 'vm' || activeTab === 'ad') && (
             <div className="space-y-2">
               <div className="flex gap-2 items-center">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -230,6 +239,31 @@ export default function NewChecklist() {
                 <p className="font-bold text-xl text-secondary">지점을 선택해주세요</p>
                 <p className="text-base">점검을 등록할 지점을 먼저 선택하세요</p>
               </motion.div>
+            ) : activeTab === 'ad' ? (
+              /* Ad tab */
+              <VMContent
+                key="ad"
+                adOnly={true}
+                branch={branch}
+                selYear={selYear}
+                selMonth={selMonth}
+                vmStage={vmStage}
+                setVmStage={setVmStage}
+                selCategory={selCategory}
+                setSelCategory={setSelCategory}
+                selGroup={selGroup}
+                setSelGroup={setSelGroup}
+                selProduct={selProduct}
+                setSelProduct={setSelProduct}
+                items={items}
+                setItems={setItems}
+                photoUrls={photoUrls}
+                setPhotoUrls={setPhotoUrls}
+                notes={notes}
+                setNotes={setNotes}
+                onReset={resetVm}
+                pendingGuideNotifs={pendingGuideNotifs}
+              />
             ) : activeTab === 'cleaning' ? (
               /* Cleaning tab */
               <motion.div key="cleaning"
@@ -255,6 +289,7 @@ export default function NewChecklist() {
               /* VM tab stages */
               <VMContent
                 key="vm"
+                adOnly={false}
                 branch={branch}
                 selYear={selYear}
                 selMonth={selMonth}
@@ -285,6 +320,7 @@ export default function NewChecklist() {
 
 // ─── VM Content ───────────────────────────────────────────────────────────────
 type VMContentProps = {
+  adOnly: boolean;
   branch: string;
   selYear: number; selMonth: number;
   vmStage: VMStage; setVmStage: (s: VMStage) => void;
@@ -298,7 +334,7 @@ type VMContentProps = {
   pendingGuideNotifs: import('@/hooks/use-notifications').GuideNotification[];
 };
 
-function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset, pendingGuideNotifs }: VMContentProps) {
+function VMContent({ adOnly, branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset, pendingGuideNotifs }: VMContentProps) {
   const { data: dbProducts = [], isLoading } = useProducts(selCategory);
   const groups = Array.from(new Set(dbProducts.map(p => p.groupName)));
 
@@ -329,7 +365,7 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
         {vmStage === 'category' && (
           <motion.div key="cat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
             <div className="mb-5">
-              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · VM/광고 점검</p>
+              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {adOnly ? '광고 점검' : 'VM 점검'}</p>
               <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
             </div>
             {CATEGORIES.map(cat => {
@@ -431,6 +467,7 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
         {vmStage === 'items' && (
           <ItemsForm
             key="items"
+            adOnly={adOnly}
             branch={branch} selYear={selYear} selMonth={selMonth}
             selCategory={selCategory} selProduct={selProduct}
             items={items} setItems={setItems}
@@ -446,6 +483,7 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
 
 // ─── Items Form ───────────────────────────────────────────────────────────────
 type ItemsFormProps = {
+  adOnly: boolean;
   branch: string; selYear: number; selMonth: number;
   selCategory: string; selProduct: string;
   items: Record<string, string>; setItems: (v: Record<string, string>) => void;
@@ -454,7 +492,7 @@ type ItemsFormProps = {
   onReset: () => void;
 };
 
-function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset }: ItemsFormProps) {
+function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset }: ItemsFormProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
@@ -481,8 +519,6 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const [adUploadingCount, setAdUploadingCount] = useState(0);
   const [adNotes, setAdNotes] = useState('');
   const hasVmGuide = allGuides.length > 0;
-  const hasBothGuides = hasVmGuide && !!adGuide;
-  const [inspectionType, setInspectionType] = useState<'vm' | 'ad'>('vm');
   const adFileInputRef = useRef<HTMLInputElement>(null);
   const adPhotoUrlsRef = useRef<string[]>([]);
   adPhotoUrlsRef.current = adPhotoUrls;
@@ -571,11 +607,6 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
           adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
           adNotes: adNotes.trim() || null,
         }),
-        ...(!isAd && adGuide && !hasBothGuides && {
-          adItems: Object.keys(adItems).length > 0 ? adItems : null,
-          adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
-          adNotes: adNotes.trim() || null,
-        }),
       } as any);
       toast({ title: "제출 완료!" });
       onReset();
@@ -588,7 +619,7 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const guideImage = dbGuide?.imageUrl || null;
   const guidePoints: string[] = (dbGuide?.points as string[]) || [];
   const guideItems: string[] = (dbGuide?.items as string[])?.filter(Boolean) || [];
-  const effectiveInspectionType = hasBothGuides ? inspectionType : (adGuide && !hasVmGuide ? 'ad' : 'vm');
+  const effectiveInspectionType = adOnly ? 'ad' : (adGuide && !hasVmGuide ? 'ad' : 'vm');
   const allItemsChecked = effectiveInspectionType === 'ad'
     ? true
     : (guideItems.length === 0 || guideItems.every(item => items[item]));
@@ -598,33 +629,10 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-10">
       <div className="border-b-2 border-border pb-4">
-        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월</p>
+        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {adOnly ? '📢 광고 점검' : 'VM 점검'}</p>
         <h2 className="text-xl font-black text-secondary mt-0.5">{displayProduct}</h2>
       </div>
 
-      {/* VM/광고 inspection type toggle — only when both guides exist */}
-      {hasBothGuides && (
-        <div className="flex gap-1.5 p-1 bg-muted rounded-2xl">
-          <button
-            onClick={() => setInspectionType('vm')}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-              inspectionType === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
-            }`}
-            data-testid="btn-inspection-type-vm"
-          >
-            📋 VM 진열
-          </button>
-          <button
-            onClick={() => setInspectionType('ad')}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-              inspectionType === 'ad' ? 'bg-amber-500 text-white shadow-sm' : 'text-muted-foreground'
-            }`}
-            data-testid="btn-inspection-type-ad"
-          >
-            📢 광고 점검
-          </button>
-        </div>
-      )}
 
       {/* Guide */}
       {effectiveInspectionType === 'vm' && (guideLoading ? (
@@ -825,7 +833,13 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
           onChange={(e) => setNotes(e.target.value)}
         />
       </div>}
-      {/* Ad Inspection Section — standalone when ad type selected, or embedded (no VM guide) */}
+      {/* Ad Inspection Section */}
+      {effectiveInspectionType === 'ad' && !adGuide && (
+        <div className="bg-muted/30 rounded-3xl border border-border p-6 text-center text-muted-foreground">
+          <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-40" />
+          <p>이 상품의 광고 가이드가 아직 등록되지 않았습니다.</p>
+        </div>
+      )}
       {effectiveInspectionType === 'ad' && adGuide && (
         <div className="space-y-5 pt-2">
 
