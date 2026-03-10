@@ -478,6 +478,38 @@ export async function registerRoutes(
     }
   });
 
+  // Activity log — staff actions (submits + replies)
+  app.get('/api/admin/activity-log', requireAdmin, async (req, res) => {
+    try {
+      const branch = req.query.branch as string | undefined;
+      const branchFilter = branch && branch !== '전체' ? `AND branch = '${branch.replace(/'/g, "''")}'` : '';
+      const result = await db.execute(sql`
+        SELECT 'vm_submit' AS "activityType", branch, product AS description, category, NULL::text AS zone, NULL::text AS content, id AS "relatedId", created_at AS "createdAt"
+        FROM checklists
+        WHERE 1=1 ${sql.raw(branchFilter)}
+        UNION ALL
+        SELECT 'cleaning_submit', branch, zone AS description, NULL, zone, NULL, id, created_at
+        FROM cleaning_inspections
+        WHERE 1=1 ${sql.raw(branchFilter)}
+        UNION ALL
+        SELECT 'vm_reply', c.branch, c.product AS description, c.category, NULL, r.content, r.checklist_id, r.created_at
+        FROM checklist_replies r
+        JOIN checklists c ON c.id = r.checklist_id
+        WHERE r.author_type = 'staff' ${sql.raw(branchFilter.replace('AND branch', 'AND c.branch'))}
+        UNION ALL
+        SELECT 'cleaning_reply', ci.branch, ci.zone AS description, NULL, ci.zone, r.content, r.cleaning_id, r.created_at
+        FROM cleaning_replies r
+        JOIN cleaning_inspections ci ON ci.id = r.cleaning_id
+        WHERE r.author_type = 'staff' ${sql.raw(branchFilter.replace('AND branch', 'AND ci.branch'))}
+        ORDER BY "createdAt" DESC
+        LIMIT 200
+      `);
+      res.json(result.rows);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Staff notifications — admin feedback & replies for a specific branch
   app.get('/api/staff/notifications/:branch', async (req, res) => {
     try {

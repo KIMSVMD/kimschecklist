@@ -12,6 +12,7 @@ import {
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
   MessageSquare, Send, CheckCheck, CornerDownRight,
   ChevronLeft, ChevronRight, Calendar, Bell, Star,
+  ClipboardList, UploadCloud, Reply, Clock,
 } from "lucide-react";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { VMCommentThread } from "@/components/VMCommentThread";
@@ -1023,10 +1024,98 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
   );
 }
 
+type ActivityItem = {
+  activityType: 'vm_submit' | 'cleaning_submit' | 'vm_reply' | 'cleaning_reply';
+  branch: string;
+  description: string;
+  category?: string;
+  zone?: string;
+  content?: string;
+  relatedId: number;
+  createdAt: string;
+};
+
+function ActivityTab() {
+  const [selectedBranch, setSelectedBranch] = useState('전체');
+
+  const { data: activities = [], isLoading } = useQuery<ActivityItem[]>({
+    queryKey: ['/api/admin/activity-log', selectedBranch],
+    queryFn: () =>
+      fetch(`/api/admin/activity-log?branch=${encodeURIComponent(selectedBranch)}`, { credentials: 'include' })
+        .then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
+  const typeConfig: Record<ActivityItem['activityType'], { label: string; icon: React.ReactNode; color: string }> = {
+    vm_submit: { label: 'VM 점검 제출', icon: <UploadCloud className="w-4 h-4" />, color: 'bg-blue-100 text-blue-700' },
+    cleaning_submit: { label: '청소 점검 제출', icon: <UploadCloud className="w-4 h-4" />, color: 'bg-emerald-100 text-emerald-700' },
+    vm_reply: { label: 'VM 댓글', icon: <Reply className="w-4 h-4" />, color: 'bg-purple-100 text-purple-700' },
+    cleaning_reply: { label: '청소 댓글', icon: <Reply className="w-4 h-4" />, color: 'bg-orange-100 text-orange-700' },
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Branch filter */}
+      <select
+        value={selectedBranch}
+        onChange={e => setSelectedBranch(e.target.value)}
+        className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary bg-white"
+        data-testid="select-activity-branch"
+      >
+        {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
+      </select>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : activities.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p>활동 기록이 없습니다.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {activities.map((item, idx) => {
+            const cfg = typeConfig[item.activityType];
+            return (
+              <div
+                key={idx}
+                className="bg-white rounded-2xl border border-border p-4 flex items-start gap-3 shadow-sm"
+                data-testid={`activity-item-${idx}`}
+              >
+                <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${cfg.color}`}>
+                  {cfg.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${cfg.color}`}>{cfg.label}</span>
+                    <span className="text-sm font-bold text-secondary">{item.branch}점</span>
+                    {item.category && (
+                      <span className="text-xs text-muted-foreground font-medium">{item.category}</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold text-secondary truncate">{item.description}</p>
+                  {item.content && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">"{item.content}"</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {format(new Date(item.createdAt), 'M월 d일 HH:mm', { locale: ko })}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { data: adminStatus, isLoading: authLoading } = useAdminStatus();
-  const [activeTab, setActiveTab] = useState<'vm' | 'cleaning'>('vm');
+  const [activeTab, setActiveTab] = useState<'vm' | 'cleaning' | 'activity'>('vm');
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState<{ type: 'vm' | 'cleaning'; id: number; date?: string; branch?: string } | null>(null);
   const { notifications, unreadCount, dismiss, dismissAll } = useAdminNotifications();
@@ -1075,35 +1164,44 @@ export default function Dashboard() {
         <div className="flex gap-1 p-3 bg-muted/50 border-b border-border items-center">
           <button
             onClick={() => setActiveTab('vm')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
             }`}
             data-testid="tab-vm"
           >
-            <BarChart3 className="w-5 h-5" /> VM 점검
+            <BarChart3 className="w-4 h-4" /> VM 점검
           </button>
           <button
             onClick={() => setActiveTab('cleaning')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
             }`}
             data-testid="tab-cleaning"
           >
-            <Droplets className="w-5 h-5" /> 청소 점검
+            <Droplets className="w-4 h-4" /> 청소 점검
+          </button>
+          <button
+            onClick={() => setActiveTab('activity')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'activity' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
+            }`}
+            data-testid="tab-activity"
+          >
+            <ClipboardList className="w-4 h-4" /> 활동 기록
           </button>
           {/* Notification bell — only clickable when unread exist */}
           <button
             onClick={handleBellClick}
-            className={`relative w-12 h-12 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
+            className={`relative w-10 h-10 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
               unreadCount > 0
                 ? 'bg-white border-border shadow-sm active:scale-95'
                 : 'bg-muted border-transparent cursor-default'
             }`}
             data-testid="btn-notification-bell"
           >
-            <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
+            <Bell className={`w-4 h-4 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-white text-[11px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
@@ -1111,10 +1209,13 @@ export default function Dashboard() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {activeTab === 'vm'
-            ? <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} highlightBranch={highlightTarget?.type === 'vm' ? highlightTarget.branch : undefined} />
-            : <CleaningTab highlightId={highlightTarget?.type === 'cleaning' ? highlightTarget.id : undefined} highlightDate={highlightTarget?.type === 'cleaning' ? highlightTarget.date : undefined} highlightBranch={highlightTarget?.type === 'cleaning' ? highlightTarget.branch : undefined} />
-          }
+          {activeTab === 'vm' ? (
+            <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} highlightBranch={highlightTarget?.type === 'vm' ? highlightTarget.branch : undefined} />
+          ) : activeTab === 'cleaning' ? (
+            <CleaningTab highlightId={highlightTarget?.type === 'cleaning' ? highlightTarget.id : undefined} highlightDate={highlightTarget?.type === 'cleaning' ? highlightTarget.date : undefined} highlightBranch={highlightTarget?.type === 'cleaning' ? highlightTarget.branch : undefined} />
+          ) : (
+            <ActivityTab />
+          )}
         </div>
       </div>
     </Layout>
