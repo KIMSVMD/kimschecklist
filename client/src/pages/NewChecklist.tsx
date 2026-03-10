@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
   Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
-  Calendar, BarChart3, Download, Video,
+  Calendar, BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -670,7 +670,22 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-10">
       <div className="border-b-2 border-border pb-4">
         <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {adOnly ? '📢 광고 점검' : 'VM 점검'}</p>
-        <h2 className="text-xl font-black text-secondary mt-0.5">{displayProduct}</h2>
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <h2 className="text-xl font-black text-secondary">{displayProduct}</h2>
+          {(adOnly || effectiveInspectionType === 'ad') && (adGuide as any)?.videoUrl && (
+            <a
+              href={(adGuide as any).videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 transition-all text-white text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
+              영상
+            </a>
+          )}
+        </div>
       </div>
 
 
@@ -961,25 +976,6 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
             </div>
           )}
 
-          {(adGuide as any).videoUrl && (
-            <div className="bg-amber-900 text-white rounded-3xl p-4 shadow-xl space-y-3">
-              <div className="flex items-center gap-2">
-                <Video className="text-amber-300 w-6 h-6" />
-                <h3 className="text-xl font-bold">광고 영상</h3>
-              </div>
-              <a
-                href={(adGuide as any).videoUrl}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-amber-600 hover:bg-amber-500 active:scale-[0.98] transition-all font-bold text-white text-base"
-                data-testid="button-download-ad-video"
-              >
-                <Download className="w-5 h-5" />
-                영상 다운로드
-              </a>
-            </div>
-          )}
 
           {adGuidePoints.length > 0 && (
             <div className="bg-amber-50 rounded-3xl border border-amber-200 p-5 space-y-3">
