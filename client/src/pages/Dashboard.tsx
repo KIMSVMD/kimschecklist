@@ -1026,7 +1026,7 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
 }
 
 type ActivityItem = {
-  activityType: 'vm_submit' | 'cleaning_submit' | 'vm_reply' | 'cleaning_reply';
+  activityType: 'vm_submit' | 'cleaning_submit' | 'vm_reply' | 'cleaning_reply' | 'vm_edit';
   branch: string;
   description: string;
   category?: string;
@@ -1052,6 +1052,7 @@ function ActivityTab() {
     cleaning_submit: { label: '청소 점검 제출', icon: <UploadCloud className="w-4 h-4" />, color: 'bg-emerald-100 text-emerald-700' },
     vm_reply: { label: 'VM 댓글', icon: <Reply className="w-4 h-4" />, color: 'bg-purple-100 text-purple-700' },
     cleaning_reply: { label: '청소 댓글', icon: <Reply className="w-4 h-4" />, color: 'bg-orange-100 text-orange-700' },
+    vm_edit: { label: 'VM 점검 수정', icon: <Pencil className="w-4 h-4" />, color: 'bg-yellow-100 text-yellow-700' },
   };
 
   return (

@@ -20,11 +20,13 @@ export const checklists = pgTable("checklists", {
   adminScore: integer("admin_score"),
   adminItems: jsonb("admin_items").$type<Record<string, 'ok' | 'notok'>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
 });
 
 export const insertChecklistSchema = createInsertSchema(checklists).omit({ 
   id: true, 
-  createdAt: true 
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertChecklist = z.infer<typeof insertChecklistSchema>;

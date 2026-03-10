@@ -373,7 +373,7 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
-      const checklist = await storage.updateChecklist(id, req.body);
+      const checklist = await storage.updateChecklist(id, { ...req.body, updatedAt: new Date() });
       if (!checklist) return res.status(404).json({ message: "Checklist not found" });
       res.json(checklist);
     } catch (err) {
@@ -501,6 +501,10 @@ export async function registerRoutes(
         FROM cleaning_replies r
         JOIN cleaning_inspections ci ON ci.id = r.cleaning_id
         WHERE r.author_type = 'staff' ${sql.raw(branchFilter.replace('AND branch', 'AND ci.branch'))}
+        UNION ALL
+        SELECT 'vm_edit' AS "activityType", branch, product AS description, category, NULL::text AS zone, NULL::text AS content, id AS "relatedId", updated_at AS "createdAt"
+        FROM checklists
+        WHERE updated_at IS NOT NULL ${sql.raw(branchFilter)}
         ORDER BY "createdAt" DESC
         LIMIT 200
       `);
