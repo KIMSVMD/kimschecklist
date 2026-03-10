@@ -1461,7 +1461,7 @@ export default function Dashboard() {
             }`}
             data-testid="tab-vm"
           >
-            <BarChart3 className="w-4 h-4" /> VM 점검
+            <BarChart3 className="w-4 h-4" /> VM/광고 점검
           </button>
           <button
             onClick={() => setActiveTab('cleaning')}
