@@ -645,7 +645,18 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
     }
   };
 
-  const guideImage = dbGuide?.imageUrl || null;
+  const guideImages: string[] = (() => {
+    const urls = (dbGuide as any)?.imageUrls as string[] | null;
+    if (urls && urls.length > 0) return urls;
+    return dbGuide?.imageUrl ? [dbGuide.imageUrl] : [];
+  })();
+  const adGuideImages: string[] = (() => {
+    const urls = (adGuide as any)?.imageUrls as string[] | null;
+    if (urls && urls.length > 0) return urls;
+    return adGuide?.imageUrl ? [adGuide.imageUrl] : [];
+  })();
+  const [vmImgIdx, setVmImgIdx] = useState(0);
+  const [adImgIdx, setAdImgIdx] = useState(0);
   const guidePoints: string[] = (dbGuide?.points as string[]) || [];
   const guideItems: string[] = (dbGuide?.items as string[])?.filter(Boolean) || [];
   const effectiveInspectionType = adOnly ? 'ad' : (adGuide && !hasVmGuide ? 'ad' : 'vm');
@@ -710,26 +721,51 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
                 </div>
               )}
             </div>
-            {guideImage ? (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
-                    <img src={guideImage} alt="Guide" className="w-full h-full object-contain bg-white" />
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm">클릭하여 확대</span>
-                    </div>
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
-                  <div className="w-full h-full flex items-center justify-center p-4">
-                    <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit>
-                      <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
-                        <img src={guideImage} alt="Guide Full" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto" />
-                      </TransformComponent>
-                    </TransformWrapper>
+            {guideImages.length > 0 ? (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
+                        <img src={guideImages[vmImgIdx]} alt="Guide" className="w-full h-full object-contain bg-white" />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm">클릭하여 확대</span>
+                        </div>
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
+                      <div className="w-full h-full flex items-center justify-center p-4">
+                        <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit>
+                          <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+                            <img src={guideImages[vmImgIdx]} alt="Guide Full" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto" />
+                          </TransformComponent>
+                        </TransformWrapper>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  {guideImages.length > 1 && (
+                    <>
+                      <button onClick={() => setVmImgIdx(i => (i - 1 + guideImages.length) % guideImages.length)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10">
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => setVmImgIdx(i => (i + 1) % guideImages.length)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10">
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+                {guideImages.length > 1 && (
+                  <div className="flex justify-center items-center gap-1.5">
+                    {guideImages.map((_, i) => (
+                      <button key={i} onClick={() => setVmImgIdx(i)}
+                        className={`rounded-full transition-all ${i === vmImgIdx ? 'w-4 h-2 bg-white' : 'w-2 h-2 bg-white/40'}`} />
+                    ))}
+                    <span className="text-xs text-white/60 ml-1">{vmImgIdx + 1}/{guideImages.length}</span>
                   </div>
-                </DialogContent>
-              </Dialog>
+                )}
+              </div>
             ) : (
               <div className="w-full rounded-2xl aspect-video bg-muted/20 border border-white/10 flex items-center justify-center">
                 <div className="text-center text-white/60"><ImageIcon className="w-10 h-10 mx-auto mb-2" /><p className="text-sm">이미지 없음</p></div>
@@ -872,31 +908,56 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
       {effectiveInspectionType === 'ad' && adGuide && (
         <div className="space-y-5 pt-2">
 
-          {adGuide.imageUrl && (
+          {adGuideImages.length > 0 && (
             <div className="bg-amber-900 text-white rounded-3xl p-4 shadow-xl space-y-3">
               <div className="flex items-center gap-2">
                 <ImageIcon className="text-amber-300 w-6 h-6" />
                 <h3 className="text-xl font-bold">광고 가이드</h3>
               </div>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
-                    <img src={adGuide.imageUrl} alt="Ad Guide" className="w-full h-full object-contain bg-white" />
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm">클릭하여 확대</span>
-                    </div>
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
-                  <div className="w-full h-full flex items-center justify-center p-4">
-                    <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit>
-                      <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
-                        <img src={adGuide.imageUrl} alt="Ad Guide Full" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto" />
-                      </TransformComponent>
-                    </TransformWrapper>
+              <div className="space-y-2">
+                <div className="relative">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
+                        <img src={adGuideImages[adImgIdx]} alt="Ad Guide" className="w-full h-full object-contain bg-white" />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm">클릭하여 확대</span>
+                        </div>
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
+                      <div className="w-full h-full flex items-center justify-center p-4">
+                        <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit>
+                          <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+                            <img src={adGuideImages[adImgIdx]} alt="Ad Guide Full" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto" />
+                          </TransformComponent>
+                        </TransformWrapper>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  {adGuideImages.length > 1 && (
+                    <>
+                      <button onClick={() => setAdImgIdx(i => (i - 1 + adGuideImages.length) % adGuideImages.length)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10">
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => setAdImgIdx(i => (i + 1) % adGuideImages.length)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10">
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+                {adGuideImages.length > 1 && (
+                  <div className="flex justify-center items-center gap-1.5">
+                    {adGuideImages.map((_, i) => (
+                      <button key={i} onClick={() => setAdImgIdx(i)}
+                        className={`rounded-full transition-all ${i === adImgIdx ? 'w-4 h-2 bg-white' : 'w-2 h-2 bg-white/40'}`} />
+                    ))}
+                    <span className="text-xs text-white/60 ml-1">{adImgIdx + 1}/{adGuideImages.length}</span>
                   </div>
-                </DialogContent>
-              </Dialog>
+                )}
+              </div>
             </div>
           )}
 

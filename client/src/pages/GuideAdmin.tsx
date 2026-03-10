@@ -38,8 +38,8 @@ type GuideFormData = {
   guideType: 'vm' | 'ad';
   points: string[];
   items: string[];
-  imageFile?: File | null;
-  imageUrl?: string;
+  existingImageUrls: string[];
+  newImageFiles: File[];
   videoFile?: File | null;
   videoUrl?: string;
 };
@@ -55,6 +55,13 @@ function GuideForm({
   onCancel: () => void;
   isPending: boolean;
 }) {
+  const getInitialImageUrls = () => {
+    const urls = (initial as any)?.imageUrls as string[] | null;
+    if (urls && urls.length > 0) return urls;
+    const single = (initial as any)?.imageUrl as string | null;
+    return single ? [single] : [];
+  };
+
   const [form, setForm] = useState<GuideFormData>({
     category: initial?.category || '농산',
     product: initial?.product || '',
@@ -62,12 +69,11 @@ function GuideForm({
     guideType: (initial as any)?.guideType || 'vm',
     points: initial?.points || [''],
     items: initial?.items || [''],
-    imageFile: null,
-    imageUrl: initial?.imageUrl || '',
+    existingImageUrls: getInitialImageUrls(),
+    newImageFiles: [],
     videoFile: null,
     videoUrl: (initial as any)?.videoUrl || '',
   });
-  const [previewUrl, setPreviewUrl] = useState<string>(initial?.imageUrl || '');
   const [videoFileName, setVideoFileName] = useState<string>(() => {
     const url = (initial as any)?.videoUrl;
     return url ? '영상 등록됨' : '';
@@ -79,7 +85,7 @@ function GuideForm({
     }
     return '';
   });
-  const fileRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
 
   const { data: dbProducts = [] } = useProducts(form.category);
@@ -102,11 +108,19 @@ function GuideForm({
     setForm(f => ({ ...f, product: `[${selectedGroup}]${productName}` }));
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setForm(f => ({ ...f, imageFile: file }));
-    setPreviewUrl(URL.createObjectURL(file));
+  const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setForm(f => ({ ...f, newImageFiles: [...f.newImageFiles, ...files] }));
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  };
+
+  const removeExistingImage = (idx: number) => {
+    setForm(f => ({ ...f, existingImageUrls: f.existingImageUrls.filter((_, i) => i !== idx) }));
+  };
+
+  const removeNewImage = (idx: number) => {
+    setForm(f => ({ ...f, newImageFiles: f.newImageFiles.filter((_, i) => i !== idx) }));
   };
 
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,24 +261,59 @@ function GuideForm({
         )}
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-bold text-secondary">표준 진열 가이드 이미지</label>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-bold text-secondary">
+            가이드 이미지 <span className="text-xs text-muted-foreground font-normal">(여러 장 등록 가능)</span>
+          </label>
+          <span className="text-xs text-muted-foreground">
+            {form.existingImageUrls.length + form.newImageFiles.length}장
+          </span>
+        </div>
+
+        {/* Existing images */}
+        {form.existingImageUrls.map((url, idx) => (
+          <div key={url} className="relative rounded-2xl overflow-hidden aspect-video border border-border bg-muted/20">
+            <img src={url} className="w-full h-full object-contain bg-white" alt={`이미지 ${idx + 1}`} />
+            <button
+              type="button"
+              onClick={() => removeExistingImage(idx)}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <span className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">{idx + 1}</span>
+          </div>
+        ))}
+
+        {/* New (pending upload) images */}
+        {form.newImageFiles.map((file, idx) => (
+          <div key={idx} className="relative rounded-2xl overflow-hidden aspect-video border-2 border-dashed border-primary/40 bg-primary/5">
+            <img src={URL.createObjectURL(file)} className="w-full h-full object-contain bg-white" alt={`새 이미지 ${idx + 1}`} />
+            <button
+              type="button"
+              onClick={() => removeNewImage(idx)}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <span className="absolute bottom-2 left-2 bg-primary/80 text-white text-xs px-2 py-0.5 rounded-full">
+              {form.existingImageUrls.length + idx + 1} · 미저장
+            </span>
+          </div>
+        ))}
+
+        {/* Add image button */}
         <button
           type="button"
-          onClick={() => fileRef.current?.click()}
-          className="w-full rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center overflow-hidden active:scale-[0.98] transition-all aspect-video relative"
+          onClick={() => imageInputRef.current?.click()}
+          className="w-full py-5 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
           data-testid="button-guide-image"
         >
-          {previewUrl ? (
-            <img src={previewUrl} className="absolute inset-0 w-full h-full object-contain" alt="Preview" />
-          ) : (
-            <>
-              <ImageIcon className="w-10 h-10 text-primary/40 mb-2" />
-              <span className="text-sm text-muted-foreground">이미지 업로드</span>
-            </>
-          )}
+          <Plus className="w-5 h-5 text-primary/60" />
+          <span className="text-sm text-primary/70 font-medium">이미지 추가</span>
         </button>
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+        <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImagesChange} />
       </div>
 
       {form.guideType === 'ad' && (
@@ -538,14 +587,18 @@ export default function GuideAdmin() {
 
   const buildPayload = async (data: any) => {
     const { uploadFile } = await import("@/lib/upload");
-    let imageUrl = data.imageUrl || undefined;
-    if (data.imageFile) {
-      imageUrl = await uploadFile(data.imageFile);
-    }
+
+    // Upload new image files in parallel
+    const uploadedUrls: string[] = await Promise.all(
+      (data.newImageFiles as File[]).map((f: File) => uploadFile(f))
+    );
+    const allImageUrls = [...(data.existingImageUrls as string[]), ...uploadedUrls];
+
     let videoUrl = data.videoUrl || undefined;
     if (data.videoFile) {
       videoUrl = await uploadFile(data.videoFile);
     }
+
     return {
       category: data.category,
       product: data.product,
@@ -553,7 +606,8 @@ export default function GuideAdmin() {
       guideType: data.guideType || 'vm',
       points: data.points.filter((p: string) => p.trim()),
       items: data.items.filter((i: string) => i.trim()),
-      imageUrl: imageUrl || null,
+      imageUrl: allImageUrls[0] || null,
+      imageUrls: allImageUrls.length > 0 ? allImageUrls : null,
       videoUrl: videoUrl || null,
     };
   };
@@ -732,7 +786,7 @@ export default function GuideAdmin() {
                               guideType: ((guide as any).guideType || 'vm') as 'vm' | 'ad',
                               points: guide.points as string[],
                               items: guide.items as string[],
-                              imageUrl: guide.imageUrl || '',
+                              imageUrls: ((guide as any).imageUrls as string[] | null) || (guide.imageUrl ? [guide.imageUrl] : []),
                               videoUrl: (guide as any).videoUrl || '',
                             }}
                             onSave={(data) => handleUpdate(guide.id, data)}
@@ -744,11 +798,21 @@ export default function GuideAdmin() {
                         <>
                           <div className="flex items-center p-4 gap-3">
                             {guide.imageUrl && (
-                              <img
-                                src={guide.imageUrl}
-                                alt={guide.product}
-                                className="w-16 h-16 rounded-xl object-cover border border-border shrink-0"
-                              />
+                              <div className="relative shrink-0">
+                                <img
+                                  src={guide.imageUrl}
+                                  alt={guide.product}
+                                  className="w-16 h-16 rounded-xl object-cover border border-border"
+                                />
+                                {(() => {
+                                  const cnt = ((guide as any).imageUrls as string[] | null)?.length ?? 1;
+                                  return cnt > 1 ? (
+                                    <span className="absolute -bottom-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-white text-[10px] font-black flex items-center justify-center">
+                                      {cnt}
+                                    </span>
+                                  ) : null;
+                                })()}
+                              </div>
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
