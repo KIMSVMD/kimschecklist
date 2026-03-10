@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
   Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
-  Calendar, BarChart3,
+  Calendar, BarChart3, Download, Video,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -897,6 +897,26 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
                   </div>
                 </DialogContent>
               </Dialog>
+            </div>
+          )}
+
+          {(adGuide as any).videoUrl && (
+            <div className="bg-amber-900 text-white rounded-3xl p-4 shadow-xl space-y-3">
+              <div className="flex items-center gap-2">
+                <Video className="text-amber-300 w-6 h-6" />
+                <h3 className="text-xl font-bold">광고 영상</h3>
+              </div>
+              <a
+                href={(adGuide as any).videoUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-amber-600 hover:bg-amber-500 active:scale-[0.98] transition-all font-bold text-white text-base"
+                data-testid="button-download-ad-video"
+              >
+                <Download className="w-5 h-5" />
+                영상 다운로드
+              </a>
             </div>
           )}
 

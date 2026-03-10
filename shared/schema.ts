@@ -44,6 +44,7 @@ export const guides = pgTable("guides", {
   product: text("product").notNull(),
   storeType: text("store_type"),
   imageUrl: text("image_url"),
+  videoUrl: text("video_url"),
   points: text("points").array().notNull().default([]),
   items: text("items").array().notNull().default([]),
   guideType: text("guide_type").notNull().default('vm'),

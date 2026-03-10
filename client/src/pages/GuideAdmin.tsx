@@ -25,6 +25,8 @@ import {
   BarChart3,
   Package,
   BookOpen,
+  Video,
+  Upload,
 } from "lucide-react";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
@@ -38,6 +40,8 @@ type GuideFormData = {
   items: string[];
   imageFile?: File | null;
   imageUrl?: string;
+  videoFile?: File | null;
+  videoUrl?: string;
 };
 
 function GuideForm({
@@ -60,8 +64,14 @@ function GuideForm({
     items: initial?.items || [''],
     imageFile: null,
     imageUrl: initial?.imageUrl || '',
+    videoFile: null,
+    videoUrl: (initial as any)?.videoUrl || '',
   });
   const [previewUrl, setPreviewUrl] = useState<string>(initial?.imageUrl || '');
+  const [videoFileName, setVideoFileName] = useState<string>(() => {
+    const url = (initial as any)?.videoUrl;
+    return url ? '영상 등록됨' : '';
+  });
   const [selectedGroup, setSelectedGroup] = useState<string>(() => {
     if (initial?.product) {
       const m = initial.product.match(/\[(.*?)\]/);
@@ -70,6 +80,7 @@ function GuideForm({
     return '';
   });
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
 
   const { data: dbProducts = [] } = useProducts(form.category);
 
@@ -96,6 +107,19 @@ function GuideForm({
     if (!file) return;
     setForm(f => ({ ...f, imageFile: file }));
     setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setForm(f => ({ ...f, videoFile: file, videoUrl: '' }));
+    setVideoFileName(file.name);
+  };
+
+  const handleRemoveVideo = () => {
+    setForm(f => ({ ...f, videoFile: null, videoUrl: '' }));
+    setVideoFileName('');
+    if (videoRef.current) videoRef.current.value = '';
   };
 
   const updateListItem = (field: 'points' | 'items', idx: number, val: string) => {
@@ -242,6 +266,32 @@ function GuideForm({
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
       </div>
+
+      {form.guideType === 'ad' && (
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-secondary">광고 영상 파일 <span className="text-xs text-muted-foreground font-normal">(mp4, mov 등)</span></label>
+          {videoFileName ? (
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border-2 border-amber-200">
+              <Video className="w-6 h-6 text-amber-600 shrink-0" />
+              <span className="flex-1 text-sm font-medium text-amber-800 truncate">{videoFileName}</span>
+              <button type="button" onClick={handleRemoveVideo} className="p-1.5 rounded-lg bg-amber-200 text-amber-700 hover:bg-amber-300 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => videoRef.current?.click()}
+              className="w-full py-5 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50 flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              data-testid="button-guide-video"
+            >
+              <Upload className="w-8 h-8 text-amber-400" />
+              <span className="text-sm text-amber-600 font-medium">광고 영상 업로드</span>
+            </button>
+          )}
+          <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={handleVideoChange} />
+        </div>
+      )}
 
       {(['points', 'items'] as const).map((field) => (
         <div key={field} className="space-y-3">
@@ -487,10 +537,14 @@ export default function GuideAdmin() {
   }
 
   const buildPayload = async (data: any) => {
+    const { uploadFile } = await import("@/lib/upload");
     let imageUrl = data.imageUrl || undefined;
     if (data.imageFile) {
-      const { uploadFile } = await import("@/lib/upload");
       imageUrl = await uploadFile(data.imageFile);
+    }
+    let videoUrl = data.videoUrl || undefined;
+    if (data.videoFile) {
+      videoUrl = await uploadFile(data.videoFile);
     }
     return {
       category: data.category,
@@ -500,6 +554,7 @@ export default function GuideAdmin() {
       points: data.points.filter((p: string) => p.trim()),
       items: data.items.filter((i: string) => i.trim()),
       imageUrl: imageUrl || null,
+      videoUrl: videoUrl || null,
     };
   };
 
@@ -678,6 +733,7 @@ export default function GuideAdmin() {
                               points: guide.points as string[],
                               items: guide.items as string[],
                               imageUrl: guide.imageUrl || '',
+                              videoUrl: (guide as any).videoUrl || '',
                             }}
                             onSave={(data) => handleUpdate(guide.id, data)}
                             onCancel={() => setEditingId(null)}
@@ -702,6 +758,11 @@ export default function GuideAdmin() {
                                 <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${(guide as any).guideType === 'ad' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'}`}>
                                   {(guide as any).guideType === 'ad' ? '광고' : 'VM 진열'}
                                 </span>
+                                {(guide as any).videoUrl && (
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-700">
+                                    <Video className="w-3 h-3" />영상
+                                  </span>
+                                )}
                               {guide.storeType && (
                                   <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-700">
                                     {guide.storeType}
