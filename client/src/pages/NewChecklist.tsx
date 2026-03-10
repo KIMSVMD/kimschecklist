@@ -174,21 +174,31 @@ export default function NewChecklist() {
           <div className="flex gap-1 bg-muted p-1 rounded-2xl">
             <button
               onClick={() => handleTabChange('vm')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-new-vm"
             >
               <BarChart3 className="w-4 h-4" /> VM 점검
+              {pendingGuideNotifs.length > 0 && (
+                <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
+                  {pendingGuideNotifs.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => handleTabChange('ad')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'ad' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-new-ad"
             >
               <span className="text-base leading-none">📢</span> 광고 점검
+              {pendingAdGuideNotifs.length > 0 && (
+                <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
+                  {pendingAdGuideNotifs.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => handleTabChange('cleaning')}
