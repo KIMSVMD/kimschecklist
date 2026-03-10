@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus, useUpdateChecklistScore } from "@/hooks/use-checklists";
