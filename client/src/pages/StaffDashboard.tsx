@@ -248,7 +248,7 @@ export default function StaffDashboard() {
               }`}
               data-testid="tab-staff-vm"
             >
-              <BarChart3 className="w-4 h-4" /> VM 점검
+              <BarChart3 className="w-4 h-4" /> VM/광고 점검
             </button>
             <button
               onClick={() => setActiveTab('cleaning')}
@@ -537,7 +537,7 @@ export default function StaffDashboard() {
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
                     <ClipboardList className="w-8 h-8 opacity-40" />
                   </div>
-                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 VM 점검 기록이 없습니다</p>
+                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 VM/광고 점검 기록이 없습니다</p>
                   <Link href="/checklist/new">
                     <button className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-base">
                       새 점검 등록하기

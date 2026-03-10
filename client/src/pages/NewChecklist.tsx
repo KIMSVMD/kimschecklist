@@ -160,7 +160,7 @@ export default function NewChecklist() {
               }`}
               data-testid="tab-new-vm"
             >
-              <BarChart3 className="w-4 h-4" /> VM 점검
+              <BarChart3 className="w-4 h-4" /> VM/광고 점검
             </button>
             <button
               onClick={() => handleTabChange('cleaning')}
@@ -329,7 +329,7 @@ function VMContent({ branch, selYear, selMonth, vmStage, setVmStage, selCategory
         {vmStage === 'category' && (
           <motion.div key="cat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
             <div className="mb-5">
-              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · VM 점검</p>
+              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · VM/광고 점검</p>
               <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
             </div>
             {CATEGORIES.map(cat => {
