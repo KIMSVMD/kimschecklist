@@ -230,10 +230,10 @@ export default function StaffDashboard() {
                 className="relative w-12 h-12 rounded-2xl bg-muted flex items-center justify-center shrink-0 active:scale-95 transition-all"
                 data-testid="btn-staff-notif-bell"
               >
-                <Bell className={`w-5 h-5 ${(unreadCount + guideUnread) > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                {(unreadCount + guideUnread) > 0 && (
+                <Bell className={`w-5 h-5 ${(commentUnread + scoreUnread) > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                {(commentUnread + scoreUnread) > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center px-1">
-                    {(unreadCount + guideUnread) > 9 ? '9+' : (unreadCount + guideUnread)}
+                    {(commentUnread + scoreUnread) > 9 ? '9+' : (commentUnread + scoreUnread)}
                   </span>
                 )}
               </button>
