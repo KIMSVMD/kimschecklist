@@ -528,9 +528,9 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
       matchesDate = d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth;
     }
     if (!matchesDate) return false;
-    const hasAd = !!(((item as any).adItems && Object.keys((item as any).adItems).length > 0) || ((item as any).adPhotoUrls && (item as any).adPhotoUrls.length > 0));
-    if (viewFilter === 'ad') return hasAd;
-    if (viewFilter === 'vm') return !hasAd;
+    const cType = (item as any).checklistType || 'vm';
+    if (viewFilter === 'ad') return cType === 'ad';
+    if (viewFilter === 'vm') return cType !== 'ad';
     return true;
   });
 
@@ -667,7 +667,12 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                 <div className="p-5">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-primary mb-1 bg-primary/10 w-max px-2 py-0.5 rounded-md">{item.category}</span>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{item.category}</span>
+                        {(item as any).checklistType === 'ad' && (
+                          <span className="text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">📢 광고점검</span>
+                        )}
+                      </div>
                       <h3 className="text-xl font-black text-secondary leading-tight">
                         {item.branch}점 <span className="font-medium text-muted-foreground text-lg ml-1">| {item.product}</span>
                       </h3>

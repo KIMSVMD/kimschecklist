@@ -599,7 +599,12 @@ export default function StaffDashboard() {
                       <div className="p-5">
                         <div className="flex justify-between items-start mb-3">
                           <div>
-                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{item.category}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{item.category}</span>
+                              {(item as any).checklistType === 'ad' && (
+                                <span className="text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">📢 광고점검</span>
+                              )}
+                            </div>
                             <h3 className="text-xl font-black text-secondary mt-1">{item.product}</h3>
                             {((item as any).year && (item as any).month) && (
                               <p className="text-xs text-primary/60 font-bold mt-0.5 flex items-center gap-1">

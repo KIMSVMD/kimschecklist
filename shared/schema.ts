@@ -24,6 +24,7 @@ export const checklists = pgTable("checklists", {
   adNotes: text("ad_notes"),
   adAdminScore: integer("ad_admin_score"),
   adAdminItems: jsonb("ad_admin_items").$type<Record<string, 'ok' | 'notok'>>(),
+  checklistType: text("checklist_type").default('vm'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at"),
 });

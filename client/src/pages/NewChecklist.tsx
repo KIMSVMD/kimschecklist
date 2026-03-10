@@ -480,6 +480,9 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const [adLocalPreviews, setAdLocalPreviews] = useState<string[]>([]);
   const [adUploadingCount, setAdUploadingCount] = useState(0);
   const [adNotes, setAdNotes] = useState('');
+  const hasVmGuide = allGuides.length > 0;
+  const hasBothGuides = hasVmGuide && !!adGuide;
+  const [inspectionType, setInspectionType] = useState<'vm' | 'ad'>('vm');
   const adFileInputRef = useRef<HTMLInputElement>(null);
   const adPhotoUrlsRef = useRef<string[]>([]);
   adPhotoUrlsRef.current = adPhotoUrls;
@@ -545,7 +548,10 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   };
 
   const submitForm = async () => {
-    const hasNotok = Object.values(items).includes('notok');
+    const isAd = effectiveInspectionType === 'ad';
+    const hasNotok = isAd
+      ? Object.values(adItems).includes('notok')
+      : Object.values(items).includes('notok');
     const finalStatus = hasNotok ? 'poor' : 'excellent';
     try {
       const created = await createMutation.mutateAsync({
@@ -553,13 +559,19 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
         category: selCategory,
         product: selProduct,
         status: finalStatus,
-        photoUrl: photoUrls[0] || null,
-        photoUrls: photoUrls.length > 0 ? photoUrls : null,
-        notes: notes || null,
-        items,
+        checklistType: isAd ? 'ad' : 'vm',
+        photoUrl: isAd ? (adPhotoUrls[0] || null) : (photoUrls[0] || null),
+        photoUrls: isAd ? (adPhotoUrls.length > 0 ? adPhotoUrls : null) : (photoUrls.length > 0 ? photoUrls : null),
+        notes: isAd ? null : (notes || null),
+        items: isAd ? {} : items,
         year: selYear,
         month: selMonth,
-        ...(adGuide && {
+        ...(isAd && {
+          adItems: Object.keys(adItems).length > 0 ? adItems : null,
+          adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
+          adNotes: adNotes.trim() || null,
+        }),
+        ...(!isAd && adGuide && !hasBothGuides && {
           adItems: Object.keys(adItems).length > 0 ? adItems : null,
           adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
           adNotes: adNotes.trim() || null,
@@ -576,7 +588,10 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
   const guideImage = dbGuide?.imageUrl || null;
   const guidePoints: string[] = (dbGuide?.points as string[]) || [];
   const guideItems: string[] = (dbGuide?.items as string[])?.filter(Boolean) || [];
-  const allItemsChecked = guideItems.length === 0 || guideItems.every(item => items[item]);
+  const effectiveInspectionType = hasBothGuides ? inspectionType : (adGuide && !hasVmGuide ? 'ad' : 'vm');
+  const allItemsChecked = effectiveInspectionType === 'ad'
+    ? true
+    : (guideItems.length === 0 || guideItems.every(item => items[item]));
 
   const displayProduct = selProduct?.replace(/\[(.+?)\](.*)/, (_: string, g: string, rest: string) => rest ? `${g} > ${rest}` : g) || selProduct;
 
@@ -587,8 +602,32 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
         <h2 className="text-xl font-black text-secondary mt-0.5">{displayProduct}</h2>
       </div>
 
+      {/* VM/광고 inspection type toggle — only when both guides exist */}
+      {hasBothGuides && (
+        <div className="flex gap-1.5 p-1 bg-muted rounded-2xl">
+          <button
+            onClick={() => setInspectionType('vm')}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+              inspectionType === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+            }`}
+            data-testid="btn-inspection-type-vm"
+          >
+            📋 VM 진열
+          </button>
+          <button
+            onClick={() => setInspectionType('ad')}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+              inspectionType === 'ad' ? 'bg-amber-500 text-white shadow-sm' : 'text-muted-foreground'
+            }`}
+            data-testid="btn-inspection-type-ad"
+          >
+            📢 광고 점검
+          </button>
+        </div>
+      )}
+
       {/* Guide */}
-      {guideLoading ? (
+      {effectiveInspectionType === 'vm' && (guideLoading ? (
         <div className="flex items-center justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : dbGuide ? (
         <div className="space-y-4">
@@ -681,10 +720,10 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
           <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-40" />
           <p>이 상품의 진열 가이드가 아직 등록되지 않았습니다.</p>
         </div>
-      )}
+      ))}
 
       {/* Photo Upload */}
-      <div className="space-y-3">
+      {effectiveInspectionType === 'vm' && <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-bold text-secondary">현장 사진 촬영</h3>
           {localPreviews.length > 0 && (
@@ -727,10 +766,10 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
           }
         </button>
         <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFile} />
-      </div>
+      </div>}
 
       {/* Per-item ○/✗ evaluation */}
-      {guideItems.length > 0 && (
+      {effectiveInspectionType === 'vm' && guideItems.length > 0 && (
         <div className="space-y-5">
           <div className="space-y-1">
             <h3 className="text-xl font-bold text-secondary">항목별 가이드 일치 여부</h3>
@@ -777,7 +816,7 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
       )}
 
       {/* Notes */}
-      <div className="space-y-3">
+      {effectiveInspectionType === 'vm' && <div className="space-y-3">
         <h3 className="text-xl font-bold text-secondary">특이사항 (선택)</h3>
         <textarea
           placeholder="VM 집기 부족/파손/광고물 요청 등..."
@@ -785,19 +824,10 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
-      </div>
-
-      {/* Ad Inspection Section (only shown if ad guide exists) */}
-      {adGuide && (
+      </div>}
+      {/* Ad Inspection Section — standalone when ad type selected, or embedded (no VM guide) */}
+      {effectiveInspectionType === 'ad' && adGuide && (
         <div className="space-y-5 pt-2">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <div className="px-4 py-2 bg-amber-50 border-2 border-amber-200 rounded-2xl flex items-center gap-2">
-              <span className="text-lg">📢</span>
-              <span className="font-black text-amber-700 text-base">광고 점검</span>
-            </div>
-            <div className="flex-1 h-px bg-border" />
-          </div>
 
           {adGuide.imageUrl && (
             <div className="bg-amber-900 text-white rounded-3xl p-4 shadow-xl space-y-3">
@@ -930,19 +960,17 @@ function ItemsForm({ branch, selYear, selMonth, selCategory, selProduct, items, 
             </div>
           )}
 
-          {adGuide && (
-            <div className="space-y-2">
-              <label className="text-base font-bold text-amber-700">광고 특이사항 (선택)</label>
-              <textarea
-                value={adNotes}
-                onChange={e => setAdNotes(e.target.value)}
-                placeholder="광고 관련 특이사항을 입력하세요..."
-                rows={3}
-                className="w-full rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-base text-secondary placeholder:text-amber-300 focus:outline-none focus:border-amber-400 resize-none"
-                data-testid="textarea-ad-notes"
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <label className="text-base font-bold text-amber-700">광고 특이사항 (선택)</label>
+            <textarea
+              value={adNotes}
+              onChange={e => setAdNotes(e.target.value)}
+              placeholder="광고 관련 특이사항을 입력하세요..."
+              rows={3}
+              className="w-full rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-base text-secondary placeholder:text-amber-300 focus:outline-none focus:border-amber-400 resize-none"
+              data-testid="textarea-ad-notes"
+            />
+          </div>
         </div>
       )}
 
