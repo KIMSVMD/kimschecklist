@@ -290,7 +290,7 @@ function GuideForm({
                 className="flex-1 px-2 py-2 rounded-xl border-2 border-border text-sm focus:outline-none focus:border-primary"
               >
                 <option value="">연도</option>
-                {[2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y}>{y}</option>)}
+                {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <select
                 value={form.validFromMonth ?? ''}
@@ -311,7 +311,7 @@ function GuideForm({
                 className="flex-1 px-2 py-2 rounded-xl border-2 border-border text-sm focus:outline-none focus:border-primary"
               >
                 <option value="">연도</option>
-                {[2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y}>{y}</option>)}
+                {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <select
                 value={form.validToMonth ?? ''}
