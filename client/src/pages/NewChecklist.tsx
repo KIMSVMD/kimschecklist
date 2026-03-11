@@ -42,8 +42,7 @@ export default function NewChecklist() {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
 
-  const currentYear = nowDate.getFullYear();
-  const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
+  const yearOptions = [2026, 2027, 2028, 2029, 2030];
 
   const { data: branchChecklists = [] } = useChecklists({ branch: branch || undefined });
   const { data: validGuideProducts = [] } = useValidGuideProducts(selYear, selMonth);

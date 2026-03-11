@@ -278,7 +278,7 @@ export default function StaffDashboard() {
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
                 <select value={vmFilterYear} onChange={e => setVmFilterYear(Number(e.target.value))}
                   className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
-                  {[nowDate.getFullYear() - 1, nowDate.getFullYear(), nowDate.getFullYear() + 1].map(y => (
+                  {[2026, 2027, 2028, 2029, 2030].map(y => (
                     <option key={y} value={y}>{y}년</option>
                   ))}
                 </select>
