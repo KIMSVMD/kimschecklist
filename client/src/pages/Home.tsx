@@ -65,18 +65,6 @@ const MANUAL_SECTIONS = [
       '임시저장 가능 (매일 자정 자동 초기화)',
     ],
   },
-  {
-    id: 'admin',
-    title: '⑥ 관리자 대시보드',
-    subtitle: '전 지점 점검 현황 관리',
-    steps: [
-      'VM/광고 점검 · 청소 점검 탭으로 구분해서 확인',
-      '지점별 점수 및 항목 현황 카드 확인',
-      '코멘트 작성 또는 빠른 템플릿 버튼 사용',
-      '항목 점수 직접 수정 가능',
-      '가이드 관리 메뉴에서 VM·광고 가이드 이미지(다장) 및 영상 등록·수정',
-    ],
-  },
 ];
 
 function ManualSection({ section }: { section: typeof MANUAL_SECTIONS[0] }) {
