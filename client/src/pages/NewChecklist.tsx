@@ -2,10 +2,9 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto, useChecklists } from "@/hooks/use-checklists";
-import { useGuidesByProduct, useAdGuidesByProduct, useAllAdGuideProducts } from "@/hooks/use-guides";
+import { useGuidesByProduct, useAdGuidesByProduct, useValidGuideProducts } from "@/hooks/use-guides";
 import { useProducts } from "@/hooks/use-products";
-import { useGuideNotifications, type GuideNotification } from "@/hooks/use-notifications";
-import { useQuery } from "@tanstack/react-query";
+import { useGuideNotifications } from "@/hooks/use-notifications";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
@@ -46,70 +45,24 @@ export default function NewChecklist() {
   const currentYear = nowDate.getFullYear();
   const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
 
-  // Guide notifications — raw (not localStorage-filtered) for branch completion check
-  const { data: guideNotifs = [] } = useQuery<GuideNotification[]>({
-    queryKey: ['/api/guide-notifications'],
-    refetchInterval: 60_000,
-  });
   const { data: branchChecklists = [] } = useChecklists({ branch: branch || undefined });
-  const { data: adGuideProducts = [] } = useAllAdGuideProducts();
+  const { data: validGuideProducts = [] } = useValidGuideProducts(selYear, selMonth);
 
-  // Deduplicate by product: keep only the most recent notification per product
-  const latestGuideNotifByProduct = guideNotifs.reduce<typeof guideNotifs>((acc, notif) => {
-    if (!notif.product) return acc;
-    const existing = acc.find(n => n.product === notif.product);
-    if (!existing || new Date(notif.createdAt) > new Date(existing.createdAt)) {
-      return [...acc.filter(n => n.product !== notif.product), notif];
-    }
-    return acc;
-  }, []);
-
-  // VM tab: pending if no vm-type checklist submitted this month
-  const pendingGuideNotifs = latestGuideNotifByProduct.filter(notif => {
-    if (!notif.product) return false;
-    const notifDate = new Date(notif.createdAt);
-    const notifYear = notifDate.getFullYear();
-    const notifMonth = notifDate.getMonth() + 1;
-    const alreadyDone = branchChecklists.some(c => {
-      const cy = (c as any).year;
-      const cm = (c as any).month;
+  // VM tab: products with a valid VM guide for selYear/selMonth, not yet submitted
+  const pendingGuideNotifs = validGuideProducts
+    .filter(g => g.guideType !== 'ad')
+    .filter(g => !branchChecklists.some(c => {
       const ct = (c as any).checklistType || 'vm';
-      return c.product === notif.product && cy === notifYear && cm === notifMonth && ct !== 'ad';
-    });
-    return !alreadyDone;
-  });
+      return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct !== 'ad';
+    }));
 
-  // Ad tab: pending only if product has an ad guide AND no ad-type checklist submitted this month
-  const pendingAdGuideNotifs = latestGuideNotifByProduct.filter(notif => {
-    if (!notif.product) return false;
-    if (!adGuideProducts.includes(notif.product)) return false;
-    const notifDate = new Date(notif.createdAt);
-    const notifYear = notifDate.getFullYear();
-    const notifMonth = notifDate.getMonth() + 1;
-    const alreadyDone = branchChecklists.some(c => {
-      const cy = (c as any).year;
-      const cm = (c as any).month;
+  // Ad tab: products with a valid Ad guide for selYear/selMonth, not yet submitted
+  const pendingAdGuideNotifs = validGuideProducts
+    .filter(g => g.guideType === 'ad')
+    .filter(g => !branchChecklists.some(c => {
       const ct = (c as any).checklistType || 'vm';
-      return c.product === notif.product && cy === notifYear && cm === notifMonth && ct === 'ad';
-    });
-    return !alreadyDone;
-  });
-
-  const handleGuideNotifClick = (notif: typeof guideNotifs[0]) => {
-    if (!notif.product) return;
-    const notifDate = new Date(notif.createdAt);
-    setSelYear(notifDate.getFullYear());
-    setSelMonth(notifDate.getMonth() + 1);
-    const match = notif.product.match(/^\[([^\]]+)\](.*)/);
-    const group = match ? match[1] : notif.product;
-    setSelCategory(notif.category ?? '');
-    setSelGroup(group);
-    setSelProduct(notif.product);
-    setItems({});
-    setPhotoUrls([]);
-    setNotes('');
-    setVmStage('items');
-  };
+      return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct === 'ad';
+    }));
 
   const resetVm = () => {
     setVmStage('category');
@@ -360,7 +313,7 @@ type VMContentProps = {
   photoUrls: string[]; setPhotoUrls: (v: string[]) => void;
   notes: string; setNotes: (v: string) => void;
   onReset: () => void;
-  pendingGuideNotifs: import('@/hooks/use-notifications').GuideNotification[];
+  pendingGuideNotifs: { product: string; category: string }[];
 };
 
 function VMContent({ adOnly, branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset, pendingGuideNotifs }: VMContentProps) {

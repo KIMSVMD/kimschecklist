@@ -64,6 +64,7 @@ export interface IStorage {
   getGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]>;
   getAdGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]>;
   getAllAdGuideProducts(): Promise<string[]>;
+  getValidGuideProducts(year: number, month: number): Promise<{ product: string; category: string; guideType: string }[]>;
   createGuide(guide: InsertGuide): Promise<Guide>;
   updateGuide(id: number, guide: Partial<InsertGuide>): Promise<Guide | undefined>;
   deleteGuide(id: number): Promise<void>;
@@ -150,6 +151,21 @@ export class DatabaseStorage implements IStorage {
       and(eq(guides.guideType, 'ad'), isNotNull(guides.product))
     );
     return rows.map(r => r.product as string).filter(Boolean);
+  }
+
+  async getValidGuideProducts(year: number, month: number): Promise<{ product: string; category: string; guideType: string }[]> {
+    const all = await db.select().from(guides);
+    const filtered = filterGuidesByDate(all, year, month);
+    const seen = new Set<string>();
+    const result: { product: string; category: string; guideType: string }[] = [];
+    for (const g of filtered) {
+      const key = `${g.product}:${g.guideType}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push({ product: g.product, category: g.category, guideType: g.guideType });
+      }
+    }
+    return result;
   }
 
   async createGuide(insertGuide: InsertGuide): Promise<Guide> {

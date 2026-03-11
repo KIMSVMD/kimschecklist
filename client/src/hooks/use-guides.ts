@@ -51,6 +51,18 @@ export function useAllAdGuideProducts() {
   });
 }
 
+export function useValidGuideProducts(year: number, month: number) {
+  return useQuery<{ product: string; category: string; guideType: string }[]>({
+    queryKey: ['/api/guide-products', year, month],
+    queryFn: async () => {
+      const res = await fetch(`/api/guide-products?year=${year}&month=${month}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch guide products');
+      return res.json();
+    },
+    enabled: !!year && !!month,
+  });
+}
+
 export function useAdGuidesByProduct(product: string, year?: number, month?: number) {
   return useQuery<Guide[]>({
     queryKey: ['/api/ad-guides', product, 'all', year, month],

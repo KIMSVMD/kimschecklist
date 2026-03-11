@@ -83,6 +83,18 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/guide-products', async (req, res) => {
+    try {
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const month = req.query.month ? parseInt(req.query.month as string) : undefined;
+      if (!year || !month) return res.status(400).json({ message: 'year and month required' });
+      const products = await storage.getValidGuideProducts(year, month);
+      res.json(products);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get('/api/ad-guides/:product/all', async (req, res) => {
     try {
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
