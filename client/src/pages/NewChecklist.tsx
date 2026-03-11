@@ -189,7 +189,7 @@ export default function NewChecklist() {
             <button
               onClick={() => handleTabChange('ad')}
               className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'ad' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
+                activeTab === 'ad' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-new-ad"
             >
@@ -924,9 +924,9 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
         <div className="space-y-5 pt-2">
 
           {adGuideImages.length > 0 && (
-            <div className="bg-amber-900 text-white rounded-3xl p-4 shadow-xl space-y-3">
+            <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-3">
               <div className="flex items-center gap-2">
-                <ImageIcon className="text-amber-300 w-6 h-6" />
+                <ImageIcon className="text-primary w-6 h-6" />
                 <h3 className="text-xl font-bold">광고 가이드</h3>
               </div>
               <div className="space-y-2">
@@ -978,14 +978,14 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
 
 
           {adGuidePoints.length > 0 && (
-            <div className="bg-amber-50 rounded-3xl border border-amber-200 p-5 space-y-3">
-              <h4 className="text-lg font-bold text-amber-800 flex items-center gap-2">
-                <div className="w-2 h-6 bg-amber-500 rounded-full" />광고 핵심 포인트
+            <div className="bg-muted/50 rounded-3xl border border-border p-5 space-y-3">
+              <h4 className="text-lg font-bold text-secondary flex items-center gap-2">
+                <div className="w-2 h-6 bg-primary rounded-full" />광고 핵심 포인트
               </h4>
               <div className="space-y-2">
                 {adGuidePoints.map((point, i) => (
-                  <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-amber-200/50 shadow-sm">
-                    <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                  <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
+                    <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
                     <p className="text-base font-medium text-secondary leading-tight">{point}</p>
                   </div>
                 ))}
@@ -996,13 +996,13 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
           {/* Ad photo upload */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-secondary">광고 현장 사진</h3>
+              <h3 className="text-xl font-bold text-secondary">현장 사진 촬영</h3>
               {adLocalPreviews.length > 0 && <span className="text-sm font-bold text-muted-foreground">{adLocalPreviews.length}장</span>}
             </div>
             {adLocalPreviews.length > 0 && (
               <div className="grid grid-cols-3 gap-2">
                 {adLocalPreviews.map((preview, i) => (
-                  <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-amber-200 bg-muted">
+                  <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/30 bg-muted">
                     <img src={preview} alt={`광고 사진 ${i + 1}`} className="w-full h-full object-cover" />
                     <button
                       onClick={() => removeAdPhoto(i)}
@@ -1022,12 +1022,12 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
             )}
             <button
               onClick={() => adFileInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-amber-300 bg-amber-50 active:scale-[0.98] transition-all"
+              className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 active:scale-[0.98] transition-all"
               data-testid="btn-add-ad-photo"
             >
               {adUploadingCount > 0
-                ? <><Loader2 className="w-7 h-7 text-amber-500 animate-spin" /><span className="font-bold text-amber-600 text-lg">업로드 중...</span></>
-                : <><Camera className="w-7 h-7 text-amber-500" /><span className="font-bold text-amber-600 text-lg">{adLocalPreviews.length > 0 ? '광고 사진 추가' : '광고 사진 업로드'}</span></>
+                ? <><Loader2 className="w-7 h-7 text-primary animate-spin" /><span className="font-bold text-primary text-lg">업로드 중...</span></>
+                : <><Camera className="w-7 h-7 text-primary" /><span className="font-bold text-primary text-lg">{adLocalPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
               }
             </button>
             <input ref={adFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAdFile} />
@@ -1037,12 +1037,12 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
           {adGuideItems.length > 0 && (
             <div className="space-y-4">
               <div className="space-y-1">
-                <h3 className="text-xl font-bold text-secondary">광고 항목 점검</h3>
+                <h3 className="text-xl font-bold text-secondary">항목별 가이드 일치 여부</h3>
                 <p className="text-sm text-muted-foreground">광고 가이드와 일치하면 ○, 다르면 ✗를 선택하세요.</p>
               </div>
               {adGuideItems.map((item) => (
                 <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
-                  adItems[item] === 'ok' ? 'border-amber-300 bg-amber-50'
+                  adItems[item] === 'ok' ? 'border-blue-300 bg-blue-50'
                   : adItems[item] === 'notok' ? 'border-primary bg-red-50'
                   : 'border-border bg-white'
                 }`}>
@@ -1052,7 +1052,7 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
                       <button
                         onClick={() => setAdItems({ ...adItems, [item]: 'ok' })}
                         className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                          adItems[item] === 'ok' ? 'bg-amber-500 border-amber-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                          adItems[item] === 'ok' ? 'bg-blue-500 border-blue-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
                         }`}
                         data-testid={`btn-ad-item-ok-${item}`}
                       >
@@ -1081,13 +1081,13 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
           )}
 
           <div className="space-y-2">
-            <label className="text-base font-bold text-amber-700">광고 특이사항 (선택)</label>
+            <label className="text-base font-bold text-secondary">특이사항 (선택)</label>
             <textarea
               value={adNotes}
               onChange={e => setAdNotes(e.target.value)}
               placeholder="광고 관련 특이사항을 입력하세요..."
               rows={3}
-              className="w-full rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-3 text-base text-secondary placeholder:text-amber-300 focus:outline-none focus:border-amber-400 resize-none"
+              className="w-full rounded-2xl border-2 border-border bg-white px-4 py-3 text-base text-secondary placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 resize-none"
               data-testid="textarea-ad-notes"
             />
           </div>
