@@ -49,6 +49,10 @@ export const guides = pgTable("guides", {
   points: text("points").array().notNull().default([]),
   items: text("items").array().notNull().default([]),
   guideType: text("guide_type").notNull().default('vm'),
+  validFromYear: integer("valid_from_year"),
+  validFromMonth: integer("valid_from_month"),
+  validToYear: integer("valid_to_year"),
+  validToMonth: integer("valid_to_month"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

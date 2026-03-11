@@ -525,8 +525,8 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
-  const { data: allGuides = [], isLoading: guideLoading } = useGuidesByProduct(selProduct);
-  const { data: allAdGuides = [] } = useAdGuidesByProduct(selProduct);
+  const { data: allGuides = [], isLoading: guideLoading } = useGuidesByProduct(selProduct, selYear, selMonth);
+  const { data: allAdGuides = [] } = useAdGuidesByProduct(selProduct, selYear, selMonth);
   const { notifications: guideNotifs, dismiss: dismissGuide } = useGuideNotifications();
   const relevantGuideNotif = guideNotifs.find(n =>
     (!n.product || n.product === selProduct) &&

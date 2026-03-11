@@ -65,7 +65,9 @@ export async function registerRoutes(
 
   app.get('/api/guides/product/:product/all', async (req, res) => {
     try {
-      const guideList = await storage.getGuidesByProduct(decodeURIComponent(req.params.product));
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const month = req.query.month ? parseInt(req.query.month as string) : undefined;
+      const guideList = await storage.getGuidesByProduct(decodeURIComponent(req.params.product), year, month);
       res.json(guideList);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
@@ -83,7 +85,9 @@ export async function registerRoutes(
 
   app.get('/api/ad-guides/:product/all', async (req, res) => {
     try {
-      const guideList = await storage.getAdGuidesByProduct(decodeURIComponent(req.params.product));
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const month = req.query.month ? parseInt(req.query.month as string) : undefined;
+      const guideList = await storage.getAdGuidesByProduct(decodeURIComponent(req.params.product), year, month);
       res.json(guideList);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });

@@ -26,12 +26,13 @@ export function useGuideByProduct(product: string) {
   });
 }
 
-export function useGuidesByProduct(product: string) {
+export function useGuidesByProduct(product: string, year?: number, month?: number) {
   return useQuery<Guide[]>({
-    queryKey: ['/api/guides/product', product, 'all'],
+    queryKey: ['/api/guides/product', product, 'all', year, month],
     queryFn: async () => {
       if (!product) return [];
-      const res = await fetch(`/api/guides/product/${encodeURIComponent(product)}/all`, { credentials: 'include' });
+      const params = year && month ? `?year=${year}&month=${month}` : '';
+      const res = await fetch(`/api/guides/product/${encodeURIComponent(product)}/all${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch guides');
       return res.json();
     },
@@ -50,12 +51,13 @@ export function useAllAdGuideProducts() {
   });
 }
 
-export function useAdGuidesByProduct(product: string) {
+export function useAdGuidesByProduct(product: string, year?: number, month?: number) {
   return useQuery<Guide[]>({
-    queryKey: ['/api/ad-guides', product, 'all'],
+    queryKey: ['/api/ad-guides', product, 'all', year, month],
     queryFn: async () => {
       if (!product) return [];
-      const res = await fetch(`/api/ad-guides/${encodeURIComponent(product)}/all`, { credentials: 'include' });
+      const params = year && month ? `?year=${year}&month=${month}` : '';
+      const res = await fetch(`/api/ad-guides/${encodeURIComponent(product)}/all${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch ad guides');
       return res.json();
     },

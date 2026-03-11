@@ -2,6 +2,17 @@ import { db } from "./db";
 import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "@shared/schema";
 import { desc, eq, asc, gte, and, sql, isNotNull } from "drizzle-orm";
 
+function filterGuidesByDate(rows: Guide[], year?: number, month?: number): Guide[] {
+  if (!year || !month) return rows;
+  const reqVal = year * 12 + month;
+  return rows.filter(g => {
+    if (g.validFromYear == null) return true;
+    const fromVal = g.validFromYear * 12 + (g.validFromMonth ?? 1);
+    const toVal = g.validToYear != null ? g.validToYear * 12 + (g.validToMonth ?? 12) : Infinity;
+    return reqVal >= fromVal && reqVal <= toVal;
+  });
+}
+
 export type StaffNotification = {
   id: number;
   notifCategory: 'comment_reply' | 'score_change' | 'guide_update';
@@ -50,8 +61,8 @@ export interface IStorage {
   getGuides(): Promise<Guide[]>;
   getGuide(id: number): Promise<Guide | undefined>;
   getGuideByProduct(product: string, storeType?: string | null): Promise<Guide | undefined>;
-  getGuidesByProduct(product: string): Promise<Guide[]>;
-  getAdGuidesByProduct(product: string): Promise<Guide[]>;
+  getGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]>;
+  getAdGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]>;
   getAllAdGuideProducts(): Promise<string[]>;
   createGuide(guide: InsertGuide): Promise<Guide>;
   updateGuide(id: number, guide: Partial<InsertGuide>): Promise<Guide | undefined>;
@@ -120,16 +131,18 @@ export class DatabaseStorage implements IStorage {
     return guide;
   }
 
-  async getGuidesByProduct(product: string): Promise<Guide[]> {
-    return await db.select().from(guides).where(
+  async getGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]> {
+    const rows = await db.select().from(guides).where(
       and(eq(guides.product, product), eq(guides.guideType, 'vm'))
     );
+    return filterGuidesByDate(rows, year, month);
   }
 
-  async getAdGuidesByProduct(product: string): Promise<Guide[]> {
-    return await db.select().from(guides).where(
+  async getAdGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]> {
+    const rows = await db.select().from(guides).where(
       and(eq(guides.product, product), eq(guides.guideType, 'ad'))
     );
+    return filterGuidesByDate(rows, year, month);
   }
 
   async getAllAdGuideProducts(): Promise<string[]> {
