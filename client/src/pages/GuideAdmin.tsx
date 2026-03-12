@@ -42,10 +42,6 @@ type GuideFormData = {
   newImageFiles: File[];
   videoFile?: File | null;
   videoUrl?: string;
-  validFromYear?: number | null;
-  validFromMonth?: number | null;
-  validToYear?: number | null;
-  validToMonth?: number | null;
 };
 
 function GuideForm({
@@ -77,11 +73,11 @@ function GuideForm({
     newImageFiles: [],
     videoFile: null,
     videoUrl: (initial as any)?.videoUrl || '',
-    validFromYear: (initial as any)?.validFromYear ?? null,
-    validFromMonth: (initial as any)?.validFromMonth ?? null,
-    validToYear: (initial as any)?.validToYear ?? null,
-    validToMonth: (initial as any)?.validToMonth ?? null,
-  });
+    _validFromYear: (initial as any)?.validFromYear ?? null,
+    _validFromMonth: (initial as any)?.validFromMonth ?? null,
+    _validToYear: (initial as any)?.validToYear ?? null,
+    _validToMonth: (initial as any)?.validToMonth ?? null,
+  } as any);
   const [videoFileName, setVideoFileName] = useState<string>(() => {
     const url = (initial as any)?.videoUrl;
     return url ? '영상 등록됨' : '';
@@ -266,70 +262,6 @@ function GuideForm({
         </div>
         {form.storeType && (
           <p className="text-xs text-muted-foreground">같은 상품에 대형점·중소형점 가이드를 각각 등록하면 점검 시 선택 가능합니다.</p>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-bold text-secondary">유효 기간 <span className="text-xs text-muted-foreground font-normal">(선택 · 미설정 시 항상 표시)</span></label>
-          {(form.validFromYear || form.validToYear) && (
-            <button
-              type="button"
-              onClick={() => setForm(f => ({ ...f, validFromYear: null, validFromMonth: null, validToYear: null, validToMonth: null }))}
-              className="text-xs text-destructive underline"
-            >초기화</button>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground font-semibold">시작</p>
-            <div className="flex gap-1.5">
-              <select
-                value={form.validFromYear ?? ''}
-                onChange={e => setForm(f => ({ ...f, validFromYear: e.target.value ? Number(e.target.value) : null }))}
-                className="flex-1 px-2 py-2 rounded-xl border-2 border-border text-sm focus:outline-none focus:border-primary"
-              >
-                <option value="">연도</option>
-                {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <select
-                value={form.validFromMonth ?? ''}
-                onChange={e => setForm(f => ({ ...f, validFromMonth: e.target.value ? Number(e.target.value) : null }))}
-                className="flex-1 px-2 py-2 rounded-xl border-2 border-border text-sm focus:outline-none focus:border-primary"
-              >
-                <option value="">월</option>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}월</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground font-semibold">종료</p>
-            <div className="flex gap-1.5">
-              <select
-                value={form.validToYear ?? ''}
-                onChange={e => setForm(f => ({ ...f, validToYear: e.target.value ? Number(e.target.value) : null }))}
-                className="flex-1 px-2 py-2 rounded-xl border-2 border-border text-sm focus:outline-none focus:border-primary"
-              >
-                <option value="">연도</option>
-                {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <select
-                value={form.validToMonth ?? ''}
-                onChange={e => setForm(f => ({ ...f, validToMonth: e.target.value ? Number(e.target.value) : null }))}
-                className="flex-1 px-2 py-2 rounded-xl border-2 border-border text-sm focus:outline-none focus:border-primary"
-              >
-                <option value="">월</option>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}월</option>)}
-              </select>
-            </div>
-          </div>
-        </div>
-        {form.validFromYear && form.validFromMonth && (
-          <p className="text-xs text-primary font-semibold">
-            {form.validFromYear}년 {form.validFromMonth}월
-            {form.validToYear && form.validToMonth ? ` ~ ${form.validToYear}년 ${form.validToMonth}월` : ' ~ 종료 없음'}
-            에 해당하는 점검 월에만 표시됩니다.
-          </p>
         )}
       </div>
 
@@ -682,10 +614,10 @@ export default function GuideAdmin() {
       imageUrl: allImageUrls[0] || null,
       imageUrls: allImageUrls.length > 0 ? allImageUrls : null,
       videoUrl: videoUrl || null,
-      validFromYear: data.validFromYear ?? null,
-      validFromMonth: data.validFromMonth ?? null,
-      validToYear: data.validToYear ?? null,
-      validToMonth: data.validToMonth ?? null,
+      validFromYear: (data as any)._validFromYear ?? null,
+      validFromMonth: (data as any)._validFromMonth ?? null,
+      validToYear: (data as any)._validToYear ?? null,
+      validToMonth: (data as any)._validToMonth ?? null,
     };
   };
 
@@ -953,12 +885,6 @@ export default function GuideAdmin() {
                               </div>
                               <p className="text-lg font-black text-secondary truncate">{guide.product}</p>
                               <p className="text-sm text-muted-foreground">평가항목 {(guide.items as string[]).filter(Boolean).length}개</p>
-                              {(guide as any).validFromYear && (
-                                <p className="text-xs text-primary font-semibold mt-0.5">
-                                  📅 {(guide as any).validFromYear}년 {(guide as any).validFromMonth}월
-                                  {(guide as any).validToYear ? ` ~ ${(guide as any).validToYear}년 ${(guide as any).validToMonth}월` : ' ~ 종료 없음'}
-                                </p>
-                              )}
                             </div>
                             <div className="flex flex-col gap-2 shrink-0">
                               <button
