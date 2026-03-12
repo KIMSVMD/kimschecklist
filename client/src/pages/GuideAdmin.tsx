@@ -576,7 +576,6 @@ export default function GuideAdmin() {
   const [activeTab, setActiveTab] = useState<'guides' | 'products'>('guides');
   const [guideCategory, setGuideCategory] = useState<string>('전체');
   const [guideTypeFilter, setGuideTypeFilter] = useState<'vm' | 'ad'>('vm');
-  const [guideYearFilter, setGuideYearFilter] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -735,32 +734,7 @@ export default function GuideAdmin() {
                 </button>
               </div>
 
-              {/* Year filter — row 1 */}
-              <div className="flex gap-2 items-center overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => setGuideYearFilter(null)}
-                  className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
-                    guideYearFilter === null ? 'bg-secondary text-white border-secondary' : 'bg-muted text-muted-foreground border-transparent'
-                  }`}
-                  data-testid="btn-guide-year-all"
-                >
-                  전체
-                </button>
-                {[2026, 2027, 2028, 2029, 2030].map(y => (
-                  <button
-                    key={y}
-                    onClick={() => setGuideYearFilter(y)}
-                    className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
-                      guideYearFilter === y ? 'bg-primary text-white border-primary' : 'bg-muted text-muted-foreground border-transparent'
-                    }`}
-                    data-testid={`btn-guide-year-${y}`}
-                  >
-                    {y}년
-                  </button>
-                ))}
-              </div>
-
-              {/* Category filter — row 2 */}
+              {/* Category filter */}
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
                 {['전체', ...CATEGORIES].map(cat => (
                   <button
@@ -801,9 +775,7 @@ export default function GuideAdmin() {
               ) : (guides || []).filter((g: Guide) => {
                   if (guideCategory !== '전체' && g.category !== guideCategory) return false;
                   if (((g as any).guideType || 'vm') !== guideTypeFilter) return false;
-                  if (guideYearFilter === null) return true;
-                  if ((g as any).validFromYear == null) return true;
-                  return guideYearFilter >= (g as any).validFromYear && guideYearFilter <= ((g as any).validToYear ?? 9999);
+                  return true;
                 }).length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground text-lg">
                   {guideCategory} {guideTypeFilter === 'ad' ? '광고' : 'VM'} 가이드가 없습니다.<br />새 가이드를 추가해주세요.
@@ -813,9 +785,7 @@ export default function GuideAdmin() {
                   {(guides || []).filter((g: Guide) => {
                     if (guideCategory !== '전체' && g.category !== guideCategory) return false;
                     if (((g as any).guideType || 'vm') !== guideTypeFilter) return false;
-                    if (guideYearFilter === null) return true;
-                    if ((g as any).validFromYear == null) return true;
-                    return guideYearFilter >= (g as any).validFromYear && guideYearFilter <= ((g as any).validToYear ?? 9999);
+                    return true;
                   }).map((guide: Guide) => (
                     <div
                       key={guide.id}

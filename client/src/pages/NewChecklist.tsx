@@ -42,7 +42,6 @@ export default function NewChecklist() {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
 
-  const yearOptions = [2026, 2027, 2028, 2029, 2030];
 
   const { data: branchChecklists = [] } = useChecklists({ branch: branch || undefined });
   const { data: validGuideProducts = [] } = useValidGuideProducts(selYear, selMonth);
@@ -168,15 +167,9 @@ export default function NewChecklist() {
             <div className="space-y-2">
               <div className="flex gap-2 items-center">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <select
-                  value={selYear}
-                  onChange={e => { setSelYear(Number(e.target.value)); resetVm(); }}
-                  className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
-                >
-                  {yearOptions.map(y => (
-                    <option key={y} value={y}>{y}년</option>
-                  ))}
-                </select>
+                <span className="bg-muted rounded-xl px-3 py-2 font-bold text-sm text-secondary">
+                  {selYear}년
+                </span>
                 {/* Breadcrumb for current selection */}
                 {selCategory && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium overflow-hidden">

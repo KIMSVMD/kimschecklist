@@ -276,12 +276,9 @@ export default function StaffDashboard() {
             <div className="space-y-2">
               <div className="flex gap-2 items-center">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <select value={vmFilterYear} onChange={e => setVmFilterYear(Number(e.target.value))}
-                  className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
-                  {Array.from({ length: nowDate.getFullYear() - 2026 + 1 }, (_, i) => 2026 + i).map(y => (
-                    <option key={y} value={y}>{y}년</option>
-                  ))}
-                </select>
+                <span className="bg-muted rounded-xl px-3 py-2 font-bold text-sm text-secondary">
+                  {vmFilterYear}년
+                </span>
               </div>
               <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
