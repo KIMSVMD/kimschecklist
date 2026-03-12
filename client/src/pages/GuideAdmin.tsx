@@ -42,6 +42,10 @@ type GuideFormData = {
   newImageFiles: File[];
   videoFile?: File | null;
   videoUrl?: string;
+  validFromYear?: number | null;
+  validFromMonth?: number | null;
+  validToYear?: number | null;
+  validToMonth?: number | null;
 };
 
 function GuideForm({
@@ -73,11 +77,11 @@ function GuideForm({
     newImageFiles: [],
     videoFile: null,
     videoUrl: (initial as any)?.videoUrl || '',
-    _validFromYear: (initial as any)?.validFromYear ?? null,
-    _validFromMonth: (initial as any)?.validFromMonth ?? null,
-    _validToYear: (initial as any)?.validToYear ?? null,
-    _validToMonth: (initial as any)?.validToMonth ?? null,
-  } as any);
+    validFromYear: (initial as any)?.validFromYear ?? null,
+    validFromMonth: (initial as any)?.validFromMonth ?? null,
+    validToYear: (initial as any)?.validToYear ?? null,
+    validToMonth: (initial as any)?.validToMonth ?? null,
+  });
   const [videoFileName, setVideoFileName] = useState<string>(() => {
     const url = (initial as any)?.videoUrl;
     return url ? '영상 등록됨' : '';
@@ -378,6 +382,77 @@ function GuideForm({
         </div>
       ))}
 
+      {/* 노출 월 설정 */}
+      <div className="space-y-3 p-4 bg-blue-50 rounded-2xl border border-blue-200">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-bold text-blue-800">📅 현장직원 노출 기간</label>
+          <button
+            type="button"
+            onClick={() => setForm(f => ({
+              ...f,
+              validFromYear: f.validFromYear ? null : new Date().getFullYear(),
+              validFromMonth: f.validFromYear ? null : 1,
+              validToYear: f.validFromYear ? null : new Date().getFullYear(),
+              validToMonth: f.validFromYear ? null : 12,
+            }))}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
+              form.validFromYear ? 'bg-blue-500 text-white' : 'bg-white text-blue-500 border-2 border-blue-300'
+            }`}
+          >
+            {form.validFromYear ? '기간 설정됨' : '항상 노출'}
+          </button>
+        </div>
+        {form.validFromYear ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-blue-700">노출 시작</p>
+                <div className="flex gap-1">
+                  <select
+                    value={form.validFromYear ?? new Date().getFullYear()}
+                    onChange={e => setForm(f => ({ ...f, validFromYear: Number(e.target.value) }))}
+                    className="flex-1 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
+                  >
+                    {[2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}년</option>)}
+                  </select>
+                  <select
+                    value={form.validFromMonth ?? 1}
+                    onChange={e => setForm(f => ({ ...f, validFromMonth: Number(e.target.value) }))}
+                    className="w-16 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
+                  >
+                    {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{m}월</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-blue-700">노출 종료</p>
+                <div className="flex gap-1">
+                  <select
+                    value={form.validToYear ?? new Date().getFullYear()}
+                    onChange={e => setForm(f => ({ ...f, validToYear: Number(e.target.value) }))}
+                    className="flex-1 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
+                  >
+                    {[2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}년</option>)}
+                  </select>
+                  <select
+                    value={form.validToMonth ?? 12}
+                    onChange={e => setForm(f => ({ ...f, validToMonth: Number(e.target.value) }))}
+                    className="w-16 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
+                  >
+                    {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{m}월</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-blue-600 font-medium">
+              현장직원에게 <span className="font-black">{form.validFromYear}년 {form.validFromMonth}월 ~ {form.validToYear}년 {form.validToMonth}월</span> 동안만 노출됩니다.
+            </p>
+          </div>
+        ) : (
+          <p className="text-xs text-blue-500">기간 제한 없이 항상 현장직원에게 노출됩니다.</p>
+        )}
+      </div>
+
       <div className="flex gap-3 pt-2">
         <button
           type="button"
@@ -613,10 +688,10 @@ export default function GuideAdmin() {
       imageUrl: allImageUrls[0] || null,
       imageUrls: allImageUrls.length > 0 ? allImageUrls : null,
       videoUrl: videoUrl || null,
-      validFromYear: (data as any)._validFromYear ?? null,
-      validFromMonth: (data as any)._validFromMonth ?? null,
-      validToYear: (data as any)._validToYear ?? null,
-      validToMonth: (data as any)._validToMonth ?? null,
+      validFromYear: data.validFromYear ?? null,
+      validFromMonth: data.validFromMonth ?? null,
+      validToYear: data.validToYear ?? null,
+      validToMonth: data.validToMonth ?? null,
     };
   };
 
@@ -855,6 +930,13 @@ export default function GuideAdmin() {
                               </div>
                               <p className="text-lg font-black text-secondary truncate">{guide.product}</p>
                               <p className="text-sm text-muted-foreground">평가항목 {(guide.items as string[]).filter(Boolean).length}개</p>
+                              {(guide as any).validFromYear ? (
+                                <p className="text-xs font-bold text-blue-500 mt-0.5">
+                                  📅 {(guide as any).validFromYear}년 {(guide as any).validFromMonth}월 ~ {(guide as any).validToYear ?? (guide as any).validFromYear}년 {(guide as any).validToMonth ?? 12}월
+                                </p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground/60 mt-0.5">항상 노출</p>
+                              )}
                             </div>
                             <div className="flex flex-col gap-2 shrink-0">
                               <button
