@@ -385,72 +385,89 @@ function GuideForm({
       {/* 노출 월 설정 */}
       <div className="space-y-3 p-4 bg-blue-50 rounded-2xl border border-blue-200">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-bold text-blue-800">📅 현장직원 노출 기간</label>
-          <button
-            type="button"
-            onClick={() => setForm(f => ({
-              ...f,
-              validFromYear: f.validFromYear ? null : new Date().getFullYear(),
-              validFromMonth: f.validFromYear ? null : 1,
-              validToYear: f.validFromYear ? null : new Date().getFullYear(),
-              validToMonth: f.validFromYear ? null : 12,
-            }))}
-            className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
-              form.validFromYear ? 'bg-blue-500 text-white' : 'bg-white text-blue-500 border-2 border-blue-300'
-            }`}
-          >
-            {form.validFromYear ? '기간 설정됨' : '항상 노출'}
-          </button>
+          <label className="text-sm font-bold text-blue-800">📅 현장직원 노출 설정</label>
         </div>
-        {form.validFromYear ? (
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-blue-700">노출 시작</p>
-                <div className="flex gap-1">
-                  <select
-                    value={form.validFromYear ?? new Date().getFullYear()}
-                    onChange={e => setForm(f => ({ ...f, validFromYear: Number(e.target.value) }))}
-                    className="flex-1 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
-                  >
-                    {[2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}년</option>)}
-                  </select>
-                  <select
-                    value={form.validFromMonth ?? 1}
-                    onChange={e => setForm(f => ({ ...f, validFromMonth: Number(e.target.value) }))}
-                    className="w-16 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
-                  >
-                    {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{m}월</option>)}
-                  </select>
+        {/* 3-way toggle */}
+        <div className="flex gap-1.5">
+          {([
+            { mode: 'always', label: '항상 노출', color: 'bg-blue-500 text-white', inactive: 'bg-white text-blue-400 border-2 border-blue-200' },
+            { mode: 'period', label: '기간 설정', color: 'bg-primary text-white', inactive: 'bg-white text-secondary border-2 border-border' },
+            { mode: 'hidden', label: '노출 안함', color: 'bg-red-500 text-white', inactive: 'bg-white text-red-400 border-2 border-red-200' },
+          ] as const).map(({ mode, label, color, inactive }) => {
+            const currentMode = form.validFromYear == null ? 'always' : form.validFromYear === 9999 ? 'hidden' : 'period';
+            const isActive = currentMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => {
+                  if (mode === 'always') setForm(f => ({ ...f, validFromYear: null, validFromMonth: null, validToYear: null, validToMonth: null }));
+                  else if (mode === 'period') setForm(f => ({ ...f, validFromYear: new Date().getFullYear(), validFromMonth: 1, validToYear: new Date().getFullYear(), validToMonth: 12 }));
+                  else setForm(f => ({ ...f, validFromYear: 9999, validFromMonth: 1, validToYear: 9999, validToMonth: 12 }));
+                }}
+                className={`flex-1 py-2 rounded-xl font-bold text-xs transition-all active:scale-95 ${isActive ? color : inactive}`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        {(() => {
+          const currentMode = form.validFromYear == null ? 'always' : form.validFromYear === 9999 ? 'hidden' : 'period';
+          if (currentMode === 'period') return (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-blue-700">노출 시작</p>
+                  <div className="flex gap-1">
+                    <select
+                      value={form.validFromYear ?? new Date().getFullYear()}
+                      onChange={e => setForm(f => ({ ...f, validFromYear: Number(e.target.value) }))}
+                      className="flex-1 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
+                    >
+                      {[2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}년</option>)}
+                    </select>
+                    <select
+                      value={form.validFromMonth ?? 1}
+                      onChange={e => setForm(f => ({ ...f, validFromMonth: Number(e.target.value) }))}
+                      className="w-16 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
+                    >
+                      {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{m}월</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-blue-700">노출 종료</p>
+                  <div className="flex gap-1">
+                    <select
+                      value={form.validToYear ?? new Date().getFullYear()}
+                      onChange={e => setForm(f => ({ ...f, validToYear: Number(e.target.value) }))}
+                      className="flex-1 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
+                    >
+                      {[2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}년</option>)}
+                    </select>
+                    <select
+                      value={form.validToMonth ?? 12}
+                      onChange={e => setForm(f => ({ ...f, validToMonth: Number(e.target.value) }))}
+                      className="w-16 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
+                    >
+                      {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{m}월</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-blue-700">노출 종료</p>
-                <div className="flex gap-1">
-                  <select
-                    value={form.validToYear ?? new Date().getFullYear()}
-                    onChange={e => setForm(f => ({ ...f, validToYear: Number(e.target.value) }))}
-                    className="flex-1 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
-                  >
-                    {[2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}년</option>)}
-                  </select>
-                  <select
-                    value={form.validToMonth ?? 12}
-                    onChange={e => setForm(f => ({ ...f, validToMonth: Number(e.target.value) }))}
-                    className="w-16 px-2 py-2 rounded-lg border border-blue-200 text-sm font-bold bg-white"
-                  >
-                    {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{m}월</option>)}
-                  </select>
-                </div>
-              </div>
+              <p className="text-xs text-blue-600 font-medium">
+                현장직원에게 <span className="font-black">{form.validFromYear}년 {form.validFromMonth}월 ~ {form.validToYear}년 {form.validToMonth}월</span> 동안만 노출됩니다.
+              </p>
             </div>
-            <p className="text-xs text-blue-600 font-medium">
-              현장직원에게 <span className="font-black">{form.validFromYear}년 {form.validFromMonth}월 ~ {form.validToYear}년 {form.validToMonth}월</span> 동안만 노출됩니다.
-            </p>
-          </div>
-        ) : (
-          <p className="text-xs text-blue-500">기간 제한 없이 항상 현장직원에게 노출됩니다.</p>
-        )}
+          );
+          if (currentMode === 'hidden') return (
+            <p className="text-xs text-red-500 font-medium">현장직원에게 노출되지 않습니다.</p>
+          );
+          return (
+            <p className="text-xs text-blue-500">기간 제한 없이 항상 현장직원에게 노출됩니다.</p>
+          );
+        })()}
       </div>
 
       <div className="flex gap-3 pt-2">
@@ -930,7 +947,9 @@ export default function GuideAdmin() {
                               </div>
                               <p className="text-lg font-black text-secondary truncate">{guide.product}</p>
                               <p className="text-sm text-muted-foreground">평가항목 {(guide.items as string[]).filter(Boolean).length}개</p>
-                              {(guide as any).validFromYear ? (
+                              {(guide as any).validFromYear === 9999 ? (
+                                <p className="text-xs font-bold text-red-500 mt-0.5">🚫 노출 안함</p>
+                              ) : (guide as any).validFromYear ? (
                                 <p className="text-xs font-bold text-blue-500 mt-0.5">
                                   📅 {(guide as any).validFromYear}년 {(guide as any).validFromMonth}월 ~ {(guide as any).validToYear ?? (guide as any).validFromYear}년 {(guide as any).validToMonth ?? 12}월
                                 </p>
