@@ -16,8 +16,9 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 const REGIONS: Record<string, string[]> = {
-  '수도권': ['강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천'],
-  '지방': ['대전', '해운대', '괴정', '쇼핑', '수성'],
+  '대형점': ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로'],
+  '중형점': ['구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정'],
+  '소형점': ['부산대', '인천', '안양', '고잔', '중계', '김포', '강북', '청주'],
 };
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 
@@ -112,11 +113,14 @@ export default function NewChecklist() {
               data-testid="select-new-branch"
             >
               <option value="">지점 선택</option>
-              <optgroup label="수도권">
-                {REGIONS['수도권'].map(b => <option key={b} value={b}>{b}점</option>)}
+              <optgroup label="대형점">
+                {REGIONS['대형점'].map(b => <option key={b} value={b}>{b}점</option>)}
               </optgroup>
-              <optgroup label="지방">
-                {REGIONS['지방'].map(b => <option key={b} value={b}>{b}점</option>)}
+              <optgroup label="중형점">
+                {REGIONS['중형점'].map(b => <option key={b} value={b}>{b}점</option>)}
+              </optgroup>
+              <optgroup label="소형점">
+                {REGIONS['소형점'].map(b => <option key={b} value={b}>{b}점</option>)}
               </optgroup>
             </select>
           </div>

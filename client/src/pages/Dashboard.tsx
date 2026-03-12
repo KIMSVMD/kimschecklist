@@ -26,7 +26,7 @@ import { useAdminNotifications } from "@/hooks/use-notifications";
 import { NotificationPanel } from "@/components/NotificationPanel";
 
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
-const BRANCHES = ['전체', '강서', '강남', '송파', '야탑', '분당', '신구로', '구의', '불광', '평촌', '부천', '일산', '광명', '동수원', '산본', '중계', '고잔', '김포', '인천', '대전', '해운대', '괴정', '쇼핑', '수성'];
+const BRANCHES = ['전체', '강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정', '부산대', '인천', '안양', '고잔', '중계', '김포', '강북', '청주'];
 const ZONES = ['입구', '농산', '축산', '수산', '공산'];
 
 function AdminCommentInput({ 
