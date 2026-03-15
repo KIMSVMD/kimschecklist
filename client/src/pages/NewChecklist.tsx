@@ -664,7 +664,7 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
                   data-testid={`link-product-file-${i}`}
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span className="max-w-[120px] truncate">{name}</span>
+                  <span>진열 상품</span>
                 </a>
               );
             })}
