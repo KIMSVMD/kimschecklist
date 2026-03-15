@@ -69,7 +69,9 @@ export interface IStorage {
   updateGuide(id: number, guide: Partial<InsertGuide>): Promise<Guide | undefined>;
   deleteGuide(id: number): Promise<void>;
   getProductsByCategory(category: string): Promise<Product[]>;
+  getProductByName(category: string, groupName: string, productName: string | null): Promise<Product | null>;
   createProduct(product: InsertProduct): Promise<Product>;
+  updateProductFiles(id: number, fileUrls: string[]): Promise<Product>;
   deleteProduct(id: number): Promise<void>;
   getCleaningInspections(filters?: { branch?: string; date?: string }): Promise<CleaningInspection[]>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
@@ -191,8 +193,24 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(products.groupName), asc(products.productName));
   }
 
+  async getProductByName(category: string, groupName: string, productName: string | null): Promise<Product | null> {
+    const conds = [eq(products.category, category), eq(products.groupName, groupName)];
+    if (productName) {
+      conds.push(eq(products.productName, productName));
+    } else {
+      conds.push(sql`product_name IS NULL`);
+    }
+    const rows = await db.select().from(products).where(and(...conds)).limit(1);
+    return rows[0] ?? null;
+  }
+
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
     const [product] = await db.insert(products).values(insertProduct).returning();
+    return product;
+  }
+
+  async updateProductFiles(id: number, fileUrls: string[]): Promise<Product> {
+    const [product] = await db.update(products).set({ fileUrls }).where(eq(products.id, id)).returning();
     return product;
   }
 

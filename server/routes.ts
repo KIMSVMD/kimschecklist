@@ -272,6 +272,52 @@ export async function registerRoutes(
     }
   });
 
+  // Upsert product file: find by category+groupName+productName, create if missing, then append fileUrl
+  app.post('/api/products/upsert-file', requireAdmin, async (req, res) => {
+    try {
+      const { category, groupName, productName, fileUrl } = req.body as {
+        category: string; groupName: string; productName?: string | null; fileUrl: string;
+      };
+      if (!category || !groupName || !fileUrl) return res.status(400).json({ message: "category, groupName, fileUrl required" });
+      const pName = productName?.trim() || null;
+      let product = await storage.getProductByName(category, groupName, pName);
+      if (!product) {
+        product = await storage.createProduct({ category, groupName, productName: pName });
+      }
+      const existing = (product.fileUrls as string[] | null) ?? [];
+      if (!existing.includes(fileUrl)) existing.push(fileUrl);
+      const updated = await storage.updateProductFiles(product.id, existing);
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Set fileUrls for a product (replace entire array)
+  app.patch('/api/products/:id/files', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { fileUrls } = req.body as { fileUrls: string[] };
+      if (isNaN(id) || !Array.isArray(fileUrls)) return res.status(400).json({ message: "Invalid params" });
+      const updated = await storage.updateProductFiles(id, fileUrls);
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Find product by name (for VM download link)
+  app.get('/api/products/find', async (req, res) => {
+    try {
+      const { category, groupName, productName } = req.query as Record<string, string>;
+      if (!category || !groupName) return res.status(400).json({ message: "category and groupName required" });
+      const product = await storage.getProductByName(category, groupName, productName || null);
+      res.json(product ?? null);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.delete('/api/products/:id', requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

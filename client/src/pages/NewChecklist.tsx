@@ -3,13 +3,13 @@ import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto, useChecklists } from "@/hooks/use-checklists";
 import { useGuidesByProduct, useAdGuidesByProduct, useValidGuideProducts } from "@/hooks/use-guides";
-import { useProducts } from "@/hooks/use-products";
+import { useProducts, useProductByName } from "@/hooks/use-products";
 import { useGuideNotifications } from "@/hooks/use-notifications";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
   Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
-  Calendar, BarChart3,
+  Calendar, BarChart3, FileText, Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -615,6 +615,19 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
 
   const displayProduct = selProduct?.replace(/\[(.+?)\](.*)/, (_: string, g: string, rest: string) => rest ? `${g} > ${rest}` : g) || selProduct;
 
+  // Parse product for file lookup
+  const productMatch = selProduct?.match(/^\[(.+?)\](.*)$/);
+  const productGroupName = productMatch?.[1] ?? '';
+  const productDetailName = productMatch?.[2]?.trim() || null;
+  const { data: productRecord } = useProductByName(selCategory, productGroupName, productDetailName, !!productGroupName && effectiveInspectionType === 'vm');
+  const productFiles: string[] = (productRecord as any)?.fileUrls ?? [];
+
+  const parseFileEntry = (entry: string) => {
+    const idx = entry.indexOf('||');
+    if (idx === -1) return { name: '파일', url: entry };
+    return { name: entry.slice(0, idx), url: entry.slice(idx + 2) };
+  };
+
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-10">
       <div className="border-b-2 border-border pb-4">
@@ -635,6 +648,28 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
             </a>
           )}
         </div>
+        {/* VM product file downloads */}
+        {effectiveInspectionType === 'vm' && productFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {productFiles.map((entry, i) => {
+              const { name, url } = parseFileEntry(entry);
+              return (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={name}
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all text-white text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
+                  data-testid={`link-product-file-${i}`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="max-w-[120px] truncate">{name}</span>
+                </a>
+              );
+            })}
+          </div>
+        )}
       </div>
 
 

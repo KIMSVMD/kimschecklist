@@ -9,7 +9,7 @@ import {
   useUpdateGuide,
   useDeleteGuide,
 } from "@/hooks/use-guides";
-import { useProducts, useCreateProduct, useDeleteProduct } from "@/hooks/use-products";
+import { useProducts, useCreateProduct, useDeleteProduct, useUpsertProductFile, useUpdateProductFiles } from "@/hooks/use-products";
 import type { Guide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -27,6 +27,9 @@ import {
   BookOpen,
   Video,
   Upload,
+  FileText,
+  Download,
+  Paperclip,
 } from "lucide-react";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
@@ -491,16 +494,27 @@ function GuideForm({
   );
 }
 
+function parseFileEntry(entry: string): { name: string; url: string } {
+  const idx = entry.indexOf('||');
+  if (idx === -1) return { name: '파일', url: entry };
+  return { name: entry.slice(0, idx), url: entry.slice(idx + 2) };
+}
+
 function ProductManager() {
   const { toast } = useToast();
   const [activeCategory, setActiveCategory] = useState('축산');
   const [showForm, setShowForm] = useState(false);
   const [newGroup, setNewGroup] = useState('');
   const [newProduct, setNewProduct] = useState('');
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const addFileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: products = [], isLoading } = useProducts(activeCategory);
   const createMutation = useCreateProduct();
   const deleteMutation = useDeleteProduct();
+  const upsertFileMutation = useUpsertProductFile();
+  const updateFilesMutation = useUpdateProductFiles();
 
   const groups = [...new Set(products.map(p => p.groupName))];
 
@@ -510,14 +524,31 @@ function ProductManager() {
       return;
     }
     try {
-      await createMutation.mutateAsync({
-        category: activeCategory,
-        groupName: newGroup.trim(),
-        productName: newProduct.trim() || null,
-      });
-      toast({ title: "상품 추가 완료!" });
+      const { uploadFile } = await import("@/lib/upload");
+      if (newFiles.length > 0) {
+        // Upload all files and upsert product
+        for (const file of newFiles) {
+          const objectPath = await uploadFile(file);
+          const fileEntry = `${file.name}||${objectPath}`;
+          await upsertFileMutation.mutateAsync({
+            category: activeCategory,
+            groupName: newGroup.trim(),
+            productName: newProduct.trim() || null,
+            fileUrl: fileEntry,
+          });
+        }
+        toast({ title: "상품 및 파일 추가 완료!" });
+      } else {
+        await createMutation.mutateAsync({
+          category: activeCategory,
+          groupName: newGroup.trim(),
+          productName: newProduct.trim() || null,
+        });
+        toast({ title: "상품 추가 완료!" });
+      }
       setNewGroup('');
       setNewProduct('');
+      setNewFiles([]);
       setShowForm(false);
     } catch {
       toast({ title: "추가 실패", variant: "destructive" });
@@ -531,6 +562,34 @@ function ProductManager() {
       toast({ title: "삭제 완료" });
     } catch {
       toast({ title: "삭제 실패", variant: "destructive" });
+    }
+  };
+
+  const handleAddFile = async (productId: number, category: string, file: File) => {
+    setUploadingId(productId);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const objectPath = await uploadFile(file);
+      const fileEntry = `${file.name}||${objectPath}`;
+      const product = products.find(p => p.id === productId);
+      const existing = ((product as any)?.fileUrls as string[] | null) ?? [];
+      await updateFilesMutation.mutateAsync({ id: productId, fileUrls: [...existing, fileEntry], category });
+      toast({ title: "파일 추가 완료!" });
+    } catch {
+      toast({ title: "파일 업로드 실패", variant: "destructive" });
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleRemoveFile = async (productId: number, category: string, fileUrl: string) => {
+    const product = products.find(p => p.id === productId);
+    const existing = ((product as any)?.fileUrls as string[] | null) ?? [];
+    const remaining = existing.filter(u => u !== fileUrl);
+    try {
+      await updateFilesMutation.mutateAsync({ id: productId, fileUrls: remaining, category });
+    } catch {
+      toast({ title: "파일 삭제 실패", variant: "destructive" });
     }
   };
 
@@ -590,16 +649,48 @@ function ProductManager() {
               />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">세부 상품명을 비워두면 그룹 자체가 하나의 상품이 됩니다 (예: 양곡, 돈육)</p>
+          {/* File upload for new product */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-muted-foreground">상품 파일 첨부 (선택 · JPG/PDF/Excel)</label>
+            <div
+              className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-border bg-white cursor-pointer hover:border-primary/60 transition-colors"
+              onClick={() => addFileInputRef.current?.click()}
+            >
+              <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground flex-1 truncate">
+                {newFiles.length > 0 ? `${newFiles.length}개 파일 선택됨` : '파일을 선택하거나 여기를 눌러 첨부'}
+              </span>
+            </div>
+            <input
+              ref={addFileInputRef}
+              type="file"
+              multiple
+              accept=".jpg,.jpeg,.png,.pdf,.xlsx,.xls,.csv"
+              className="hidden"
+              onChange={e => setNewFiles(Array.from(e.target.files ?? []))}
+            />
+            {newFiles.length > 0 && (
+              <div className="space-y-1">
+                {newFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 rounded-lg">
+                    <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-xs text-secondary flex-1 truncate">{f.name}</span>
+                    <button type="button" onClick={() => setNewFiles(prev => prev.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">이미 등록된 상품에 파일을 추가하면 해당 상품이 자동으로 업데이트됩니다.</p>
           <div className="flex gap-3">
-            <button onClick={() => setShowForm(false)} className="flex-1 py-4 rounded-2xl bg-muted text-secondary font-bold">취소</button>
+            <button onClick={() => { setShowForm(false); setNewFiles([]); }} className="flex-1 py-4 rounded-2xl bg-muted text-secondary font-bold">취소</button>
             <button
               onClick={handleAdd}
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || upsertFileMutation.isPending}
               className="flex-1 py-4 rounded-2xl bg-primary text-white font-black flex items-center justify-center gap-2 disabled:opacity-50"
               data-testid="button-save-product"
             >
-              {createMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "추가"}
+              {(createMutation.isPending || upsertFileMutation.isPending) ? <Loader2 className="w-5 h-5 animate-spin" /> : "추가"}
             </button>
           </div>
         </div>
@@ -626,25 +717,80 @@ function ProductManager() {
                   <span className="text-xs text-muted-foreground font-medium">{groupProducts.length}개</span>
                 </div>
                 <div className="divide-y divide-border/50">
-                  {groupProducts.map(p => (
-                    <div key={p.id} className="flex items-center justify-between px-4 py-3" data-testid={`row-product-${p.id}`}>
-                      <div>
-                        {p.productName ? (
-                          <span className="text-base font-bold text-secondary">{p.productName}</span>
-                        ) : (
-                          <span className="text-base font-bold text-muted-foreground italic">단일 상품 (그룹 = 상품)</span>
+                  {groupProducts.map(p => {
+                    const fileEntries: string[] = (p as any).fileUrls ?? [];
+                    return (
+                      <div key={p.id} className="px-4 py-3 space-y-2" data-testid={`row-product-${p.id}`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            {p.productName ? (
+                              <span className="text-base font-bold text-secondary">{p.productName}</span>
+                            ) : (
+                              <span className="text-base font-bold text-muted-foreground italic">단일 상품 (그룹 = 상품)</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {/* Add file button */}
+                            <label className="p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer" title="파일 추가">
+                              {uploadingId === p.id
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : <Paperclip className="w-4 h-4" />
+                              }
+                              <input
+                                type="file"
+                                multiple
+                                accept=".jpg,.jpeg,.png,.pdf,.xlsx,.xls,.csv"
+                                className="hidden"
+                                onChange={e => {
+                                  const files = Array.from(e.target.files ?? []);
+                                  files.forEach(f => handleAddFile(p.id, activeCategory, f));
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
+                            <button
+                              onClick={() => handleDelete(p.id, p.productName || group)}
+                              disabled={deleteMutation.isPending}
+                              className="p-2 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                              data-testid={`button-delete-product-${p.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        {/* File list */}
+                        {fileEntries.length > 0 && (
+                          <div className="space-y-1 pl-1">
+                            {fileEntries.map((entry, i) => {
+                              const { name, url } = parseFileEntry(entry);
+                              return (
+                                <div key={i} className="flex items-center gap-2 px-2 py-1.5 bg-primary/5 rounded-lg">
+                                  <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download={name}
+                                    className="text-xs text-primary font-medium flex-1 truncate hover:underline"
+                                    data-testid={`link-file-${p.id}-${i}`}
+                                  >
+                                    {name}
+                                  </a>
+                                  <button
+                                    onClick={() => handleRemoveFile(p.id, activeCategory, entry)}
+                                    className="text-muted-foreground hover:text-red-500 shrink-0"
+                                    title="파일 삭제"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleDelete(p.id, p.productName || group)}
-                        disabled={deleteMutation.isPending}
-                        className="p-2 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                        data-testid={`button-delete-product-${p.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );

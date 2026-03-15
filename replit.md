@@ -58,7 +58,7 @@ Mobile-first, 장갑 착용 환경 고려한 대형 UI.
 ## DB 스키마
 - `checklists`: VM 점검 기록 (branch, category, product, status, photoUrl, notes, items JSONB, **year INT, month INT, adminScore INT, adItems JSONB, adPhotoUrls JSONB, adAdminScore INT, adAdminItems JSONB**)
 - `guides`: 진열 가이드 (category, product, imageUrl, points[], items[])
-- `products`: 상품 카탈로그 (category, groupName, productName)
+- `products`: 상품 카탈로그 (category, groupName, productName, **fileUrls text[]**)
 - `cleaning_inspections`: 청소 점검 기록 (branch, zone, inspectionTime, items JSONB, overallStatus)
 
 ## 상품 저장 형식
