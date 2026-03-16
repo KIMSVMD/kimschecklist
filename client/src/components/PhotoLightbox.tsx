@@ -23,8 +23,15 @@ export function PhotoLightbox({ src, alt = "사진", onClose }: PhotoLightboxPro
     };
   }, [src, onClose]);
 
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
   const handleDownload = async () => {
     if (!src) return;
+    if (isIOS) {
+      window.open(src, "_blank");
+      return;
+    }
     try {
       const res = await fetch(src);
       const blob = await res.blob();
@@ -38,7 +45,6 @@ export function PhotoLightbox({ src, alt = "사진", onClose }: PhotoLightboxPro
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      // fallback: open in new tab for manual save
       window.open(src, "_blank");
     }
   };
@@ -109,15 +115,18 @@ export function PhotoLightbox({ src, alt = "사진", onClose }: PhotoLightboxPro
           </div>
 
           {/* Bottom hint */}
-          <div className="pb-8 flex justify-center shrink-0" onClick={e => e.stopPropagation()}>
+          <div className="pb-8 flex flex-col items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
             <button
               onClick={handleDownload}
               className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/10 border border-white/20 text-white font-bold text-sm active:bg-white/20 transition-all"
               data-testid="btn-lightbox-save"
             >
               <Download className="w-4 h-4" />
-              사진 저장하기
+              {isIOS ? "새 탭에서 열기" : "사진 저장하기"}
             </button>
+            {isIOS && (
+              <p className="text-white/40 text-xs text-center">열린 사진을 길게 눌러 저장하세요</p>
+            )}
           </div>
         </motion.div>
       )}

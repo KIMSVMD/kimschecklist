@@ -14,6 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { PhotoThumbnail } from "@/components/PhotoLightbox";
 
 const REGIONS: Record<string, string[]> = {
   '대형점': ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로'],
@@ -808,16 +809,18 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
           <div className="grid grid-cols-3 gap-2">
             {localPreviews.map((preview, i) => (
               <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted">
-                <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                <PhotoThumbnail src={i < photoUrls.length ? photoUrls[i] : null} className="w-full h-full block">
+                  <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                </PhotoThumbnail>
                 <button
-                  onClick={() => removePhoto(i)}
-                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+                  onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all z-10"
                   data-testid={`btn-remove-photo-${i}`}
                 >
                   <XCircle className="w-4 h-4" />
                 </button>
                 {i >= photoUrls.length && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
                     <Loader2 className="w-6 h-6 text-white animate-spin" />
                   </div>
                 )}
@@ -987,16 +990,18 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
               <div className="grid grid-cols-3 gap-2">
                 {adLocalPreviews.map((preview, i) => (
                   <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/30 bg-muted">
-                    <img src={preview} alt={`광고 사진 ${i + 1}`} className="w-full h-full object-cover" />
+                    <PhotoThumbnail src={i < adPhotoUrls.length ? adPhotoUrls[i] : null} className="w-full h-full block">
+                      <img src={preview} alt={`광고 사진 ${i + 1}`} className="w-full h-full object-cover" />
+                    </PhotoThumbnail>
                     <button
-                      onClick={() => removeAdPhoto(i)}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+                      onClick={(e) => { e.stopPropagation(); removeAdPhoto(i); }}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all z-10"
                       data-testid={`btn-remove-ad-photo-${i}`}
                     >
                       <XCircle className="w-4 h-4" />
                     </button>
                     {i >= adPhotoUrls.length && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
                         <Loader2 className="w-6 h-6 text-white animate-spin" />
                       </div>
                     )}
