@@ -98,48 +98,36 @@ export default function StaffDashboard() {
     return d.getFullYear() === vmFilterYear && d.getMonth() + 1 === vmFilterMonth;
   });
 
-  const vmRanking = (() => {
-    const scored: Record<string, number[]> = {};
-    const unscored = new Set<string>();
-    agriPeriod.forEach(item => {
-      if ((item as any).checklistType === 'ad') return;
-      const br = (item as any).branch as string;
-      if (!br) return;
-      const score = (item as any).adminScore as number | null;
-      if (score != null) {
-        (scored[br] = scored[br] ?? []).push(score);
-        unscored.delete(br);
-      } else if (!scored[br]) {
-        unscored.add(br);
-      }
-    });
-    const scoredList = Object.entries(scored)
-      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) as number | null, count: scores.length }))
-      .sort((a, b) => (b.avg as number) - (a.avg as number));
-    const unscoredList = [...unscored].map(branch => ({ branch, avg: null as number | null, count: 0 }));
-    return [...scoredList, ...unscoredList];
-  })();
+  const ALL_BRANCHES = Object.values(REGIONS).flat();
 
-  const adRanking = (() => {
+  const buildRanking = (getScore: (item: any) => number | null, skipAdType = true) => {
     const scored: Record<string, number[]> = {};
-    const unscored = new Set<string>();
+    const pending = new Set<string>();
     agriPeriod.forEach(item => {
+      if (skipAdType && (item as any).checklistType === 'ad') return;
       const br = (item as any).branch as string;
       if (!br) return;
-      const score = (item as any).adAdminScore as number | null;
+      const score = getScore(item);
       if (score != null) {
         (scored[br] = scored[br] ?? []).push(score);
-        unscored.delete(br);
+        pending.delete(br);
       } else if (!scored[br]) {
-        unscored.add(br);
+        pending.add(br);
       }
     });
     const scoredList = Object.entries(scored)
-      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) as number | null, count: scores.length }))
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) as number | null, status: 'scored' as const, count: scores.length }))
       .sort((a, b) => (b.avg as number) - (a.avg as number));
-    const unscoredList = [...unscored].map(branch => ({ branch, avg: null as number | null, count: 0 }));
-    return [...scoredList, ...unscoredList];
-  })();
+    const pendingList = [...pending].map(branch => ({ branch, avg: null as number | null, status: 'pending' as const, count: 0 }));
+    const scoredSet = new Set(Object.keys(scored));
+    const noneList = ALL_BRANCHES
+      .filter(br => !scoredSet.has(br) && !pending.has(br))
+      .map(branch => ({ branch, avg: null as number | null, status: 'none' as const, count: 0 }));
+    return [...scoredList, ...pendingList, ...noneList];
+  };
+
+  const vmRanking = buildRanking(item => (item as any).adminScore as number | null, true);
+  const adRanking = buildRanking(item => (item as any).adAdminScore as number | null, false);
 
   const { data: cleaningRecords = [], isLoading: cleaningLoading } = useCleaningInspections(
     filterBranch ? { branch: filterBranch } : {}
@@ -603,26 +591,28 @@ export default function StaffDashboard() {
                       <div className="space-y-2">
                         {(() => {
                           let scoredRank = 0;
-                          return ranking.map(({ branch, avg, count }, idx) => {
-                            const isScored = avg != null;
+                          return ranking.map(({ branch, avg, count, status }) => {
+                            const isScored = status === 'scored';
+                            const isPending = status === 'pending';
                             if (isScored) scoredRank++;
                             const rankNum = isScored ? scoredRank : null;
                             const medal = rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null;
-                            const isTop3 = isScored && (scoredRank <= 3);
+                            const isTop3 = isScored && scoredRank <= 3;
                             const avgColor = avg != null
                               ? (avg >= 90 ? 'text-emerald-600' : avg >= 70 ? 'text-amber-600' : 'text-red-500')
                               : '';
+                            const rowBg = isTop3
+                              ? `bg-gradient-to-r ${topBg} shadow-md`
+                              : isScored
+                                ? 'bg-white border-border/50 hover:border-border'
+                                : isPending
+                                  ? 'bg-muted/40 border-border/30 hover:border-border/60'
+                                  : 'bg-muted/20 border-border/20 hover:border-border/40';
                             return (
                               <button
                                 key={branch}
                                 onClick={() => setFilterBranch(branch)}
-                                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${
-                                  isTop3
-                                    ? `bg-gradient-to-r ${topBg} shadow-md`
-                                    : isScored
-                                      ? 'bg-white border-border/50 hover:border-border'
-                                      : 'bg-muted/40 border-border/30 hover:border-border/60'
-                                }`}
+                                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${rowBg}`}
                                 data-testid={`btn-staff-rank-${branch}`}
                               >
                                 <div className="w-9 text-center shrink-0">
@@ -630,11 +620,11 @@ export default function StaffDashboard() {
                                     ? <span className="text-2xl leading-none">{medal}</span>
                                     : rankNum != null
                                       ? <span className="text-base font-black text-muted-foreground">{rankNum}</span>
-                                      : <span className="text-base font-black text-muted-foreground/40">-</span>
+                                      : <span className="text-base font-black text-muted-foreground/30">-</span>
                                   }
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <span className={`font-bold text-base ${isScored ? 'text-secondary' : 'text-muted-foreground'}`}>{branch}점</span>
+                                  <span className={`font-bold text-base ${isScored ? 'text-secondary' : 'text-muted-foreground/60'}`}>{branch}점</span>
                                   {isScored && <span className="text-xs text-muted-foreground ml-2">{count}건 평균</span>}
                                 </div>
                                 <div className="flex items-baseline gap-0.5 shrink-0">
@@ -643,8 +633,10 @@ export default function StaffDashboard() {
                                       <span className={`text-2xl font-black ${avgColor}`}>{avg}</span>
                                       <span className="text-xs text-muted-foreground font-medium">점</span>
                                     </>
-                                  ) : (
+                                  ) : isPending ? (
                                     <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-1 rounded-lg">미평가</span>
+                                  ) : (
+                                    <span className="text-xs font-bold text-muted-foreground/50 bg-muted/60 px-2 py-1 rounded-lg">미점검</span>
                                   )}
                                 </div>
                               </button>
