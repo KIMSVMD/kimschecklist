@@ -30,6 +30,10 @@ import {
   FileText,
   Download,
   Paperclip,
+  Search,
+  Tag,
+  Ruler,
+  MapPin as MapPinIcon,
 } from "lucide-react";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
@@ -504,8 +508,24 @@ function ProductManager() {
   const { toast } = useToast();
   const [activeCategory, setActiveCategory] = useState('축산');
   const [showForm, setShowForm] = useState(false);
-  const [newGroup, setNewGroup] = useState('');
-  const [newProduct, setNewProduct] = useState('');
+
+  // Group combobox
+  const [groupQuery, setGroupQuery] = useState('');
+  const [showGroupDrop, setShowGroupDrop] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [isNewGroup, setIsNewGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  // Product combobox
+  const [productQuery, setProductQuery] = useState('');
+  const [showProductDrop, setShowProductDrop] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [isNewProduct, setIsNewProduct] = useState(false);
+  const [newProd, setNewProd] = useState({ name: '', brand: '', spec: '', displayZone: '' });
+  const productRef = useRef<HTMLDivElement>(null);
+
+  // Files
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const addFileInputRef = useRef<HTMLInputElement>(null);
@@ -517,39 +537,62 @@ function ProductManager() {
   const updateFilesMutation = useUpdateProductFiles();
 
   const groups = [...new Set(products.map(p => p.groupName))];
+  const effectiveGroup = isNewGroup ? newGroupName : selectedGroup;
+  const groupProducts = products.filter(p => p.groupName === effectiveGroup);
+  const filteredGroups = groups.filter(g => !groupQuery || g.toLowerCase().includes(groupQuery.toLowerCase()));
+  const filteredGroupProducts = groupProducts.filter(p =>
+    !productQuery || (p.productName ?? '').toLowerCase().includes(productQuery.toLowerCase())
+  );
+  const groupReady = isNewGroup ? !!newGroupName.trim() : !!selectedGroup;
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (groupRef.current && !groupRef.current.contains(e.target as Node)) setShowGroupDrop(false);
+      if (productRef.current && !productRef.current.contains(e.target as Node)) setShowProductDrop(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const resetForm = () => {
+    setGroupQuery(''); setShowGroupDrop(false); setSelectedGroup(''); setIsNewGroup(false); setNewGroupName('');
+    setProductQuery(''); setShowProductDrop(false); setSelectedProduct(null); setIsNewProduct(false);
+    setNewProd({ name: '', brand: '', spec: '', displayZone: '' });
+    setNewFiles([]);
+    setShowForm(false);
+  };
 
   const handleAdd = async () => {
-    if (!newGroup.trim()) {
-      toast({ title: "그룹명을 입력해주세요", variant: "destructive" });
-      return;
+    const groupName = isNewGroup ? newGroupName.trim() : selectedGroup;
+    if (!groupName) { toast({ title: "그룹을 선택해주세요", variant: "destructive" }); return; }
+    let productName: string | null = null;
+    let brand: string | null = null;
+    let spec: string | null = null;
+    let displayZone: string | null = null;
+    if (isNewProduct) {
+      if (!newProd.name.trim()) { toast({ title: "상품명을 입력해주세요", variant: "destructive" }); return; }
+      productName = newProd.name.trim();
+      brand = newProd.brand.trim() || null;
+      spec = newProd.spec.trim() || null;
+      displayZone = newProd.displayZone.trim() || null;
+    } else {
+      productName = selectedProduct;
     }
     try {
       const { uploadFile } = await import("@/lib/upload");
       if (newFiles.length > 0) {
-        // Upload all files and upsert product
         for (const file of newFiles) {
           const objectPath = await uploadFile(file);
           const fileEntry = `${file.name}||${objectPath}`;
-          await upsertFileMutation.mutateAsync({
-            category: activeCategory,
-            groupName: newGroup.trim(),
-            productName: newProduct.trim() || null,
-            fileUrl: fileEntry,
-          });
+          await upsertFileMutation.mutateAsync({ category: activeCategory, groupName, productName, fileUrl: fileEntry });
         }
         toast({ title: "상품 및 파일 추가 완료!" });
       } else {
-        await createMutation.mutateAsync({
-          category: activeCategory,
-          groupName: newGroup.trim(),
-          productName: newProduct.trim() || null,
-        });
+        await createMutation.mutateAsync({ category: activeCategory, groupName, productName, brand, spec, displayZone } as any);
         toast({ title: "상품 추가 완료!" });
       }
-      setNewGroup('');
-      setNewProduct('');
-      setNewFiles([]);
-      setShowForm(false);
+      resetForm();
     } catch {
       toast({ title: "추가 실패", variant: "destructive" });
     }
@@ -600,7 +643,7 @@ function ProductManager() {
         {CATEGORIES.map(cat => (
           <button
             key={cat}
-            onClick={() => setActiveCategory(cat)}
+            onClick={() => { setActiveCategory(cat); resetForm(); }}
             className={`shrink-0 px-5 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 ${
               activeCategory === cat ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
             }`}
@@ -625,31 +668,198 @@ function ProductManager() {
       {showForm && (
         <div className="bg-muted/30 rounded-3xl border border-border p-5 space-y-4">
           <h3 className="font-bold text-secondary text-lg">새 상품 추가 — {activeCategory}</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">그룹명 *</label>
-              <input
-                type="text"
-                placeholder="예: 한우, 수입과일"
-                value={newGroup}
-                onChange={e => setNewGroup(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
-                data-testid="input-new-group"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">세부 상품명 (선택)</label>
-              <input
-                type="text"
-                placeholder="예: 망고, 암소한우"
-                value={newProduct}
-                onChange={e => setNewProduct(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
-                data-testid="input-new-product"
-              />
+
+          {/* ── GROUP COMBOBOX ─────────────────────── */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-muted-foreground">그룹 *</label>
+            <div className="relative" ref={groupRef}>
+              <button
+                type="button"
+                onClick={() => { setShowGroupDrop(v => !v); setGroupQuery(''); }}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 ${showGroupDrop ? 'border-primary' : 'border-border'} bg-white text-sm font-bold transition-colors`}
+                data-testid="button-group-select"
+              >
+                <span className={effectiveGroup ? 'text-secondary' : 'text-muted-foreground'}>
+                  {isNewGroup && newGroupName ? `새 그룹: ${newGroupName}` : selectedGroup || '그룹 선택 ▾'}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showGroupDrop ? 'rotate-180' : ''}`} />
+              </button>
+              {showGroupDrop && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-2xl border border-border shadow-xl overflow-hidden">
+                  <div className="p-2 border-b border-border flex items-center gap-2 px-3">
+                    <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      value={groupQuery}
+                      onChange={e => setGroupQuery(e.target.value)}
+                      placeholder="그룹 검색..."
+                      className="flex-1 text-sm py-1.5 focus:outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-44 overflow-y-auto">
+                    {filteredGroups.map(g => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => {
+                          setSelectedGroup(g); setIsNewGroup(false); setNewGroupName('');
+                          setShowGroupDrop(false); setGroupQuery('');
+                          setSelectedProduct(null); setIsNewProduct(false); setProductQuery('');
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors ${selectedGroup === g && !isNewGroup ? 'text-primary font-bold bg-primary/5' : 'text-secondary'}`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                    {filteredGroups.length === 0 && <p className="px-4 py-3 text-sm text-muted-foreground">검색 결과 없음</p>}
+                  </div>
+                  <div className="border-t border-border">
+                    {isNewGroup ? (
+                      <div className="p-2 space-y-2">
+                        <input
+                          type="text"
+                          value={newGroupName}
+                          onChange={e => setNewGroupName(e.target.value)}
+                          placeholder="새 그룹명 입력..."
+                          className="w-full px-3 py-2 rounded-lg border-2 border-primary text-sm font-bold focus:outline-none"
+                          autoFocus
+                          onKeyDown={e => { if (e.key === 'Enter' && newGroupName.trim()) setShowGroupDrop(false); }}
+                        />
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => { setIsNewGroup(false); setNewGroupName(''); }} className="flex-1 py-1.5 rounded-lg bg-muted text-xs font-bold text-secondary">취소</button>
+                          <button type="button" onClick={() => { if (newGroupName.trim()) setShowGroupDrop(false); }} className="flex-1 py-1.5 rounded-lg bg-primary text-white text-xs font-bold">확인</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setIsNewGroup(true); setSelectedGroup(''); }}
+                        className="w-full text-left px-4 py-3 text-sm font-bold text-primary flex items-center gap-2 hover:bg-primary/5 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" /> 새 그룹 추가
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          {/* File upload for new product */}
+
+          {/* ── PRODUCT COMBOBOX ─────────────────── */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-muted-foreground">세부 상품명 (선택)</label>
+            <div className="relative" ref={productRef}>
+              <button
+                type="button"
+                disabled={!groupReady}
+                onClick={() => { if (groupReady) { setShowProductDrop(v => !v); setProductQuery(''); } }}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 ${showProductDrop ? 'border-primary' : 'border-border'} ${!groupReady ? 'opacity-40 cursor-not-allowed bg-muted/30' : 'bg-white'} text-sm font-bold transition-colors`}
+                data-testid="button-product-select"
+              >
+                <span className={isNewProduct || selectedProduct ? 'text-secondary' : 'text-muted-foreground'}>
+                  {isNewProduct ? (newProd.name || '새 상품 입력 중...') : (selectedProduct || '세부 상품명 선택 ▾')}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showProductDrop ? 'rotate-180' : ''}`} />
+              </button>
+              {showProductDrop && groupReady && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-2xl border border-border shadow-xl overflow-hidden">
+                  <div className="p-2 border-b border-border flex items-center gap-2 px-3">
+                    <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      value={productQuery}
+                      onChange={e => setProductQuery(e.target.value)}
+                      placeholder="상품 검색..."
+                      className="flex-1 text-sm py-1.5 focus:outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-44 overflow-y-auto">
+                    {filteredGroupProducts.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedProduct(p.productName ?? null);
+                          setIsNewProduct(false);
+                          setShowProductDrop(false); setProductQuery('');
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors ${selectedProduct === p.productName && !isNewProduct ? 'text-primary font-bold bg-primary/5' : 'text-secondary'}`}
+                      >
+                        {p.productName ?? '(단일 상품)'}
+                      </button>
+                    ))}
+                    {filteredGroupProducts.length === 0 && (
+                      <p className="px-4 py-3 text-sm text-muted-foreground">{productQuery ? '검색 결과 없음' : '이 그룹에 상품 없음'}</p>
+                    )}
+                  </div>
+                  <div className="border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => { setIsNewProduct(true); setSelectedProduct(null); setShowProductDrop(false); setProductQuery(''); }}
+                      className="w-full text-left px-4 py-3 text-sm font-bold text-primary flex items-center gap-2 hover:bg-primary/5 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" /> 새 상품 추가
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* New product inline form */}
+            {isNewProduct && (
+              <div className="mt-2 p-4 bg-primary/5 rounded-2xl border border-primary/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-primary">새 상품 정보</p>
+                  <button type="button" onClick={() => { setIsNewProduct(false); setNewProd({ name: '', brand: '', spec: '', displayZone: '' }); }} className="text-muted-foreground hover:text-secondary">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="상품명 *"
+                  value={newProd.name}
+                  onChange={e => setNewProd(p => ({ ...p, name: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-border text-sm font-bold focus:outline-none focus:border-primary bg-white"
+                  data-testid="input-new-product-name"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-white">
+                    <Tag className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="브랜드"
+                      value={newProd.brand}
+                      onChange={e => setNewProd(p => ({ ...p, brand: e.target.value }))}
+                      className="flex-1 text-sm focus:outline-none min-w-0"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-white">
+                    <Ruler className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="규격"
+                      value={newProd.spec}
+                      onChange={e => setNewProd(p => ({ ...p, spec: e.target.value }))}
+                      className="flex-1 text-sm focus:outline-none min-w-0"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-white">
+                  <MapPinIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="진열 구역"
+                    value={newProd.displayZone}
+                    onChange={e => setNewProd(p => ({ ...p, displayZone: e.target.value }))}
+                    className="flex-1 text-sm focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── FILE UPLOAD ───────────────────────── */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-muted-foreground">상품 파일 첨부 (선택 · JPG/PDF/Excel)</label>
             <div
@@ -661,14 +871,7 @@ function ProductManager() {
                 {newFiles.length > 0 ? `${newFiles.length}개 파일 선택됨` : '파일을 선택하거나 여기를 눌러 첨부'}
               </span>
             </div>
-            <input
-              ref={addFileInputRef}
-              type="file"
-              multiple
-              accept=".jpg,.jpeg,.png,.pdf,.xlsx,.xls,.csv"
-              className="hidden"
-              onChange={e => setNewFiles(Array.from(e.target.files ?? []))}
-            />
+            <input ref={addFileInputRef} type="file" multiple accept=".jpg,.jpeg,.png,.pdf,.xlsx,.xls,.csv" className="hidden" onChange={e => setNewFiles(Array.from(e.target.files ?? []))} />
             {newFiles.length > 0 && (
               <div className="space-y-1">
                 {newFiles.map((f, i) => (
@@ -683,7 +886,7 @@ function ProductManager() {
           </div>
           <p className="text-xs text-muted-foreground">이미 등록된 상품에 파일을 추가하면 해당 상품이 자동으로 업데이트됩니다.</p>
           <div className="flex gap-3">
-            <button onClick={() => { setShowForm(false); setNewFiles([]); }} className="flex-1 py-4 rounded-2xl bg-muted text-secondary font-bold">취소</button>
+            <button onClick={resetForm} className="flex-1 py-4 rounded-2xl bg-muted text-secondary font-bold">취소</button>
             <button
               onClick={handleAdd}
               disabled={createMutation.isPending || upsertFileMutation.isPending}
@@ -721,12 +924,31 @@ function ProductManager() {
                     const fileEntries: string[] = (p as any).fileUrls ?? [];
                     return (
                       <div key={p.id} className="px-4 py-3 space-y-2" data-testid={`row-product-${p.id}`}>
-                        <div className="flex items-center justify-between">
-                          <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1 min-w-0">
                             {p.productName ? (
                               <span className="text-base font-bold text-secondary">{p.productName}</span>
                             ) : (
                               <span className="text-base font-bold text-muted-foreground italic">단일 상품 (그룹 = 상품)</span>
+                            )}
+                            {((p as any).brand || (p as any).spec || (p as any).displayZone) && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {(p as any).brand && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                                    <Tag className="w-3 h-3" />{(p as any).brand}
+                                  </span>
+                                )}
+                                {(p as any).spec && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                    <Ruler className="w-3 h-3" />{(p as any).spec}
+                                  </span>
+                                )}
+                                {(p as any).displayZone && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                    <MapPinIcon className="w-3 h-3" />{(p as any).displayZone}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2">

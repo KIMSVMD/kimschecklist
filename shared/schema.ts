@@ -69,6 +69,9 @@ export const products = pgTable("products", {
   category: text("category").notNull(),
   groupName: text("group_name").notNull(),
   productName: text("product_name"),
+  brand: text("brand"),
+  spec: text("spec"),
+  displayZone: text("display_zone"),
   fileUrls: text("file_urls").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
