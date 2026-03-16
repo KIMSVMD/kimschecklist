@@ -778,34 +778,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                         {item.branch}점 <span className="font-medium text-muted-foreground text-lg ml-1">| {item.product}</span>
                       </h3>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                      {adminScore != null ? (
-                        <div className={`px-3 py-1.5 rounded-xl border text-sm font-black flex items-center gap-1 ${
-                          adminScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
-                          adminScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                          'bg-red-50 border-red-200 text-primary'
-                        }`} data-testid={`text-admin-score-${item.id}`}>
-                          <Star className="w-3.5 h-3.5" />{adminScore}점
-                        </div>
-                      ) : (
-                        <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
-                      )}
-                      {hasAdItems && (
-                        adAdminScore != null ? (
-                          <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
-                            adAdminScore >= 80 ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                            adAdminScore >= 60 ? 'bg-orange-50 border-orange-200 text-orange-700' :
-                            'bg-red-50 border-red-200 text-primary'
-                          }`} data-testid={`text-ad-score-${item.id}`}>
-                            <span className="text-[11px]">📢</span>{adAdminScore}점
-                          </div>
-                        ) : (
-                          <div className="px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium flex items-center gap-1">
-                            <span className="text-[11px]">📢</span>광고미평가
-                          </div>
-                        )
-                      )}
-                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end" />
                   </div>
 
                   {/* Year/Month display */}
@@ -816,7 +789,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     </p>
                   )}
 
-                  {item.items && Object.keys(item.items as object).length > 0 && (
+                  {viewFilter !== 'ad' && item.items && Object.keys(item.items as object).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {Object.entries(item.items as Record<string, string>).map(([name, status]) => {
                         const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
@@ -851,21 +824,23 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                   </p>
 
-                  {item.notes && (
+                  {viewFilter !== 'ad' && item.notes && (
                     <div className="mt-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
                       <strong className="block mb-1 text-xs text-muted-foreground">요청/특이사항:</strong>
                       {item.notes}
                     </div>
                   )}
 
-                  <AdminScoreInput
-                    id={item.id}
-                    existingScore={(item as any).adminScore}
-                    staffItems={(item.items as Record<string, string>) || {}}
-                    existingAdminItems={(item as any).adminItems as Record<string, 'ok' | 'notok'> | null}
-                  />
+                  {viewFilter !== 'ad' && (
+                    <AdminScoreInput
+                      id={item.id}
+                      existingScore={(item as any).adminScore}
+                      staffItems={(item.items as Record<string, string>) || {}}
+                      existingAdminItems={(item as any).adminItems as Record<string, 'ok' | 'notok'> | null}
+                    />
+                  )}
 
-                  {(() => {
+                  {viewFilter !== 'vm' && (() => {
                     const adItems = (item as any).adItems as Record<string, string> | null;
                     const adPhotoUrls = (item as any).adPhotoUrls as string[] | null;
                     const adNotes = (item as any).adNotes as string | null;
