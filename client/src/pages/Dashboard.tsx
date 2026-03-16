@@ -13,7 +13,7 @@ import {
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
   MessageSquare, Send, CheckCheck, CornerDownRight,
   ChevronLeft, ChevronRight, Calendar, Bell, Star,
-  ClipboardList, UploadCloud, Reply, Clock,
+  ClipboardList, UploadCloud, Reply, Clock, Trophy,
 } from "lucide-react";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { VMCommentThread } from "@/components/VMCommentThread";
@@ -516,6 +516,9 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     category: filterCategory !== '전체' ? filterCategory : undefined,
   });
 
+  // 농산 전체 데이터 — 순위 계산용
+  const { data: agriAll } = useChecklists({ category: '농산' });
+
   // Filter by year/month client-side
   const checklists = (allChecklists ?? []).filter(item => {
     const itemYear = (item as any).year;
@@ -533,6 +536,46 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     if (viewFilter === 'vm') return cType !== 'ad';
     return true;
   });
+
+  // 농산 기준 월별 순위 계산
+  const agriPeriod = (agriAll ?? []).filter(item => {
+    const itemYear = (item as any).year;
+    const itemMonth = (item as any).month;
+    if (itemYear && itemMonth) return itemYear === filterYear && itemMonth === filterMonth;
+    const d = new Date(item.createdAt);
+    return d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth;
+  });
+
+  const vmRanking = (() => {
+    const byBranch: Record<string, number[]> = {};
+    agriPeriod.forEach(item => {
+      if ((item as any).checklistType === 'ad') return;
+      const score = (item as any).adminScore as number | null;
+      if (score == null) return;
+      const br = (item as any).branch as string;
+      if (!br) return;
+      (byBranch[br] = byBranch[br] ?? []).push(score);
+    });
+    return Object.entries(byBranch)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length }))
+      .sort((a, b) => b.avg - a.avg);
+  })();
+
+  const adRanking = (() => {
+    const byBranch: Record<string, number[]> = {};
+    agriPeriod.forEach(item => {
+      const score = (item as any).adAdminScore as number | null;
+      if (score == null) return;
+      const br = (item as any).branch as string;
+      if (!br) return;
+      (byBranch[br] = byBranch[br] ?? []).push(score);
+    });
+    return Object.entries(byBranch)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length }))
+      .sort((a, b) => b.avg - a.avg);
+  })();
+
+  const showLeaderboard = filterBranch === '전체' && viewFilter !== 'all';
 
   const handleDelete = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
@@ -599,7 +642,65 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
       </div>
 
       <div className="p-4 space-y-4">
-        {isLoading ? (
+        {/* ── 지점 순위 리더보드 (지점 미선택 + VM/광고 탭) ── */}
+        {showLeaderboard ? (() => {
+          const ranking = viewFilter === 'vm' ? vmRanking : adRanking;
+          const title = viewFilter === 'vm' ? 'VM 진열 점수 순위' : '광고 점수 순위';
+          const accentClass = viewFilter === 'vm' ? 'text-primary' : 'text-amber-600';
+          const topBg = viewFilter === 'vm' ? 'from-primary/10 to-primary/5 border-primary/20' : 'from-amber-500/10 to-amber-500/5 border-amber-400/20';
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 pt-1 pb-2">
+                <Trophy className={`w-5 h-5 ${accentClass}`} />
+                <h2 className={`text-base font-black ${accentClass}`}>{filterYear}년 {filterMonth}월 {title}</h2>
+                <span className="text-[11px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">농산 기준</span>
+              </div>
+              {ranking.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <Trophy className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="font-medium">이번 달 확정 점수 데이터가 없습니다.</p>
+                  <p className="text-sm mt-1">관리자 점수 확정 후 순위가 표시됩니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {ranking.map(({ branch, avg, count }, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
+                    const isTop3 = idx < 3;
+                    const avgColor = avg >= 90 ? 'text-emerald-600' : avg >= 70 ? 'text-amber-600' : 'text-red-500';
+                    return (
+                      <button
+                        key={branch}
+                        onClick={() => setFilterBranch(branch)}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${
+                          isTop3
+                            ? `bg-gradient-to-r ${topBg} shadow-md`
+                            : 'bg-white border-border/50 hover:border-border'
+                        }`}
+                        data-testid={`btn-rank-${branch}`}
+                      >
+                        <div className="w-9 text-center shrink-0">
+                          {medal
+                            ? <span className="text-2xl leading-none">{medal}</span>
+                            : <span className="text-base font-black text-muted-foreground">{idx + 1}</span>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold text-secondary text-base">{branch}점</span>
+                          <span className="text-xs text-muted-foreground ml-2">{count}건 평균</span>
+                        </div>
+                        <div className="flex items-baseline gap-0.5 shrink-0">
+                          <span className={`text-2xl font-black ${avgColor}`}>{avg}</span>
+                          <span className="text-xs text-muted-foreground font-medium">점</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-center text-xs text-muted-foreground pt-2">지점을 탭하면 해당 지점의 점검 내역을 볼 수 있습니다.</p>
+            </div>
+          );
+        })() : isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
             데이터를 불러오는 중...
