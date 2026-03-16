@@ -46,6 +46,7 @@ export function useUpsertProductFile() {
       apiRequest("POST", "/api/products/upsert-file", data).then(r => r.json()),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products", variables.category] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products/find"] });
     },
   });
 }
@@ -56,6 +57,7 @@ export function useUpdateProductFiles() {
       apiRequest("PATCH", `/api/products/${id}/files`, { fileUrls }).then(r => r.json()),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products", variables.category] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products/find"] });
     },
   });
 }
@@ -65,6 +67,7 @@ export function useDeleteProduct() {
     mutationFn: (id: number) => apiRequest("DELETE", `/api/products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products/find"] });
     },
   });
 }
