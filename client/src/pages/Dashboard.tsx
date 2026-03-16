@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
@@ -474,6 +474,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   const now = new Date();
   const [filterBranch, setFilterBranch] = useState('전체');
   const [filterCategory, setFilterCategory] = useState('전체');
+  const [filterProduct, setFilterProduct] = useState('전체');
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [viewFilter, setViewFilter] = useState<'all' | 'vm' | 'ad'>('all');
@@ -482,6 +483,10 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   const currentYear = now.getFullYear();
   const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  useEffect(() => {
+    setFilterProduct('전체');
+  }, [filterCategory, filterBranch]);
 
   useEffect(() => {
     if (!highlightId) return;
@@ -519,7 +524,14 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   // 농산 전체 데이터 — 순위 계산용
   const { data: agriAll } = useChecklists({ category: '농산' });
 
-  // Filter by year/month client-side
+  // 카테고리 내 상품 목록 (날짜 무관, 선택된 카테고리/지점 기준)
+  const availableProducts = useMemo(() => {
+    const products = new Set<string>();
+    (allChecklists ?? []).forEach(item => { if (item.product) products.add(item.product); });
+    return ['전체', ...Array.from(products).sort()];
+  }, [allChecklists]);
+
+  // Filter by year/month and product client-side
   const checklists = (allChecklists ?? []).filter(item => {
     const itemYear = (item as any).year;
     const itemMonth = (item as any).month;
@@ -531,6 +543,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
       matchesDate = d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth;
     }
     if (!matchesDate) return false;
+    if (filterProduct !== '전체' && item.product !== filterProduct) return false;
     const cType = (item as any).checklistType || 'vm';
     if (viewFilter === 'ad') return cType === 'ad';
     if (viewFilter === 'vm') return cType !== 'ad';
@@ -613,14 +626,26 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
         </div>
         <div className="flex gap-2">
           <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
+            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
+            data-testid="select-filter-branch">
             {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
           </select>
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
+            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
+            data-testid="select-filter-category">
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
+        <select
+          value={filterProduct}
+          onChange={e => setFilterProduct(e.target.value)}
+          className="w-full bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
+          data-testid="select-filter-product"
+        >
+          {availableProducts.map(p => (
+            <option key={p} value={p}>{p === '전체' ? '전체 상품' : p}</option>
+          ))}
+        </select>
         {/* Year/Month filter */}
         <div className="flex gap-2 items-center">
           <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
