@@ -99,32 +99,46 @@ export default function StaffDashboard() {
   });
 
   const vmRanking = (() => {
-    const byBranch: Record<string, number[]> = {};
+    const scored: Record<string, number[]> = {};
+    const unscored = new Set<string>();
     agriPeriod.forEach(item => {
       if ((item as any).checklistType === 'ad') return;
-      const score = (item as any).adminScore as number | null;
-      if (score == null) return;
       const br = (item as any).branch as string;
       if (!br) return;
-      (byBranch[br] = byBranch[br] ?? []).push(score);
+      const score = (item as any).adminScore as number | null;
+      if (score != null) {
+        (scored[br] = scored[br] ?? []).push(score);
+        unscored.delete(br);
+      } else if (!scored[br]) {
+        unscored.add(br);
+      }
     });
-    return Object.entries(byBranch)
-      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length }))
-      .sort((a, b) => b.avg - a.avg);
+    const scoredList = Object.entries(scored)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) as number | null, count: scores.length }))
+      .sort((a, b) => (b.avg as number) - (a.avg as number));
+    const unscoredList = [...unscored].map(branch => ({ branch, avg: null as number | null, count: 0 }));
+    return [...scoredList, ...unscoredList];
   })();
 
   const adRanking = (() => {
-    const byBranch: Record<string, number[]> = {};
+    const scored: Record<string, number[]> = {};
+    const unscored = new Set<string>();
     agriPeriod.forEach(item => {
-      const score = (item as any).adAdminScore as number | null;
-      if (score == null) return;
       const br = (item as any).branch as string;
       if (!br) return;
-      (byBranch[br] = byBranch[br] ?? []).push(score);
+      const score = (item as any).adAdminScore as number | null;
+      if (score != null) {
+        (scored[br] = scored[br] ?? []).push(score);
+        unscored.delete(br);
+      } else if (!scored[br]) {
+        unscored.add(br);
+      }
     });
-    return Object.entries(byBranch)
-      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length }))
-      .sort((a, b) => b.avg - a.avg);
+    const scoredList = Object.entries(scored)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) as number | null, count: scores.length }))
+      .sort((a, b) => (b.avg as number) - (a.avg as number));
+    const unscoredList = [...unscored].map(branch => ({ branch, avg: null as number | null, count: 0 }));
+    return [...scoredList, ...unscoredList];
   })();
 
   const { data: cleaningRecords = [], isLoading: cleaningLoading } = useCleaningInspections(
@@ -583,43 +597,60 @@ export default function StaffDashboard() {
                     {ranking.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                         <Trophy className="w-12 h-12 mb-3 opacity-20" />
-                        <p className="font-medium">이번 달 확정 점수 데이터가 없습니다.</p>
-                        <p className="text-sm mt-1 text-center">관리자 점수 확정 후 순위가 표시됩니다.</p>
+                        <p className="font-medium">이번 달 점검 제출 기록이 없습니다.</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {ranking.map(({ branch, avg, count }, idx) => {
-                          const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
-                          const isTop3 = idx < 3;
-                          const avgColor = avg >= 90 ? 'text-emerald-600' : avg >= 70 ? 'text-amber-600' : 'text-red-500';
-                          return (
-                            <button
-                              key={branch}
-                              onClick={() => setFilterBranch(branch)}
-                              className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${
-                                isTop3
-                                  ? `bg-gradient-to-r ${topBg} shadow-md`
-                                  : 'bg-white border-border/50 hover:border-border'
-                              }`}
-                              data-testid={`btn-staff-rank-${branch}`}
-                            >
-                              <div className="w-9 text-center shrink-0">
-                                {medal
-                                  ? <span className="text-2xl leading-none">{medal}</span>
-                                  : <span className="text-base font-black text-muted-foreground">{idx + 1}</span>
-                                }
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <span className="font-bold text-secondary text-base">{branch}점</span>
-                                <span className="text-xs text-muted-foreground ml-2">{count}건 평균</span>
-                              </div>
-                              <div className="flex items-baseline gap-0.5 shrink-0">
-                                <span className={`text-2xl font-black ${avgColor}`}>{avg}</span>
-                                <span className="text-xs text-muted-foreground font-medium">점</span>
-                              </div>
-                            </button>
-                          );
-                        })}
+                        {(() => {
+                          let scoredRank = 0;
+                          return ranking.map(({ branch, avg, count }, idx) => {
+                            const isScored = avg != null;
+                            if (isScored) scoredRank++;
+                            const rankNum = isScored ? scoredRank : null;
+                            const medal = rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null;
+                            const isTop3 = isScored && (scoredRank <= 3);
+                            const avgColor = avg != null
+                              ? (avg >= 90 ? 'text-emerald-600' : avg >= 70 ? 'text-amber-600' : 'text-red-500')
+                              : '';
+                            return (
+                              <button
+                                key={branch}
+                                onClick={() => setFilterBranch(branch)}
+                                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${
+                                  isTop3
+                                    ? `bg-gradient-to-r ${topBg} shadow-md`
+                                    : isScored
+                                      ? 'bg-white border-border/50 hover:border-border'
+                                      : 'bg-muted/40 border-border/30 hover:border-border/60'
+                                }`}
+                                data-testid={`btn-staff-rank-${branch}`}
+                              >
+                                <div className="w-9 text-center shrink-0">
+                                  {medal
+                                    ? <span className="text-2xl leading-none">{medal}</span>
+                                    : rankNum != null
+                                      ? <span className="text-base font-black text-muted-foreground">{rankNum}</span>
+                                      : <span className="text-base font-black text-muted-foreground/40">-</span>
+                                  }
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <span className={`font-bold text-base ${isScored ? 'text-secondary' : 'text-muted-foreground'}`}>{branch}점</span>
+                                  {isScored && <span className="text-xs text-muted-foreground ml-2">{count}건 평균</span>}
+                                </div>
+                                <div className="flex items-baseline gap-0.5 shrink-0">
+                                  {isScored ? (
+                                    <>
+                                      <span className={`text-2xl font-black ${avgColor}`}>{avg}</span>
+                                      <span className="text-xs text-muted-foreground font-medium">점</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-1 rounded-lg">미평가</span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                     <p className="text-center text-xs text-muted-foreground pt-2">지점을 탭하면 해당 지점의 점검 내역을 볼 수 있습니다.</p>
