@@ -823,38 +823,6 @@ function ProductManager() {
                   className="w-full px-3 py-2.5 rounded-xl border-2 border-border text-sm font-bold focus:outline-none focus:border-primary bg-white"
                   data-testid="input-new-product-name"
                 />
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-white">
-                    <Tag className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <input
-                      type="text"
-                      placeholder="브랜드"
-                      value={newProd.brand}
-                      onChange={e => setNewProd(p => ({ ...p, brand: e.target.value }))}
-                      className="flex-1 text-sm focus:outline-none min-w-0"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-white">
-                    <Ruler className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <input
-                      type="text"
-                      placeholder="규격"
-                      value={newProd.spec}
-                      onChange={e => setNewProd(p => ({ ...p, spec: e.target.value }))}
-                      className="flex-1 text-sm focus:outline-none min-w-0"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-white">
-                  <MapPinIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="진열 구역"
-                    value={newProd.displayZone}
-                    onChange={e => setNewProd(p => ({ ...p, displayZone: e.target.value }))}
-                    className="flex-1 text-sm focus:outline-none"
-                  />
-                </div>
               </div>
             )}
           </div>
