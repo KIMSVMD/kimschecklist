@@ -575,7 +575,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
       .sort((a, b) => b.avg - a.avg);
   })();
 
-  const showLeaderboard = filterBranch === '전체' && viewFilter !== 'all';
+  const showLeaderboard = false;
 
   const handleDelete = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
@@ -790,7 +790,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                       ) : (
                         <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
                       )}
-                      {hasAdItems && (
+                      {hasAdItems && viewFilter !== 'vm' && (
                         adAdminScore != null ? (
                           <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
                             adAdminScore >= 80 ? 'bg-amber-50 border-amber-200 text-amber-700' :
@@ -816,7 +816,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     </p>
                   )}
 
-                  {item.items && Object.keys(item.items as object).length > 0 && (
+                  {viewFilter !== 'ad' && item.items && Object.keys(item.items as object).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {Object.entries(item.items as Record<string, string>).map(([name, status]) => {
                         const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
@@ -851,19 +851,21 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                   </p>
 
-                  {item.notes && (
+                  {viewFilter !== 'ad' && item.notes && (
                     <div className="mt-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
                       <strong className="block mb-1 text-xs text-muted-foreground">요청/특이사항:</strong>
                       {item.notes}
                     </div>
                   )}
 
-                  <AdminScoreInput
-                    id={item.id}
-                    existingScore={(item as any).adminScore}
-                    staffItems={(item.items as Record<string, string>) || {}}
-                    existingAdminItems={(item as any).adminItems as Record<string, 'ok' | 'notok'> | null}
-                  />
+                  {viewFilter !== 'ad' && (
+                    <AdminScoreInput
+                      id={item.id}
+                      existingScore={(item as any).adminScore}
+                      staffItems={(item.items as Record<string, string>) || {}}
+                      existingAdminItems={(item as any).adminItems as Record<string, 'ok' | 'notok'> | null}
+                    />
+                  )}
 
                   {(() => {
                     const adItems = (item as any).adItems as Record<string, string> | null;
@@ -872,7 +874,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     const hasAdItems = adItems && Object.keys(adItems).length > 0;
                     const hasAdPhotos = adPhotoUrls && adPhotoUrls.length > 0;
                     const hasAdData = hasAdItems || hasAdPhotos || adNotes;
-                    if (!hasAdData) return null;
+                    if (!hasAdData || viewFilter === 'vm') return null;
                     const adAdminItems = (item as any).adAdminItems as Record<string, 'ok' | 'notok'> | null;
                     return (
                       <>
