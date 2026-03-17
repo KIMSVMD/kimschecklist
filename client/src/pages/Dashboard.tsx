@@ -778,7 +778,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     <>
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
         <div className="flex gap-1.5">
-          {([['all', '전체'], ['vm', 'VM 진열'], ['ad', '📢 광고'], ['quality', '⭐ 품질']] as const).map(([val, label]) => (
+          {([['all', '전체'], ['vm', '진열'], ['ad', '광고(+영상)'], ['quality', '품질']] as const).map(([val, label]) => (
             <button
               key={val}
               onClick={() => setViewFilter(val)}
@@ -845,7 +845,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
         {/* ── 지점 순위 리더보드 (지점 미선택 + VM/광고 탭) ── */}
         {showLeaderboard ? (() => {
           const ranking = viewFilter === 'vm' ? vmRanking : viewFilter === 'quality' ? qualityRanking : adRanking;
-          const title = viewFilter === 'vm' ? 'VM 진열 점수 순위' : viewFilter === 'quality' ? '품질 점수 순위' : '광고 점수 순위';
+          const title = viewFilter === 'vm' ? '진열 점수 순위' : viewFilter === 'quality' ? '품질 점수 순위' : '광고(+영상) 점수 순위';
           const accentClass = viewFilter === 'vm' ? 'text-primary' : viewFilter === 'quality' ? 'text-purple-700' : 'text-amber-600';
           const topBg = viewFilter === 'vm' ? 'from-primary/10 to-primary/5 border-primary/20' : viewFilter === 'quality' ? 'from-purple-500/10 to-purple-500/5 border-purple-300/20' : 'from-amber-500/10 to-amber-500/5 border-amber-400/20';
           return (
@@ -1799,7 +1799,7 @@ function RankingTab() {
 
       {/* VM / Ad toggle + Grade legend in one row */}
       <div className="flex gap-1.5 items-center">
-        {([['vm', 'VM 진열'], ['ad', '📢 광고'], ['quality', '⭐ 품질']] as const).map(([val, label]) => (
+        {([['vm', '진열'], ['ad', '광고(+영상)'], ['quality', '품질']] as const).map(([val, label]) => (
           <button key={val} onClick={() => setRankType(val)}
             className={`py-1.5 px-3 rounded-lg font-bold text-xs transition-all active:scale-95 border ${
               rankType === val
