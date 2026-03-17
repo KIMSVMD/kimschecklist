@@ -1096,7 +1096,7 @@ export default function GuideAdmin() {
     <Layout title="관리자 메뉴" showBack={false}>
       <div className="flex flex-col h-full bg-background">
         {/* Top bar */}
-        <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-border gap-3">
+        <div className="px-4 pt-3 pb-3 flex items-center justify-between border-b border-border gap-3">
           <a
             href="/dashboard"
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary font-bold text-sm active:scale-[0.97] transition-all border border-primary/20"
@@ -1114,7 +1114,7 @@ export default function GuideAdmin() {
         </div>
 
         {/* Tab switcher */}
-        <div className="flex gap-1 p-3 bg-muted/50 border-b border-border">
+        <div className="flex gap-2 px-4 py-2.5 bg-muted/50 border-b border-border">
           <button
             onClick={() => setActiveTab('guides')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
@@ -1135,7 +1135,7 @@ export default function GuideAdmin() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-4">
           {activeTab === 'products' ? (
             <ProductManager />
           ) : (
@@ -1144,7 +1144,7 @@ export default function GuideAdmin() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setGuideTypeFilter('vm')}
-                  className={`flex-1 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 border-2 ${
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                     guideTypeFilter === 'vm' ? 'bg-primary text-white border-primary shadow-md' : 'bg-muted text-muted-foreground border-transparent'
                   }`}
                   data-testid="tab-guide-type-vm"
@@ -1153,7 +1153,7 @@ export default function GuideAdmin() {
                 </button>
                 <button
                   onClick={() => setGuideTypeFilter('ad')}
-                  className={`flex-1 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 border-2 ${
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                     guideTypeFilter === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-md' : 'bg-muted text-muted-foreground border-transparent'
                   }`}
                   data-testid="tab-guide-type-ad"
@@ -1162,7 +1162,7 @@ export default function GuideAdmin() {
                 </button>
                 <button
                   onClick={() => setGuideTypeFilter('quality')}
-                  className={`flex-1 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 border-2 ${
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                     guideTypeFilter === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-muted text-muted-foreground border-transparent'
                   }`}
                   data-testid="tab-guide-type-quality"
@@ -1172,12 +1172,12 @@ export default function GuideAdmin() {
               </div>
 
               {/* Category filter */}
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
                 {['전체', ...CATEGORIES].map(cat => (
                   <button
                     key={cat}
                     onClick={() => setGuideCategory(cat)}
-                    className={`shrink-0 px-5 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 ${
+                    className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
                       guideCategory === cat ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
                     }`}
                     data-testid={`tab-guide-category-${cat}`}
@@ -1190,10 +1190,10 @@ export default function GuideAdmin() {
               {!showAddForm && (
                 <button
                   onClick={() => setShowAddForm(true)}
-                  className="w-full py-5 rounded-2xl border-2 border-dashed border-primary/40 text-primary font-bold text-xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-primary/5"
+                  className="w-full py-4 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5"
                   data-testid="button-add-guide"
                 >
-                  <Plus className="w-7 h-7" /> 새 가이드 추가
+                  <Plus className="w-5 h-5" /> 새 가이드 추가
                 </button>
               )}
 
