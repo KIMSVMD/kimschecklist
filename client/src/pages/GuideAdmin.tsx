@@ -235,7 +235,7 @@ function GuideForm({
       <div className="space-y-2">
         <label className="text-sm font-bold text-secondary">가이드 종류</label>
         <div className="flex gap-2">
-          {([['vm', 'VM 진열'], ['ad', '광고'], ['quality', '품질']] as const).map(([val, label]) => (
+          {([['vm', '진열'], ['ad', '광고(+영상)'], ['quality', '품질']] as const).map(([val, label]) => (
             <button
               key={val}
               type="button"
