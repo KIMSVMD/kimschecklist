@@ -574,16 +574,19 @@ export default function StaffDashboard() {
                 const rawRanking = activeTab === 'vm' ? vmRanking : adRanking;
                 const title = activeTab === 'vm' ? 'VM 진열 월별 피드백' : '광고 월별 피드백';
                 const accentClass = activeTab === 'vm' ? 'text-primary' : 'text-amber-600';
-                // Sort by grade A→B→C, then pending, then none
+                // Sort by grade A→B→C, then same grade: score desc, then 대형→중형→소형
                 const gradeOrder = { A: 0, B: 1, C: 2 } as const;
+                const storeOrder: Record<string, number> = {};
+                [...(REGIONS['대형점'] ?? []), ...(REGIONS['중형점'] ?? []), ...(REGIONS['소형점'] ?? [])].forEach((b, i) => { storeOrder[b] = i; });
                 const gradeList = rawRanking.filter(r => r.status === 'scored').map(r => ({ ...r, grade: getGrade(r.avg) }));
                 const sortedGrade = gradeList.sort((a, b) => {
                   const ga = a.grade ?? 'C', gb = b.grade ?? 'C';
                   if (ga !== gb) return gradeOrder[ga] - gradeOrder[gb];
-                  return (b.avg as number) - (a.avg as number);
+                  if (a.avg !== b.avg) return (b.avg as number) - (a.avg as number);
+                  return (storeOrder[a.branch] ?? 99) - (storeOrder[b.branch] ?? 99);
                 });
-                const pendingList = rawRanking.filter(r => r.status === 'pending');
-                const noneList = rawRanking.filter(r => r.status === 'none');
+                const pendingList = [...rawRanking.filter(r => r.status === 'pending')].sort((a, b) => (storeOrder[a.branch] ?? 99) - (storeOrder[b.branch] ?? 99));
+                const noneList = [...rawRanking.filter(r => r.status === 'none')].sort((a, b) => (storeOrder[a.branch] ?? 99) - (storeOrder[b.branch] ?? 99));
                 const sortedRanking = [...sortedGrade, ...pendingList, ...noneList];
                 return (
                   <>
@@ -592,14 +595,12 @@ export default function StaffDashboard() {
                       <h2 className={`text-base font-black ${accentClass}`}>{vmFilterYear}년 {vmFilterMonth}월 {title}</h2>
                       <span className="text-[11px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">농산 기준</span>
                     </div>
-                    {/* Grade legend */}
-                    <div className="flex gap-2 pb-1">
+                    {/* Grade legend inline */}
+                    <div className="flex gap-1.5 items-center pb-1">
                       {(['A', 'B', 'C'] as const).map(g => (
-                        <div key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${gradeColor(g)}`}>
-                          <span className="font-black text-sm">{g}</span>
-                          <span className="font-normal">{g === 'A' ? '67~100점' : g === 'B' ? '34~66점' : '0~33점'}</span>
-                        </div>
+                        <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
                       ))}
+                      <span className="text-[10px] text-muted-foreground ml-1">67/34점 기준</span>
                     </div>
                     {sortedRanking.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -607,35 +608,34 @@ export default function StaffDashboard() {
                         <p className="font-medium">이번 달 점검 제출 기록이 없습니다.</p>
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-0.5">
                         {sortedRanking.map(({ branch, avg, count, status }) => {
                           const isScored = status === 'scored';
                           const isPending = status === 'pending';
                           const grade = getGrade(avg);
                           const gColor = gradeColor(grade);
                           const rowBg = isScored
-                            ? 'bg-white border-border/50'
+                            ? 'bg-white border-border/40'
                             : isPending
-                              ? 'bg-muted/40 border-border/30'
-                              : 'bg-muted/20 border-border/20';
+                              ? 'bg-muted/30 border-border/20'
+                              : 'bg-muted/10 border-transparent';
                           return (
                             <button
                               key={branch}
                               onClick={() => setFilterBranch(branch)}
-                              className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${rowBg}`}
+                              className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-xl border transition-all active:scale-[0.98] text-left ${rowBg}`}
                               data-testid={`btn-staff-rank-${branch}`}
                             >
                               <div className="flex-1 min-w-0">
-                                <span className={`font-bold text-base ${isScored ? 'text-secondary' : 'text-muted-foreground/60'}`}>{branch}점</span>
-                                {isScored && <span className="text-xs text-muted-foreground ml-2">{count}건 평균</span>}
+                                <span className={`font-bold text-sm ${isScored ? 'text-secondary' : 'text-muted-foreground/50'}`}>{branch}점</span>
                               </div>
                               <div className="shrink-0">
                                 {isScored && grade ? (
-                                  <span className={`text-xl font-black px-3 py-1 rounded-xl border-2 ${gColor}`}>{grade}</span>
+                                  <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${gColor}`}>{grade}</span>
                                 ) : isPending ? (
-                                  <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-1 rounded-lg">미평가</span>
+                                  <span className="text-[10px] font-bold text-muted-foreground">미평가</span>
                                 ) : (
-                                  <span className="text-xs font-bold text-muted-foreground/50 bg-muted/60 px-2 py-1 rounded-lg">미점검</span>
+                                  <span className="text-[10px] font-bold text-muted-foreground/30">미점검</span>
                                 )}
                               </div>
                             </button>
