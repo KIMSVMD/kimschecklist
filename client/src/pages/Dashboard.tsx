@@ -1562,17 +1562,25 @@ function RankingTab() {
       ) : (
         <div className="space-y-2">
           {(() => {
-            let rankNum = 0;
+            let position = 0;
+            let displayRank = 0;
+            let prevAvg: number | null = null;
             return ranking.map(({ branch, avg, count, status }) => {
               const isScored = status === 'scored';
               const isPending = status === 'pending';
-              if (isScored) rankNum++;
-              const medal = rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null;
+              if (isScored) {
+                position++;
+                if (avg !== prevAvg) {
+                  displayRank = position;
+                  prevAvg = avg;
+                }
+              }
+              const medal = displayRank === 1 && isScored ? '🥇' : displayRank === 2 && isScored ? '🥈' : displayRank === 3 && isScored ? '🥉' : null;
               const grade = getGrade(avg);
               const gColor = gradeColor(grade);
               const avgColor = avg != null ? (avg >= 67 ? 'text-blue-600' : avg >= 34 ? 'text-amber-600' : 'text-red-500') : '';
               const rowBg = isScored
-                ? (rankNum <= 3 ? 'bg-gradient-to-r from-primary/5 to-transparent border-primary/20 shadow-sm' : 'bg-white border-border/50')
+                ? (displayRank <= 3 ? 'bg-gradient-to-r from-primary/5 to-transparent border-primary/20 shadow-sm' : 'bg-white border-border/50')
                 : isPending ? 'bg-muted/40 border-border/30'
                 : 'bg-muted/20 border-border/20';
               return (
@@ -1584,7 +1592,7 @@ function RankingTab() {
                     {medal
                       ? <span className="text-xl leading-none">{medal}</span>
                       : isScored
-                        ? <span className="text-sm font-black text-muted-foreground">{rankNum}</span>
+                        ? <span className="text-sm font-black text-muted-foreground">{displayRank}</span>
                         : <span className="text-sm font-black text-muted-foreground/30">-</span>
                     }
                   </div>
