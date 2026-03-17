@@ -49,6 +49,8 @@ type GuideFormData = {
   newImageFiles: File[];
   videoFile?: File | null;
   videoUrl?: string;
+  existingAttachFileUrls: string[];
+  newAttachFiles: File[];
   validFromYear?: number | null;
   validFromMonth?: number | null;
   validToYear?: number | null;
@@ -73,6 +75,11 @@ function GuideForm({
     return single ? [single] : [];
   };
 
+  const getInitialAttachFileUrls = () => {
+    const urls = (initial as any)?.attachFileUrls as string[] | null;
+    return urls && urls.length > 0 ? urls : [];
+  };
+
   const [form, setForm] = useState<GuideFormData>({
     category: initial?.category || '농산',
     product: initial?.product || '',
@@ -84,6 +91,8 @@ function GuideForm({
     newImageFiles: [],
     videoFile: null,
     videoUrl: (initial as any)?.videoUrl || '',
+    existingAttachFileUrls: getInitialAttachFileUrls(),
+    newAttachFiles: [],
     validFromYear: (initial as any)?.validFromYear ?? null,
     validFromMonth: (initial as any)?.validFromMonth ?? null,
     validToYear: (initial as any)?.validToYear ?? null,
@@ -102,6 +111,7 @@ function GuideForm({
   });
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const attachFileRef = useRef<HTMLInputElement>(null);
 
   const { data: dbProducts = [] } = useProducts(form.category);
 
@@ -149,6 +159,27 @@ function GuideForm({
     setForm(f => ({ ...f, videoFile: null, videoUrl: '' }));
     setVideoFileName('');
     if (videoRef.current) videoRef.current.value = '';
+  };
+
+  const handleAttachFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setForm(f => ({ ...f, newAttachFiles: [...f.newAttachFiles, ...files] }));
+    if (attachFileRef.current) attachFileRef.current.value = '';
+  };
+
+  const removeExistingAttachFile = (idx: number) => {
+    setForm(f => ({ ...f, existingAttachFileUrls: f.existingAttachFileUrls.filter((_, i) => i !== idx) }));
+  };
+
+  const removeNewAttachFile = (idx: number) => {
+    setForm(f => ({ ...f, newAttachFiles: f.newAttachFiles.filter((_, i) => i !== idx) }));
+  };
+
+  const getAttachFileName = (url: string) => {
+    const sep = url.indexOf('||');
+    if (sep !== -1) return url.substring(0, sep);
+    return url.split('/').pop() || url;
   };
 
   const updateListItem = (field: 'points' | 'items', idx: number, val: string) => {
@@ -354,6 +385,42 @@ function GuideForm({
             </button>
           )}
           <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={handleVideoChange} />
+        </div>
+      )}
+
+      {form.guideType === 'quality' && (
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-purple-700">첨부 파일 <span className="text-xs text-muted-foreground font-normal">(JPG · PDF · Excel 등)</span></label>
+          <div className="space-y-2">
+            {form.existingAttachFileUrls.map((url, idx) => (
+              <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-200">
+                <FileText className="w-5 h-5 text-purple-500 shrink-0" />
+                <span className="flex-1 text-sm text-purple-800 truncate">{getAttachFileName(url)}</span>
+                <button type="button" onClick={() => removeExistingAttachFile(idx)} className="p-1.5 rounded-lg bg-purple-200 text-purple-700 hover:bg-purple-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            {form.newAttachFiles.map((file, idx) => (
+              <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-200">
+                <FileText className="w-5 h-5 text-purple-500 shrink-0" />
+                <span className="flex-1 text-sm text-purple-800 truncate">{file.name}</span>
+                <button type="button" onClick={() => removeNewAttachFile(idx)} className="p-1.5 rounded-lg bg-purple-200 text-purple-700 hover:bg-purple-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => attachFileRef.current?.click()}
+            className="w-full py-5 rounded-2xl border-2 border-dashed border-purple-300 bg-purple-50 flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-all"
+            data-testid="button-guide-attach-file"
+          >
+            <Paperclip className="w-8 h-8 text-purple-400" />
+            <span className="text-sm text-purple-600 font-medium">파일 첨부 (여러 개 가능)</span>
+          </button>
+          <input ref={attachFileRef} type="file" multiple accept=".jpg,.jpeg,.png,.pdf,.xlsx,.xls,.csv,.hwp,.pptx,.ppt,.docx,.doc" className="hidden" onChange={handleAttachFilesChange} />
         </div>
       )}
 
@@ -1031,6 +1098,15 @@ export default function GuideAdmin() {
       videoUrl = await uploadFile(data.videoFile);
     }
 
+    // Upload new attach files in parallel (stored as "filename||objectPath")
+    const uploadedAttachUrls: string[] = await Promise.all(
+      (data.newAttachFiles as File[]).map(async (f: File) => {
+        const objectPath = await uploadFile(f);
+        return `${f.name}||${objectPath}`;
+      })
+    );
+    const allAttachFileUrls = [...(data.existingAttachFileUrls as string[]), ...uploadedAttachUrls];
+
     return {
       category: data.category,
       product: data.product,
@@ -1041,6 +1117,7 @@ export default function GuideAdmin() {
       imageUrl: allImageUrls[0] || null,
       imageUrls: allImageUrls.length > 0 ? allImageUrls : null,
       videoUrl: videoUrl || null,
+      attachFileUrls: allAttachFileUrls.length > 0 ? allAttachFileUrls : null,
       validFromYear: data.validFromYear ?? null,
       validFromMonth: data.validFromMonth ?? null,
       validToYear: data.validToYear ?? null,
@@ -1336,6 +1413,18 @@ export default function GuideAdmin() {
                                   <span className="text-secondary">{point}</span>
                                 </div>
                               ))}
+                              {((guide as any).attachFileUrls as string[] | null)?.filter(Boolean).map((entry, i) => {
+                                const sep = entry.indexOf('||');
+                                const name = sep !== -1 ? entry.substring(0, sep) : entry.split('/').pop() || entry;
+                                const url = sep !== -1 ? entry.substring(sep + 2) : entry;
+                                return (
+                                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" download={name}
+                                    className="flex items-center gap-2 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5 mt-1">
+                                    <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                                    <span className="truncate">{name}</span>
+                                  </a>
+                                );
+                              })}
                             </div>
                           )}
                         </>

@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
   Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
-  Calendar, BarChart3, FileText, Download,
+  Calendar, BarChart3, FileText, Download, Paperclip,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -710,6 +710,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
     if (urls && urls.length > 0) return urls;
     return qualityGuide?.imageUrl ? [qualityGuide.imageUrl] : [];
   })();
+  const qualityGuideAttachFiles: string[] = (qualityGuide as any)?.attachFileUrls ?? [];
   const effectiveInspectionType = qualityOnly ? 'quality' : adOnly ? 'ad' : (adGuide && !hasVmGuide ? 'ad' : 'vm');
   const allItemsChecked = effectiveInspectionType === 'ad'
     ? true
@@ -1260,6 +1261,33 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                     <p className="text-base font-medium text-secondary leading-tight">{point}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {qualityGuideAttachFiles.length > 0 && (
+            <div className="bg-purple-50 rounded-3xl border border-purple-200 p-4 space-y-2">
+              <h4 className="text-sm font-bold text-purple-700 flex items-center gap-2">
+                <Paperclip className="w-4 h-4" />첨부 파일
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {qualityGuideAttachFiles.map((entry, i) => {
+                  const { name, url } = parseFileEntry(entry);
+                  return (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={name}
+                      className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 transition-all text-white text-xs font-bold px-3 py-2 rounded-full shrink-0"
+                      data-testid={`link-quality-attach-file-${i}`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span className="max-w-[140px] truncate">{name}</span>
+                    </a>
+                  );
+                })}
               </div>
             </div>
           )}
