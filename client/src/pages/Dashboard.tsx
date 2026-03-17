@@ -1467,6 +1467,11 @@ function RankingTab() {
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const ALL_BRANCHES = BRANCHES.slice(1);
+  const STORE_TYPE_ORDER: Record<string, number> = {};
+  const LARGE = ['강남','강서','야탑','불광','송파','부천','평촌','분당','신구로'];
+  const MEDIUM = ['구의','유성','일산','수성','광명','쇼핑','해운대','산본','동수원','괴정'];
+  const SMALL = ['부산대','인천','안양','고잔','중계','김포','강북','청주'];
+  [...LARGE,...MEDIUM,...SMALL].forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
 
   const { data: agriAll, isLoading } = useChecklists({ category: '농산' });
 
@@ -1500,27 +1505,29 @@ function RankingTab() {
     });
     const scoredList = Object.entries(byBranch)
       .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length, status: 'scored' as const }))
-      .sort((a, b) => b.avg - a.avg);
-    const pendingList = [...pendingSet].map(branch => ({ branch, avg: null as number | null, count: 0, status: 'pending' as const }));
+      .sort((a, b) => b.avg - a.avg || (STORE_TYPE_ORDER[a.branch] ?? 99) - (STORE_TYPE_ORDER[b.branch] ?? 99));
+    const pendingList = ALL_BRANCHES.filter(br => pendingSet.has(br))
+      .sort((a, b) => (STORE_TYPE_ORDER[a] ?? 99) - (STORE_TYPE_ORDER[b] ?? 99))
+      .map(branch => ({ branch, avg: null as number | null, count: 0, status: 'pending' as const }));
     const scoredSet = new Set(Object.keys(byBranch));
     const noneList = ALL_BRANCHES.filter(br => !scoredSet.has(br) && !pendingSet.has(br))
+      .sort((a, b) => (STORE_TYPE_ORDER[a] ?? 99) - (STORE_TYPE_ORDER[b] ?? 99))
       .map(branch => ({ branch, avg: null as number | null, count: 0, status: 'none' as const }));
     return [...scoredList, ...pendingList, ...noneList];
   }, [agriPeriod, rankType]);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-3 space-y-2">
       {/* Year/Month filter */}
-      <div className="flex gap-2 items-center">
-        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+      <div className="flex gap-1.5 items-center">
         <select value={rankYear} onChange={e => setRankYear(Number(e.target.value))}
-          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary">
+          className="bg-muted border-none rounded-lg px-2 py-1.5 font-bold text-xs outline-none text-secondary shrink-0">
           {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
         </select>
         <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1 touch-pan-x">
           {monthOptions.map(m => (
             <button key={m} onClick={() => setRankMonth(m)}
-              className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+              className={`shrink-0 px-2 py-1 rounded-lg font-bold text-xs transition-all active:scale-95 ${
                 rankMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground'
               }`}>
               {m}월
@@ -1529,11 +1536,11 @@ function RankingTab() {
         </div>
       </div>
 
-      {/* VM / Ad toggle */}
-      <div className="flex gap-1.5">
+      {/* VM / Ad toggle + Grade legend in one row */}
+      <div className="flex gap-1.5 items-center">
         {([['vm', 'VM 진열'], ['ad', '📢 광고']] as const).map(([val, label]) => (
           <button key={val} onClick={() => setRankType(val)}
-            className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
+            className={`py-1.5 px-3 rounded-lg font-bold text-xs transition-all active:scale-95 border ${
               rankType === val
                 ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
                 : 'bg-primary text-white border-primary shadow-sm'
@@ -1542,25 +1549,21 @@ function RankingTab() {
             {label}
           </button>
         ))}
+        <div className="flex gap-1 ml-auto">
+          {(['A', 'B', 'C'] as const).map(g => (
+            <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
+          ))}
+        </div>
+        <span className="text-[10px] text-muted-foreground">67/34기준</span>
       </div>
 
-      {/* Grade legend */}
-      <div className="flex gap-2">
-        {(['A', 'B', 'C'] as const).map(g => (
-          <div key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${gradeColor(g)}`}>
-            <span className="font-black text-sm">{g}</span>
-            <span className="font-normal">{g === 'A' ? '67~100점' : g === 'B' ? '34~66점' : '0~33점'}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Ranking table */}
+      {/* Ranking list */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="w-8 h-8 animate-spin" />
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin" />
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-0.5">
           {(() => {
             let position = 0;
             let displayRank = 0;
@@ -1580,43 +1583,42 @@ function RankingTab() {
               const gColor = gradeColor(grade);
               const avgColor = avg != null ? (avg >= 67 ? 'text-blue-600' : avg >= 34 ? 'text-amber-600' : 'text-red-500') : '';
               const rowBg = isScored
-                ? (displayRank <= 3 ? 'bg-gradient-to-r from-primary/5 to-transparent border-primary/20 shadow-sm' : 'bg-white border-border/50')
-                : isPending ? 'bg-muted/40 border-border/30'
-                : 'bg-muted/20 border-border/20';
+                ? (displayRank <= 3 ? 'bg-gradient-to-r from-primary/5 to-transparent border-primary/15' : 'bg-white border-border/40')
+                : isPending ? 'bg-muted/30 border-border/20'
+                : 'bg-muted/10 border-transparent';
               return (
                 <div key={branch}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 ${rowBg}`}
+                  className={`flex items-center gap-2 px-2.5 py-1 rounded-xl border ${rowBg}`}
                   data-testid={`row-ranking-${branch}`}>
                   {/* Rank */}
-                  <div className="w-8 text-center shrink-0">
+                  <div className="w-6 text-center shrink-0">
                     {medal
-                      ? <span className="text-xl leading-none">{medal}</span>
+                      ? <span className="text-base leading-none">{medal}</span>
                       : isScored
-                        ? <span className="text-sm font-black text-muted-foreground">{displayRank}</span>
-                        : <span className="text-sm font-black text-muted-foreground/30">-</span>
+                        ? <span className="text-xs font-black text-muted-foreground">{displayRank}</span>
+                        : <span className="text-xs font-black text-muted-foreground/20">-</span>
                     }
                   </div>
                   {/* Branch */}
                   <div className="flex-1 min-w-0">
-                    <span className={`font-bold text-base ${isScored ? 'text-secondary' : 'text-muted-foreground/60'}`}>{branch}점</span>
-                    {isScored && <span className="text-xs text-muted-foreground ml-1.5">{count}건</span>}
+                    <span className={`font-bold text-sm ${isScored ? 'text-secondary' : 'text-muted-foreground/50'}`}>{branch}점</span>
                   </div>
                   {/* Score */}
-                  <div className="w-16 text-right shrink-0">
+                  <div className="w-12 text-right shrink-0">
                     {isScored ? (
-                      <span className={`text-xl font-black ${avgColor}`}>{avg}<span className="text-xs font-medium text-muted-foreground ml-0.5">점</span></span>
+                      <span className={`text-sm font-black ${avgColor}`}>{avg}<span className="text-[10px] font-medium text-muted-foreground ml-0.5">점</span></span>
                     ) : isPending ? (
-                      <span className="text-xs font-bold text-muted-foreground">미평가</span>
+                      <span className="text-[10px] font-bold text-muted-foreground">미평가</span>
                     ) : (
-                      <span className="text-xs font-bold text-muted-foreground/40">미점검</span>
+                      <span className="text-[10px] font-bold text-muted-foreground/30">미점검</span>
                     )}
                   </div>
                   {/* Grade */}
-                  <div className="w-10 text-center shrink-0">
+                  <div className="w-8 text-center shrink-0">
                     {grade ? (
-                      <span className={`text-base font-black px-2 py-0.5 rounded-lg border ${gColor}`}>{grade}</span>
+                      <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${gColor}`}>{grade}</span>
                     ) : (
-                      <span className="text-xs text-muted-foreground/30">-</span>
+                      <span className="text-xs text-muted-foreground/20">-</span>
                     )}
                   </div>
                 </div>
@@ -1625,7 +1627,7 @@ function RankingTab() {
           })()}
         </div>
       )}
-      <p className="text-center text-xs text-muted-foreground pt-1">농산 카테고리 기준 · 관리자 입력 점수</p>
+      <p className="text-center text-[10px] text-muted-foreground">농산 카테고리 기준 · 관리자 입력 점수</p>
     </div>
   );
 }
