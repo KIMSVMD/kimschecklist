@@ -47,8 +47,8 @@ export function scoreLabel(score: number): string {
 
 export function getGrade(score: number | null): 'A' | 'B' | 'C' | null {
   if (score == null) return null;
-  if (score >= 67) return 'A';
-  if (score >= 34) return 'B';
+  if (score >= 80) return 'A';
+  if (score >= 60) return 'B';
   return 'C';
 }
 

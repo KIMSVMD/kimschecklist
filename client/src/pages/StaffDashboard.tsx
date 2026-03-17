@@ -610,7 +610,7 @@ export default function StaffDashboard() {
                       {(['A', 'B', 'C'] as const).map(g => (
                         <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
                       ))}
-                      <span className="text-[10px] text-muted-foreground ml-1">67/34/0 기준</span>
+                      <span className="text-[10px] text-muted-foreground ml-1">80/60/0 기준</span>
                     </div>
                     {sortedRanking.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">

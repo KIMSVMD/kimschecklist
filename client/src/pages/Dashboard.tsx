@@ -1562,7 +1562,7 @@ function RankingTab() {
             <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
           ))}
         </div>
-        <span className="text-[10px] text-muted-foreground">67/34/0 기준</span>
+        <span className="text-[10px] text-muted-foreground">80/60/0 기준</span>
       </div>
 
       {/* Ranking list */}
@@ -1589,7 +1589,7 @@ function RankingTab() {
               const medal = displayRank === 1 && isScored ? '🥇' : displayRank === 2 && isScored ? '🥈' : displayRank === 3 && isScored ? '🥉' : null;
               const grade = getGrade(avg);
               const gColor = gradeColor(grade);
-              const avgColor = avg != null ? (avg >= 67 ? 'text-blue-600' : avg >= 34 ? 'text-amber-600' : 'text-red-500') : '';
+              const avgColor = avg != null ? (avg >= 80 ? 'text-blue-600' : avg >= 60 ? 'text-amber-600' : 'text-red-500') : '';
               const rowBg = isScored
                 ? (displayRank <= 3 ? 'bg-gradient-to-r from-primary/5 to-transparent border-primary/15' : 'bg-white border-border/40')
                 : isPending ? 'bg-muted/30 border-border/20'
