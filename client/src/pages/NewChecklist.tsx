@@ -157,7 +157,7 @@ export default function NewChecklist() {
               }`}
               data-testid="tab-new-ad"
             >
-              <span className="text-base leading-none">📢</span> 광고(+영상)
+              광고(+영상)
               {pendingAdGuideNotifs.length > 0 && (
                 <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
                   {pendingAdGuideNotifs.length}
@@ -171,7 +171,7 @@ export default function NewChecklist() {
               }`}
               data-testid="tab-new-quality"
             >
-              <span className="text-base leading-none">⭐</span> 품질
+              품질
               {pendingQualityGuideNotifs.length > 0 && (
                 <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
                   {pendingQualityGuideNotifs.length}
@@ -735,7 +735,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-10">
       <div className="border-b-2 border-border pb-4">
-        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {effectiveInspectionType === 'ad' ? '📢 광고(+영상) 점검' : effectiveInspectionType === 'quality' ? '⭐ 품질 점검' : '진열 점검'}</p>
+        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {effectiveInspectionType === 'ad' ? '광고(+영상) 점검' : effectiveInspectionType === 'quality' ? '품질 점검' : '진열 점검'}</p>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <h2 className="text-xl font-black text-secondary">{displayProduct}</h2>
           {(adOnly || effectiveInspectionType === 'ad') && (adGuide as any)?.videoUrl && (

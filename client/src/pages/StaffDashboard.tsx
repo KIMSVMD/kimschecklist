@@ -309,7 +309,7 @@ export default function StaffDashboard() {
               }`}
               data-testid="tab-staff-ad"
             >
-              <span className="text-base leading-none">📢</span> 광고(+영상)
+              광고(+영상)
             </button>
             <button
               onClick={() => setActiveTab('quality')}
@@ -318,7 +318,7 @@ export default function StaffDashboard() {
               }`}
               data-testid="tab-staff-quality"
             >
-              <span className="text-base leading-none">⭐</span> 품질
+              품질
             </button>
             <button
               onClick={() => setActiveTab('cleaning')}

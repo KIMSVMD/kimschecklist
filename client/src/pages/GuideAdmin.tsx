@@ -1158,7 +1158,7 @@ export default function GuideAdmin() {
                   }`}
                   data-testid="tab-guide-type-ad"
                 >
-                  📢 광고(+영상)
+                  광고(+영상)
                 </button>
                 <button
                   onClick={() => setGuideTypeFilter('quality')}
@@ -1167,7 +1167,7 @@ export default function GuideAdmin() {
                   }`}
                   data-testid="tab-guide-type-quality"
                 >
-                  ⭐ 품질
+                  품질
                 </button>
               </div>
 
