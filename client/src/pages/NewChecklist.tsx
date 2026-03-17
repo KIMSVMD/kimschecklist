@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto, useChecklists } from "@/hooks/use-checklists";
-import { useGuidesByProduct, useAdGuidesByProduct, useValidGuideProducts } from "@/hooks/use-guides";
+import { useGuidesByProduct, useAdGuidesByProduct, useQualityGuidesByProduct, useValidGuideProducts } from "@/hooks/use-guides";
 import { useProducts, useProductByName } from "@/hooks/use-products";
 import { useGuideNotifications } from "@/hooks/use-notifications";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,7 +30,7 @@ export default function NewChecklist() {
   const { toast } = useToast();
 
   const [branch, setBranch] = useState('');
-  const [activeTab, setActiveTab] = useState<'vm' | 'ad' | 'cleaning'>('vm');
+  const [activeTab, setActiveTab] = useState<'vm' | 'ad' | 'quality' | 'cleaning'>('vm');
 
   const nowDate = new Date();
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
@@ -64,6 +64,14 @@ export default function NewChecklist() {
       return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct === 'ad';
     }));
 
+  // Quality tab: products with a valid Quality guide for selYear/selMonth, not yet submitted
+  const pendingQualityGuideNotifs = validGuideProducts
+    .filter(g => g.guideType === 'quality')
+    .filter(g => !branchChecklists.some(c => {
+      const ct = (c as any).checklistType || 'vm';
+      return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct === 'quality';
+    }));
+
   const resetVm = () => {
     setVmStage('category');
     setSelCategory('');
@@ -74,7 +82,7 @@ export default function NewChecklist() {
     setNotes('');
   };
 
-  const handleTabChange = (tab: 'vm' | 'ad' | 'cleaning') => {
+  const handleTabChange = (tab: 'vm' | 'ad' | 'quality' | 'cleaning') => {
     setActiveTab(tab);
     if (tab !== 'cleaning') resetVm();
   };
@@ -145,14 +153,28 @@ export default function NewChecklist() {
             <button
               onClick={() => handleTabChange('ad')}
               className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'ad' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+                activeTab === 'ad' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-new-ad"
             >
-              <span className="text-base leading-none">📢</span> 광고 점검
+              <span className="text-base leading-none">📢</span> 광고
               {pendingAdGuideNotifs.length > 0 && (
                 <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
                   {pendingAdGuideNotifs.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => handleTabChange('quality')}
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
+              }`}
+              data-testid="tab-new-quality"
+            >
+              <span className="text-base leading-none">⭐</span> 품질
+              {pendingQualityGuideNotifs.length > 0 && (
+                <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
+                  {pendingQualityGuideNotifs.length}
                 </span>
               )}
             </button>
@@ -167,8 +189,8 @@ export default function NewChecklist() {
             </button>
           </div>
 
-          {/* Year/Month filter — VM / Ad tabs */}
-          {(activeTab === 'vm' || activeTab === 'ad') && (
+          {/* Year/Month filter — VM / Ad / Quality tabs */}
+          {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
             <div className="space-y-2">
               <div className="flex gap-2 items-center">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -218,6 +240,32 @@ export default function NewChecklist() {
                 <p className="font-bold text-xl text-secondary">지점을 선택해주세요</p>
                 <p className="text-base">점검을 등록할 지점을 먼저 선택하세요</p>
               </motion.div>
+            ) : activeTab === 'quality' ? (
+              /* Quality tab */
+              <VMContent
+                key="quality"
+                adOnly={false}
+                qualityOnly={true}
+                branch={branch}
+                selYear={selYear}
+                selMonth={selMonth}
+                vmStage={vmStage}
+                setVmStage={setVmStage}
+                selCategory={selCategory}
+                setSelCategory={setSelCategory}
+                selGroup={selGroup}
+                setSelGroup={setSelGroup}
+                selProduct={selProduct}
+                setSelProduct={setSelProduct}
+                items={items}
+                setItems={setItems}
+                photoUrls={photoUrls}
+                setPhotoUrls={setPhotoUrls}
+                notes={notes}
+                setNotes={setNotes}
+                onReset={resetVm}
+                pendingGuideNotifs={pendingQualityGuideNotifs}
+              />
             ) : activeTab === 'ad' ? (
               /* Ad tab */
               <VMContent
@@ -300,6 +348,7 @@ export default function NewChecklist() {
 // ─── VM Content ───────────────────────────────────────────────────────────────
 type VMContentProps = {
   adOnly: boolean;
+  qualityOnly?: boolean;
   branch: string;
   selYear: number; selMonth: number;
   vmStage: VMStage; setVmStage: (s: VMStage) => void;
@@ -313,7 +362,7 @@ type VMContentProps = {
   pendingGuideNotifs: { product: string; category: string }[];
 };
 
-function VMContent({ adOnly, branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset, pendingGuideNotifs }: VMContentProps) {
+function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset, pendingGuideNotifs }: VMContentProps) {
   const { data: dbProducts = [], isLoading } = useProducts(selCategory);
   const groups = Array.from(new Set(dbProducts.map(p => p.groupName)));
 
@@ -447,6 +496,7 @@ function VMContent({ adOnly, branch, selYear, selMonth, vmStage, setVmStage, sel
           <ItemsForm
             key="items"
             adOnly={adOnly}
+            qualityOnly={qualityOnly}
             branch={branch} selYear={selYear} selMonth={selMonth}
             selCategory={selCategory} selProduct={selProduct}
             items={items} setItems={setItems}
@@ -463,6 +513,7 @@ function VMContent({ adOnly, branch, selYear, selMonth, vmStage, setVmStage, sel
 // ─── Items Form ───────────────────────────────────────────────────────────────
 type ItemsFormProps = {
   adOnly: boolean;
+  qualityOnly?: boolean;
   branch: string; selYear: number; selMonth: number;
   selCategory: string; selProduct: string;
   items: Record<string, string>; setItems: (v: Record<string, string>) => void;
@@ -471,12 +522,13 @@ type ItemsFormProps = {
   onReset: () => void;
 };
 
-function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset }: ItemsFormProps) {
+function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, selCategory, selProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset }: ItemsFormProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
   const { data: allGuides = [], isLoading: guideLoading } = useGuidesByProduct(selProduct, selYear, selMonth);
   const { data: allAdGuides = [] } = useAdGuidesByProduct(selProduct, selYear, selMonth);
+  const { data: allQualityGuides = [] } = useQualityGuidesByProduct(selProduct, selYear, selMonth);
   const { notifications: guideNotifs, dismiss: dismissGuide } = useGuideNotifications();
   const relevantGuideNotif = guideNotifs.find(n =>
     (!n.product || n.product === selProduct) &&
@@ -501,6 +553,18 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
   const adFileInputRef = useRef<HTMLInputElement>(null);
   const adPhotoUrlsRef = useRef<string[]>([]);
   adPhotoUrlsRef.current = adPhotoUrls;
+  // Quality guide states
+  const qualityGuide = allQualityGuides[0] ?? null;
+  const qualityGuideItems: string[] = (qualityGuide?.items as string[])?.filter(Boolean) || [];
+  const qualityGuidePoints: string[] = (qualityGuide?.points as string[]) || [];
+  const [qualityItems, setQualityItems] = useState<Record<string, string>>({});
+  const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
+  const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
+  const [qualityUploadingCount, setQualityUploadingCount] = useState(0);
+  const [qualityNotes, setQualityNotes] = useState('');
+  const qualityFileInputRef = useRef<HTMLInputElement>(null);
+  const qualityPhotoUrlsRef = useRef<string[]>([]);
+  qualityPhotoUrlsRef.current = qualityPhotoUrls;
   const [localPreviews, setLocalPreviews] = useState<string[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -562,11 +626,37 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
     setAdLocalPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleQualityFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+    const previews = files.map(f => URL.createObjectURL(f));
+    setQualityLocalPreviews(prev => [...prev, ...previews]);
+    setQualityUploadingCount(c => c + files.length);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      const uploaded: string[] = [];
+      results.forEach((r) => { if (r.status === 'fulfilled') uploaded.push(r.value); });
+      if (uploaded.length > 0) setQualityPhotoUrls([...qualityPhotoUrlsRef.current, ...uploaded]);
+    } finally {
+      setQualityUploadingCount(0);
+    }
+  };
+
+  const removeQualityPhoto = (index: number) => {
+    setQualityPhotoUrls(qualityPhotoUrls.filter((_, i) => i !== index));
+    setQualityLocalPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   const submitForm = async () => {
     const isAd = effectiveInspectionType === 'ad';
+    const isQuality = effectiveInspectionType === 'quality';
     const hasNotok = isAd
       ? Object.values(adItems).includes('notok')
-      : Object.values(items).includes('notok');
+      : isQuality
+        ? Object.values(qualityItems).includes('notok')
+        : Object.values(items).includes('notok');
     const finalStatus = hasNotok ? 'poor' : 'excellent';
     try {
       const created = await createMutation.mutateAsync({
@@ -574,17 +664,22 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
         category: selCategory,
         product: selProduct,
         status: finalStatus,
-        checklistType: isAd ? 'ad' : 'vm',
-        photoUrl: isAd ? (adPhotoUrls[0] || null) : (photoUrls[0] || null),
-        photoUrls: isAd ? (adPhotoUrls.length > 0 ? adPhotoUrls : null) : (photoUrls.length > 0 ? photoUrls : null),
-        notes: isAd ? null : (notes || null),
-        items: isAd ? {} : items,
+        checklistType: isAd ? 'ad' : isQuality ? 'quality' : 'vm',
+        photoUrl: isAd ? (adPhotoUrls[0] || null) : isQuality ? (qualityPhotoUrls[0] || null) : (photoUrls[0] || null),
+        photoUrls: isAd ? (adPhotoUrls.length > 0 ? adPhotoUrls : null) : isQuality ? (qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null) : (photoUrls.length > 0 ? photoUrls : null),
+        notes: isAd ? null : isQuality ? null : (notes || null),
+        items: isAd ? {} : isQuality ? {} : items,
         year: selYear,
         month: selMonth,
         ...(isAd && {
           adItems: Object.keys(adItems).length > 0 ? adItems : null,
           adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
           adNotes: adNotes.trim() || null,
+        }),
+        ...(isQuality && {
+          qualityItems: Object.keys(qualityItems).length > 0 ? qualityItems : null,
+          qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
+          qualityNotes: qualityNotes.trim() || null,
         }),
       } as any);
       toast({ title: "제출 완료!" });
@@ -607,12 +702,20 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
   })();
   const [vmImgIdx, setVmImgIdx] = useState(0);
   const [adImgIdx, setAdImgIdx] = useState(0);
+  const [qualityImgIdx, setQualityImgIdx] = useState(0);
   const guidePoints: string[] = (dbGuide?.points as string[]) || [];
   const guideItems: string[] = (dbGuide?.items as string[])?.filter(Boolean) || [];
-  const effectiveInspectionType = adOnly ? 'ad' : (adGuide && !hasVmGuide ? 'ad' : 'vm');
+  const qualityGuideImages: string[] = (() => {
+    const urls = (qualityGuide as any)?.imageUrls as string[] | null;
+    if (urls && urls.length > 0) return urls;
+    return qualityGuide?.imageUrl ? [qualityGuide.imageUrl] : [];
+  })();
+  const effectiveInspectionType = qualityOnly ? 'quality' : adOnly ? 'ad' : (adGuide && !hasVmGuide ? 'ad' : 'vm');
   const allItemsChecked = effectiveInspectionType === 'ad'
     ? true
-    : (guideItems.length === 0 || guideItems.every(item => items[item]));
+    : effectiveInspectionType === 'quality'
+      ? true
+      : (guideItems.length === 0 || guideItems.every(item => items[item]));
 
   const displayProduct = selProduct?.replace(/\[(.+?)\](.*)/, (_: string, g: string, rest: string) => rest ? `${g} > ${rest}` : g) || selProduct;
 
@@ -632,7 +735,7 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-10">
       <div className="border-b-2 border-border pb-4">
-        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {adOnly ? '📢 광고 점검' : 'VM 점검'}</p>
+        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {effectiveInspectionType === 'ad' ? '📢 광고 점검' : effectiveInspectionType === 'quality' ? '⭐ 품질 점검' : 'VM 점검'}</p>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <h2 className="text-xl font-black text-secondary">{displayProduct}</h2>
           {(adOnly || effectiveInspectionType === 'ad') && (adGuide as any)?.videoUrl && (
@@ -1078,6 +1181,187 @@ function ItemsForm({ adOnly, branch, selYear, selMonth, selCategory, selProduct,
               rows={3}
               className="w-full rounded-2xl border-2 border-border bg-white px-4 py-3 text-base text-secondary placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 resize-none"
               data-testid="textarea-ad-notes"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Quality Inspection Section */}
+      {effectiveInspectionType === 'quality' && !qualityGuide && (
+        <div className="bg-muted/30 rounded-3xl border border-border p-6 text-center text-muted-foreground">
+          <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-40" />
+          <p>이 상품의 품질 가이드가 아직 등록되지 않았습니다.</p>
+        </div>
+      )}
+      {effectiveInspectionType === 'quality' && qualityGuide && (
+        <div className="space-y-5 pt-2">
+          {qualityGuideImages.length > 0 && (
+            <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="text-purple-400 w-6 h-6" />
+                <h3 className="text-xl font-bold">품질 가이드</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="relative">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
+                        <img src={qualityGuideImages[qualityImgIdx]} alt="Quality Guide" className="w-full h-full object-contain bg-white" />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="bg-white/90 text-secondary px-4 py-2 rounded-full font-bold text-sm">클릭하여 확대</span>
+                        </div>
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
+                      <div className="w-full h-full flex items-center justify-center p-4">
+                        <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit>
+                          <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+                            <img src={qualityGuideImages[qualityImgIdx]} alt="Quality Guide Full" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto" />
+                          </TransformComponent>
+                        </TransformWrapper>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  {qualityGuideImages.length > 1 && (
+                    <>
+                      <button onClick={() => setQualityImgIdx(i => (i - 1 + qualityGuideImages.length) % qualityGuideImages.length)}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10">
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => setQualityImgIdx(i => (i + 1) % qualityGuideImages.length)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10">
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+                {qualityGuideImages.length > 1 && (
+                  <div className="flex justify-center items-center gap-1.5">
+                    {qualityGuideImages.map((_, i) => (
+                      <button key={i} onClick={() => setQualityImgIdx(i)}
+                        className={`rounded-full transition-all ${i === qualityImgIdx ? 'w-4 h-2 bg-white' : 'w-2 h-2 bg-white/40'}`} />
+                    ))}
+                    <span className="text-xs text-white/60 ml-1">{qualityImgIdx + 1}/{qualityGuideImages.length}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {qualityGuidePoints.length > 0 && (
+            <div className="bg-muted/50 rounded-3xl border border-border p-5 space-y-3">
+              <h4 className="text-lg font-bold text-secondary flex items-center gap-2">
+                <div className="w-2 h-6 bg-purple-500 rounded-full" />품질 핵심 포인트
+              </h4>
+              <div className="space-y-2">
+                {qualityGuidePoints.map((point, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
+                    <div className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                    <p className="text-base font-medium text-secondary leading-tight">{point}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quality photo upload */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-secondary">현장 사진 촬영</h3>
+              {qualityLocalPreviews.length > 0 && <span className="text-sm font-bold text-muted-foreground">{qualityLocalPreviews.length}장</span>}
+            </div>
+            {qualityLocalPreviews.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {qualityLocalPreviews.map((preview, i) => (
+                  <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-purple-300 bg-muted">
+                    <PhotoThumbnail src={i < qualityPhotoUrls.length ? qualityPhotoUrls[i] : null} className="w-full h-full block">
+                      <img src={preview} alt={`품질 사진 ${i + 1}`} className="w-full h-full object-cover" />
+                    </PhotoThumbnail>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeQualityPhoto(i); }}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                      data-testid={`btn-remove-quality-photo-${i}`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                    {i >= qualityPhotoUrls.length && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => qualityFileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-purple-400/40 bg-purple-50 active:scale-[0.98] transition-all"
+              data-testid="btn-add-quality-photo"
+            >
+              {qualityUploadingCount > 0
+                ? <><Loader2 className="w-7 h-7 text-purple-600 animate-spin" /><span className="font-bold text-purple-600 text-lg">업로드 중...</span></>
+                : <><Camera className="w-7 h-7 text-purple-600" /><span className="font-bold text-purple-600 text-lg">{qualityLocalPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
+              }
+            </button>
+            <input ref={qualityFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleQualityFile} />
+          </div>
+
+          {/* Quality items evaluation */}
+          {qualityGuideItems.length > 0 && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h3 className="text-xl font-bold text-secondary">항목별 품질 점검</h3>
+                <p className="text-sm text-muted-foreground">품질 기준과 일치하면 ○, 다르면 ✗를 선택하세요.</p>
+              </div>
+              {qualityGuideItems.map((item) => (
+                <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
+                  qualityItems[item] === 'ok' ? 'border-purple-300 bg-purple-50'
+                  : qualityItems[item] === 'notok' ? 'border-primary bg-red-50'
+                  : 'border-border bg-white'
+                }`}>
+                  <div className="flex items-center justify-between p-4">
+                    <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                    <div className="flex gap-3 shrink-0">
+                      <button
+                        onClick={() => setQualityItems({ ...qualityItems, [item]: 'ok' })}
+                        className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                          qualityItems[item] === 'ok' ? 'bg-purple-500 border-purple-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                        }`}
+                        data-testid={`btn-quality-item-ok-${item}`}
+                      >
+                        <CheckCircle2 className="w-8 h-8" />
+                      </button>
+                      <button
+                        onClick={() => setQualityItems({ ...qualityItems, [item]: 'notok' })}
+                        className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                          qualityItems[item] === 'notok' ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                        }`}
+                        data-testid={`btn-quality-item-notok-${item}`}
+                      >
+                        <XCircle className="w-8 h-8" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm font-medium text-muted-foreground">
+                <span>{Object.keys(qualityItems).length} / {qualityGuideItems.length} 완료</span>
+                {Object.values(qualityItems).includes('notok') && (
+                  <span className="text-primary font-bold">불일치 {Object.values(qualityItems).filter(v => v === 'notok').length}건</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-base font-bold text-secondary">특이사항 (선택)</label>
+            <textarea
+              value={qualityNotes}
+              onChange={e => setQualityNotes(e.target.value)}
+              placeholder="품질 관련 특이사항을 입력하세요..."
+              rows={3}
+              className="w-full rounded-2xl border-2 border-border bg-white px-4 py-3 text-base text-secondary placeholder:text-muted-foreground focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 resize-none"
+              data-testid="textarea-quality-notes"
             />
           </div>
         </div>

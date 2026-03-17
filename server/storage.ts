@@ -63,6 +63,7 @@ export interface IStorage {
   getGuideByProduct(product: string, storeType?: string | null): Promise<Guide | undefined>;
   getGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]>;
   getAdGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]>;
+  getQualityGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]>;
   getAllAdGuideProducts(): Promise<string[]>;
   getValidGuideProducts(year: number, month: number): Promise<{ product: string; category: string; guideType: string }[]>;
   createGuide(guide: InsertGuide): Promise<Guide>;
@@ -144,6 +145,13 @@ export class DatabaseStorage implements IStorage {
   async getAdGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]> {
     const rows = await db.select().from(guides).where(
       and(eq(guides.product, product), eq(guides.guideType, 'ad'))
+    );
+    return filterGuidesByDate(rows, year, month);
+  }
+
+  async getQualityGuidesByProduct(product: string, year?: number, month?: number): Promise<Guide[]> {
+    const rows = await db.select().from(guides).where(
+      and(eq(guides.product, product), eq(guides.guideType, 'quality'))
     );
     return filterGuidesByDate(rows, year, month);
   }

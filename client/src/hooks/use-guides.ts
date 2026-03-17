@@ -77,6 +77,20 @@ export function useAdGuidesByProduct(product: string, year?: number, month?: num
   });
 }
 
+export function useQualityGuidesByProduct(product: string, year?: number, month?: number) {
+  return useQuery<Guide[]>({
+    queryKey: ['/api/quality-guides', product, 'all', year, month],
+    queryFn: async () => {
+      if (!product) return [];
+      const params = year && month ? `?year=${year}&month=${month}` : '';
+      const res = await fetch(`/api/quality-guides/${encodeURIComponent(product)}/all${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch quality guides');
+      return res.json();
+    },
+    enabled: !!product,
+  });
+}
+
 export function useAdminStatus() {
   return useQuery<{ isAdmin: boolean }>({
     queryKey: ['/api/admin/me'],

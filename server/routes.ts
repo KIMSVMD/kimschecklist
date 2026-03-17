@@ -106,6 +106,17 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/quality-guides/:product/all', async (req, res) => {
+    try {
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const month = req.query.month ? parseInt(req.query.month as string) : undefined;
+      const guideList = await storage.getQualityGuidesByProduct(decodeURIComponent(req.params.product), year, month);
+      res.json(guideList);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get('/api/guides/product/:product', async (req, res) => {
     try {
       const storeType = req.query.storeType as string | undefined;
@@ -545,6 +556,26 @@ export async function registerRoutes(
       const score = parseInt(adAdminScore);
       if (isNaN(score) || score < 0 || score > 100) return res.status(400).json({ message: "점수는 0~100 사이여야 합니다." });
       const result = await storage.updateChecklist(id, { adAdminScore: score, adAdminItems: adAdminItems ?? null } as any);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch('/api/checklists/:id/quality-score', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { qualityAdminScore, qualityAdminItems } = req.body;
+      if (qualityAdminScore === undefined || qualityAdminScore === null) {
+        const result = await storage.updateChecklist(id, { qualityAdminScore: null, qualityAdminItems: null } as any);
+        if (!result) return res.status(404).json({ message: "Not found" });
+        return res.json(result);
+      }
+      const score = parseInt(qualityAdminScore);
+      if (isNaN(score) || score < 0 || score > 100) return res.status(400).json({ message: "점수는 0~100 사이여야 합니다." });
+      const result = await storage.updateChecklist(id, { qualityAdminScore: score, qualityAdminItems: qualityAdminItems ?? null } as any);
       if (!result) return res.status(404).json({ message: "Not found" });
       res.json(result);
     } catch (err) {

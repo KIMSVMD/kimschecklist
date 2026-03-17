@@ -204,6 +204,25 @@ export function useUpdateChecklistAdScore() {
   });
 }
 
+export function useUpdateChecklistQualityScore() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, qualityAdminScore, qualityAdminItems }: { id: number; qualityAdminScore: number | null; qualityAdminItems?: Record<string, 'ok' | 'notok'> | null }) => {
+      const res = await fetch(`/api/checklists/${id}/quality-score`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qualityAdminScore, qualityAdminItems: qualityAdminItems ?? null }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('품질 점수 저장 실패');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.checklists.list.path] });
+    },
+  });
+}
+
 export function useUpdateChecklistItemStatus() {
   const queryClient = useQueryClient();
   return useMutation({

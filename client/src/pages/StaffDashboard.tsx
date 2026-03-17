@@ -35,7 +35,7 @@ export default function StaffDashboard() {
 
   const [filterBranch, setFilterBranch] = useState('');
   const [filterCategory, setFilterCategory] = useState('전체');
-  const [activeTab, setActiveTab] = useState<'vm' | 'ad' | 'cleaning'>('vm');
+  const [activeTab, setActiveTab] = useState<'vm' | 'ad' | 'quality' | 'cleaning'>('vm');
   const nowDate = new Date();
   const [vmFilterYear, setVmFilterYear] = useState(nowDate.getFullYear());
   const [vmFilterMonth, setVmFilterMonth] = useState(nowDate.getMonth() + 1);
@@ -83,7 +83,11 @@ export default function StaffDashboard() {
       ? itemYear === vmFilterYear && itemMonth === vmFilterMonth
       : (() => { const d = new Date(item.createdAt); return d.getFullYear() === vmFilterYear && d.getMonth() + 1 === vmFilterMonth; })();
     const itemType = (item as any).checklistType || 'vm';
-    const typeMatch = activeTab === 'ad' ? itemType === 'ad' : itemType !== 'ad';
+    const typeMatch = activeTab === 'ad'
+      ? itemType === 'ad'
+      : activeTab === 'quality'
+        ? itemType === 'quality'
+        : itemType !== 'ad' && itemType !== 'quality';
     return inMonth && typeMatch;
   });
 
@@ -128,6 +132,7 @@ export default function StaffDashboard() {
 
   const vmRanking = buildRanking(item => (item as any).adminScore as number | null, true);
   const adRanking = buildRanking(item => (item as any).adAdminScore as number | null, false);
+  const qualityRanking = buildRanking(item => (item as any).qualityAdminScore as number | null, false);
 
   const { data: cleaningRecords = [], isLoading: cleaningLoading } = useCleaningInspections(
     filterBranch ? { branch: filterBranch } : {}
@@ -304,7 +309,16 @@ export default function StaffDashboard() {
               }`}
               data-testid="tab-staff-ad"
             >
-              <span className="text-base leading-none">📢</span> 광고 점검
+              <span className="text-base leading-none">📢</span> 광고
+            </button>
+            <button
+              onClick={() => setActiveTab('quality')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
+              }`}
+              data-testid="tab-staff-quality"
+            >
+              <span className="text-base leading-none">⭐</span> 품질
             </button>
             <button
               onClick={() => setActiveTab('cleaning')}
@@ -317,8 +331,8 @@ export default function StaffDashboard() {
             </button>
           </div>
 
-          {/* Year/Month filter — VM / Ad tabs */}
-          {(activeTab === 'vm' || activeTab === 'ad') && (
+          {/* Year/Month filter — VM / Ad / Quality tabs */}
+          {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
             <div className="space-y-2">
               <div className="flex gap-2 items-center">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -568,12 +582,12 @@ export default function StaffDashboard() {
 
         {/* No branch selected */}
         {!filterBranch ? (
-          (activeTab === 'vm' || activeTab === 'ad') ? (
+          (activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') ? (
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {(() => {
-                const rawRanking = activeTab === 'vm' ? vmRanking : adRanking;
-                const title = activeTab === 'vm' ? 'VM 진열 월별 피드백' : '광고 월별 피드백';
-                const accentClass = activeTab === 'vm' ? 'text-primary' : 'text-amber-600';
+                const rawRanking = activeTab === 'vm' ? vmRanking : activeTab === 'quality' ? qualityRanking : adRanking;
+                const title = activeTab === 'vm' ? 'VM 진열 월별 피드백' : activeTab === 'quality' ? '품질 월별 피드백' : '광고 월별 피드백';
+                const accentClass = activeTab === 'vm' ? 'text-primary' : activeTab === 'quality' ? 'text-purple-600' : 'text-amber-600';
                 // Sort by grade A→B→C, then same grade: score desc, then 대형→중형→소형
                 const gradeOrder = { A: 0, B: 1, C: 2 } as const;
                 const storeOrder: Record<string, number> = {};
@@ -670,8 +684,8 @@ export default function StaffDashboard() {
         ) : (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-            {/* ── VM / AD TAB ── */}
-            {(activeTab === 'vm' || activeTab === 'ad') && (
+            {/* ── VM / AD / QUALITY TAB ── */}
+            {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
               vmLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                   <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
@@ -682,7 +696,7 @@ export default function StaffDashboard() {
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
                     <ClipboardList className="w-8 h-8 opacity-40" />
                   </div>
-                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 {activeTab === 'ad' ? '광고 점검' : 'VM 점검'} 기록이 없습니다</p>
+                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 {activeTab === 'ad' ? '광고 점검' : activeTab === 'quality' ? '품질 점검' : 'VM 점검'} 기록이 없습니다</p>
                   <Link href="/checklist/new">
                     <button className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-base">
                       새 점검 등록하기
@@ -862,6 +876,61 @@ export default function StaffDashboard() {
                                           <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
                                           <span>→ {adminIsOk ? '○' : '✗'}</span>
                                           <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                        </>
+                                      ) : (
+                                        <span>{staffIsOk ? '○' : '✗'}</span>
+                                      )}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {(item as any).qualityItems && Object.keys((item as any).qualityItems).length > 0 && (() => {
+                          const qItems = (item as any).qualityItems as Record<string, string>;
+                          const qAdminItems = (item as any).qualityAdminItems as Record<string, 'ok' | 'notok'> | null;
+                          const qAdminScore = (item as any).qualityAdminScore as number | null | undefined;
+                          const qEntries = Object.entries(qItems);
+                          const qChangedCount = qEntries.filter(([name, st]) => {
+                            const av = qAdminItems?.[name];
+                            if (!av) return false;
+                            return (av === 'ok') !== (st === 'ok');
+                          }).length;
+                          return (
+                            <div className="mb-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질</span>
+                                {qAdminScore != null && (
+                                  <span className={`text-[10px] px-2 py-1 rounded-full font-black border inline-flex items-center gap-1 ${
+                                    qAdminScore >= 80 ? 'bg-purple-50 border-purple-200 text-purple-700' :
+                                    qAdminScore >= 60 ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                                    'bg-red-50 border-red-200 text-red-600'
+                                  }`}>{qAdminScore}점</span>
+                                )}
+                                {qChangedCount > 0 && (
+                                  <span className="text-[10px] px-2 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 font-black">관리자 수정 {qChangedCount}항목</span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {qEntries.map(([name, st]) => {
+                                  const adminVal = qAdminItems?.[name];
+                                  const staffIsOk = st === 'ok';
+                                  const adminIsOk = adminVal === 'ok';
+                                  const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                  return (
+                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                      wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
+                                      : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                      : 'bg-red-50 border-red-200 text-red-600'
+                                    }`}>
+                                      {name}:&nbsp;
+                                      {wasChanged ? (
+                                        <>
+                                          <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                          <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                          <span className="text-[9px] bg-purple-200 text-purple-800 px-1 rounded-full ml-0.5">수정</span>
                                         </>
                                       ) : (
                                         <span>{staffIsOk ? '○' : '✗'}</span>

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus, useUpdateChecklistScore, useUpdateChecklistAdScore } from "@/hooks/use-checklists";
+import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus, useUpdateChecklistScore, useUpdateChecklistAdScore, useUpdateChecklistQualityScore } from "@/hooks/use-checklists";
 import { useAdminStatus } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
@@ -470,6 +470,165 @@ function AdminAdScoreInput({
   );
 }
 
+function AdminQualityScoreInput({
+  id, existingScore, staffQualityItems, existingAdminItems
+}: {
+  id: number;
+  existingScore?: number | null;
+  staffQualityItems: Record<string, string>;
+  existingAdminItems?: Record<string, 'ok' | 'notok'> | null;
+}) {
+  const { toast } = useToast();
+  const qualityScoreMutation = useUpdateChecklistQualityScore();
+  const [open, setOpen] = useState(existingScore == null);
+  const [manualScore, setManualScore] = useState<string>(existingScore != null ? String(existingScore) : '');
+  const itemKeys = Object.keys(staffQualityItems);
+  const totalItems = itemKeys.length;
+
+  const initSel = () => Object.fromEntries(
+    itemKeys.map(k => {
+      if (existingAdminItems?.[k]) return [k, existingAdminItems[k]];
+      const sv = staffQualityItems[k];
+      return [k, (sv === 'ok' || sv === 'excellent') ? 'ok' : 'notok'];
+    })
+  );
+
+  const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok'>>(initSel);
+  const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
+  const calcScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
+
+  const scoreColorClass = (s: number) =>
+    s >= 90 ? 'text-purple-700 bg-purple-50 border-purple-300' :
+    s >= 70 ? 'text-purple-600 bg-purple-50 border-purple-200' :
+    'text-primary bg-red-50 border-red-300';
+
+  const handleSave = async () => {
+    const score = calcScore();
+    try {
+      await qualityScoreMutation.mutateAsync({ id, qualityAdminScore: score, qualityAdminItems: adminSel });
+      toast({ title: `품질 ○ ${okCount}/${totalItems} → ${score}점 확정` });
+      setOpen(false);
+    } catch {
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  const score = existingScore != null ? existingScore : null;
+  const confirmedOk = existingAdminItems ? Object.values(existingAdminItems).filter(v => v === 'ok').length : null;
+
+  return (
+    <div className="mt-3 border-t border-purple-200/60 pt-3">
+      <button
+        onClick={() => { if (!open) setAdminSel(initSel()); setOpen(o => !o); }}
+        className={`w-full flex items-center justify-between py-2 px-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+          score != null ? `${scoreColorClass(score)} border` : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+        }`}
+        data-testid={`btn-quality-score-open-${id}`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm">⭐</span>
+          {score != null
+            ? <span>품질 ○ {confirmedOk}/{totalItems} → {score}점 {open ? '(수정 중)' : '(확정)'}</span>
+            : <span>품질 평가 (항목 확인 후 확정)</span>}
+        </div>
+        <span className="text-[11px] opacity-50">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && totalItems > 0 && (
+        <div className="mt-2 space-y-1">
+          <div className={`flex items-center justify-between px-3 py-2 rounded-xl border font-bold text-sm mb-2 ${scoreColorClass(calcScore())}`}>
+            <span>○ {okCount}개 / {totalItems}개</span>
+            <span className="text-lg font-black">{calcScore()}점</span>
+          </div>
+          {itemKeys.map(key => {
+            const staffVal = staffQualityItems[key];
+            const isStaffOk = staffVal === 'ok' || staffVal === 'excellent';
+            const adminVal = adminSel[key];
+            return (
+              <div key={key} className="flex items-center gap-2 py-1.5 px-2 rounded-xl bg-purple-50/40 border border-purple-200/40">
+                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border ${
+                  isStaffOk ? 'bg-purple-50 border-purple-200 text-purple-600' : 'bg-red-50 border-red-200 text-primary'
+                }`}>
+                  {isStaffOk ? '○' : '✗'}
+                </span>
+                <span className="flex-1 text-xs font-medium text-secondary leading-snug min-w-0">{key}</span>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'ok' ? 'bg-purple-600 border-purple-700 text-white' : 'bg-white border-border text-muted-foreground hover:border-purple-300 hover:text-purple-600'
+                    }`}
+                    data-testid={`btn-admin-quality-ok-${id}-${key}`}
+                  >○</button>
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'notok' ? 'bg-primary border-red-700 text-white' : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
+                    }`}
+                    data-testid={`btn-admin-quality-notok-${id}-${key}`}
+                  >✗</button>
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={qualityScoreMutation.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-quality-score-save-${id}`}
+            >
+              {qualityScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>⭐</span>}
+              품질 {calcScore()}점으로 확정
+            </button>
+            <button onClick={() => setOpen(false)}
+              className="px-3 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {open && totalItems === 0 && (
+        <div className="mt-2 space-y-2">
+          <p className="text-xs text-muted-foreground px-1">항목이 없는 품질 가이드입니다. 사진 확인 후 직접 점수를 입력하세요.</p>
+          <div className="flex gap-2 items-center">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={manualScore}
+              onChange={e => setManualScore(e.target.value)}
+              placeholder="0–100"
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-purple-200 text-base font-bold focus:outline-none focus:border-purple-400 text-center bg-purple-50"
+              data-testid={`input-manual-quality-score-${id}`}
+            />
+            <span className="font-bold text-muted-foreground text-lg">점</span>
+            <button
+              onClick={async () => {
+                const s = Math.min(100, Math.max(0, parseInt(manualScore) || 0));
+                try {
+                  await qualityScoreMutation.mutateAsync({ id, qualityAdminScore: s, qualityAdminItems: {} });
+                  toast({ title: `품질 ${s}점으로 확정` });
+                  setOpen(false);
+                } catch {
+                  toast({ title: "저장 실패", variant: "destructive" });
+                }
+              }}
+              disabled={qualityScoreMutation.isPending || manualScore === ''}
+              className="px-4 py-3 rounded-xl bg-purple-600 text-white font-black text-sm flex items-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-manual-quality-score-save-${id}`}
+            >
+              {qualityScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>⭐</span>}
+              확정
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlightBranch?: string }) {
   const now = new Date();
   const [filterBranch, setFilterBranch] = useState('전체');
@@ -477,7 +636,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   const [filterProduct, setFilterProduct] = useState('전체');
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
-  const [viewFilter, setViewFilter] = useState<'all' | 'vm' | 'ad'>('all');
+  const [viewFilter, setViewFilter] = useState<'all' | 'vm' | 'ad' | 'quality'>('all');
   const { toast } = useToast();
 
   const currentYear = now.getFullYear();
@@ -545,8 +704,9 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     if (!matchesDate) return false;
     if (filterProduct !== '전체' && item.product !== filterProduct) return false;
     const cType = (item as any).checklistType || 'vm';
+    if (viewFilter === 'quality') return cType === 'quality';
     if (viewFilter === 'ad') return cType === 'ad';
-    if (viewFilter === 'vm') return cType !== 'ad';
+    if (viewFilter === 'vm') return cType !== 'ad' && cType !== 'quality';
     return true;
   });
 
@@ -588,6 +748,20 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
       .sort((a, b) => b.avg - a.avg);
   })();
 
+  const qualityRanking = (() => {
+    const byBranch: Record<string, number[]> = {};
+    agriPeriod.forEach(item => {
+      const score = (item as any).qualityAdminScore as number | null;
+      if (score == null) return;
+      const br = (item as any).branch as string;
+      if (!br) return;
+      (byBranch[br] = byBranch[br] ?? []).push(score);
+    });
+    return Object.entries(byBranch)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length }))
+      .sort((a, b) => b.avg - a.avg);
+  })();
+
   const showLeaderboard = false;
 
   const handleDelete = async (id: number, label: string) => {
@@ -604,13 +778,14 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     <>
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
         <div className="flex gap-1.5">
-          {([['all', '전체'], ['vm', 'VM 진열'], ['ad', '📢 광고']] as const).map(([val, label]) => (
+          {([['all', '전체'], ['vm', 'VM 진열'], ['ad', '📢 광고'], ['quality', '⭐ 품질']] as const).map(([val, label]) => (
             <button
               key={val}
               onClick={() => setViewFilter(val)}
               className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                 viewFilter === val
                   ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                  : val === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                   : 'bg-primary text-white border-primary shadow-sm'
                   : 'bg-muted text-muted-foreground border-transparent'
               }`}
@@ -669,10 +844,10 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
       <div className="p-4 space-y-4">
         {/* ── 지점 순위 리더보드 (지점 미선택 + VM/광고 탭) ── */}
         {showLeaderboard ? (() => {
-          const ranking = viewFilter === 'vm' ? vmRanking : adRanking;
-          const title = viewFilter === 'vm' ? 'VM 진열 점수 순위' : '광고 점수 순위';
-          const accentClass = viewFilter === 'vm' ? 'text-primary' : 'text-amber-600';
-          const topBg = viewFilter === 'vm' ? 'from-primary/10 to-primary/5 border-primary/20' : 'from-amber-500/10 to-amber-500/5 border-amber-400/20';
+          const ranking = viewFilter === 'vm' ? vmRanking : viewFilter === 'quality' ? qualityRanking : adRanking;
+          const title = viewFilter === 'vm' ? 'VM 진열 점수 순위' : viewFilter === 'quality' ? '품질 점수 순위' : '광고 점수 순위';
+          const accentClass = viewFilter === 'vm' ? 'text-primary' : viewFilter === 'quality' ? 'text-purple-700' : 'text-amber-600';
+          const topBg = viewFilter === 'vm' ? 'from-primary/10 to-primary/5 border-primary/20' : viewFilter === 'quality' ? 'from-purple-500/10 to-purple-500/5 border-purple-300/20' : 'from-amber-500/10 to-amber-500/5 border-amber-400/20';
           return (
             <div className="space-y-3">
               <div className="flex items-center gap-2 pt-1 pb-2">
@@ -742,7 +917,9 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
             const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
             const adminScore = (item as any).adminScore as number | null | undefined;
             const adAdminScore = (item as any).adAdminScore as number | null | undefined;
+            const qualityAdminScore = (item as any).qualityAdminScore as number | null | undefined;
             const hasAdItems = !!(((item as any).adItems && Object.keys((item as any).adItems).length > 0) || ((item as any).adPhotoUrls && (item as any).adPhotoUrls.length > 0) || (item as any).adNotes);
+            const hasQualityItems = !!(((item as any).qualityItems && Object.keys((item as any).qualityItems).length > 0) || ((item as any).qualityPhotoUrls && (item as any).qualityPhotoUrls.length > 0) || (item as any).qualityNotes);
             return (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -798,6 +975,9 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                         {(item as any).checklistType === 'ad' && (
                           <span className="text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">📢 광고점검</span>
                         )}
+                        {(item as any).checklistType === 'quality' && (
+                          <span className="text-xs font-bold text-purple-700 bg-purple-100 border border-purple-300 px-2 py-0.5 rounded-md">⭐ 품질점검</span>
+                        )}
                       </div>
                       <h3 className="text-xl font-black text-secondary leading-tight">
                         {item.branch}점 <span className="font-medium text-muted-foreground text-lg ml-1">| {item.product}</span>
@@ -815,7 +995,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                       ) : (
                         <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
                       )}
-                      {hasAdItems && viewFilter !== 'vm' && (
+                      {hasAdItems && viewFilter !== 'vm' && viewFilter !== 'quality' && (
                         adAdminScore != null ? (
                           <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
                             adAdminScore >= 80 ? 'bg-amber-50 border-amber-200 text-amber-700' :
@@ -830,6 +1010,21 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                           </div>
                         )
                       )}
+                      {hasQualityItems && viewFilter !== 'vm' && viewFilter !== 'ad' && (
+                        qualityAdminScore != null ? (
+                          <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
+                            qualityAdminScore >= 80 ? 'bg-purple-50 border-purple-200 text-purple-700' :
+                            qualityAdminScore >= 60 ? 'bg-purple-50 border-purple-200 text-purple-600' :
+                            'bg-red-50 border-red-200 text-primary'
+                          }`} data-testid={`text-quality-score-${item.id}`}>
+                            <span className="text-[11px]">⭐</span>{qualityAdminScore}점
+                          </div>
+                        ) : (
+                          <div className="px-2.5 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-700 font-medium flex items-center gap-1">
+                            <span className="text-[11px]">⭐</span>품질미평가
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
 
@@ -841,7 +1036,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     </p>
                   )}
 
-                  {viewFilter !== 'ad' && item.items && Object.keys(item.items as object).length > 0 && (
+                  {viewFilter !== 'ad' && viewFilter !== 'quality' && item.items && Object.keys(item.items as object).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {Object.entries(item.items as Record<string, string>).map(([name, status]) => {
                         const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
@@ -876,14 +1071,14 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                   </p>
 
-                  {viewFilter !== 'ad' && item.notes && (
+                  {viewFilter !== 'ad' && viewFilter !== 'quality' && item.notes && (
                     <div className="mt-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
                       <strong className="block mb-1 text-xs text-muted-foreground">요청/특이사항:</strong>
                       {item.notes}
                     </div>
                   )}
 
-                  {viewFilter !== 'ad' && (
+                  {viewFilter !== 'ad' && viewFilter !== 'quality' && (
                     <AdminScoreInput
                       id={item.id}
                       existingScore={(item as any).adminScore}
@@ -943,6 +1138,62 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                           existingScore={(item as any).adAdminScore}
                           staffAdItems={adItems || {}}
                           existingAdminItems={adAdminItems}
+                        />
+                      </>
+                    );
+                  })()}
+
+                  {(() => {
+                    const qualityItems = (item as any).qualityItems as Record<string, string> | null;
+                    const qualityPhotoUrls = (item as any).qualityPhotoUrls as string[] | null;
+                    const qualityNotes = (item as any).qualityNotes as string | null;
+                    const hasQualityItemsInner = qualityItems && Object.keys(qualityItems).length > 0;
+                    const hasQualityPhotos = qualityPhotoUrls && qualityPhotoUrls.length > 0;
+                    const hasQualityData = hasQualityItemsInner || hasQualityPhotos || qualityNotes;
+                    if (!hasQualityData || viewFilter === 'vm' || viewFilter === 'ad') return null;
+                    const qualityAdminItems = (item as any).qualityAdminItems as Record<string, 'ok' | 'notok'> | null;
+                    return (
+                      <>
+                        {hasQualityItemsInner && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질</span>
+                            {Object.entries(qualityItems!).map(([name, status]) => {
+                              const adminVal = qualityAdminItems?.[name];
+                              const staffIsOk = status === 'ok';
+                              const adminIsOk = adminVal === 'ok';
+                              const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                              return (
+                                <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                  wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
+                                  : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                  : 'bg-red-50 border-red-200 text-red-600'
+                                }`}>
+                                  {name}:&nbsp;
+                                  {wasChanged ? (
+                                    <>
+                                      <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                      <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                      <span className="text-[9px] bg-purple-200 text-purple-800 px-1 rounded-full ml-0.5">수정</span>
+                                    </>
+                                  ) : (
+                                    <span>{staffIsOk ? '○' : '✗'}</span>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {qualityNotes && (
+                          <div className="mt-3 p-3 bg-purple-50/80 rounded-2xl border border-purple-200">
+                            <strong className="block mb-1 text-[11px] text-purple-700 font-black">⭐ 품질 특이사항:</strong>
+                            <p className="text-sm text-secondary">{qualityNotes}</p>
+                          </div>
+                        )}
+                        <AdminQualityScoreInput
+                          id={item.id}
+                          existingScore={(item as any).qualityAdminScore}
+                          staffQualityItems={qualityItems || {}}
+                          existingAdminItems={qualityAdminItems}
                         />
                       </>
                     );
@@ -1463,7 +1714,7 @@ function RankingTab() {
   const now = new Date();
   const [rankYear, setRankYear] = useState(now.getFullYear());
   const [rankMonth, setRankMonth] = useState(now.getMonth() + 1);
-  const [rankType, setRankType] = useState<'vm' | 'ad'>('vm');
+  const [rankType, setRankType] = useState<'vm' | 'ad' | 'quality'>('vm');
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const ALL_BRANCHES = BRANCHES.slice(1);
@@ -1499,10 +1750,12 @@ function RankingTab() {
       if (!br) return;
       let score: number | null = null;
       if (rankType === 'vm') {
-        if ((item as any).checklistType === 'ad') return;
+        if ((item as any).checklistType === 'ad' || (item as any).checklistType === 'quality') return;
         score = (item as any).adminScore as number | null;
-      } else {
+      } else if (rankType === 'ad') {
         score = (item as any).adAdminScore as number | null;
+      } else {
+        score = (item as any).qualityAdminScore as number | null;
       }
       if (score != null) {
         (byBranch[br] = byBranch[br] ?? []).push(score);
@@ -1546,11 +1799,12 @@ function RankingTab() {
 
       {/* VM / Ad toggle + Grade legend in one row */}
       <div className="flex gap-1.5 items-center">
-        {([['vm', 'VM 진열'], ['ad', '📢 광고']] as const).map(([val, label]) => (
+        {([['vm', 'VM 진열'], ['ad', '📢 광고'], ['quality', '⭐ 품질']] as const).map(([val, label]) => (
           <button key={val} onClick={() => setRankType(val)}
             className={`py-1.5 px-3 rounded-lg font-bold text-xs transition-all active:scale-95 border ${
               rankType === val
                 ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                : val === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                 : 'bg-primary text-white border-primary shadow-sm'
                 : 'bg-muted text-muted-foreground border-transparent'
             }`}>

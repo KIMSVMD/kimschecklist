@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklist, useUpdateChecklist, useSaveChecklistComment, useConfirmChecklistComment, useSaveChecklistReply } from "@/hooks/use-checklists";
-import { useGuideByProduct, useAdminStatus, useAdGuidesByProduct } from "@/hooks/use-guides";
+import { useGuideByProduct, useAdminStatus, useAdGuidesByProduct, useQualityGuidesByProduct } from "@/hooks/use-guides";
 import { motion } from "framer-motion";
 import {
   Camera,
@@ -36,6 +36,7 @@ export default function EditChecklist() {
   const { data: checklist, isLoading: checklistLoading } = useChecklist(id);
   const { data: dbGuide } = useGuideByProduct(checklist?.product || "");
   const { data: adGuides = [] } = useAdGuidesByProduct(checklist?.product || "");
+  const { data: qualityGuides = [] } = useQualityGuidesByProduct(checklist?.product || "");
   const { data: adminStatus } = useAdminStatus();
   const updateMutation = useUpdateChecklist();
   const saveCommentMutation = useSaveChecklistComment();
@@ -57,12 +58,20 @@ export default function EditChecklist() {
   const [adLocalPreviews, setAdLocalPreviews] = useState<string[]>([]);
   const [adUploadingCount, setAdUploadingCount] = useState(0);
   const [adNotes, setAdNotes] = useState('');
+  const [qualityItems, setQualityItems] = useState<Record<string, string>>({});
+  const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
+  const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
+  const [qualityUploadingCount, setQualityUploadingCount] = useState(0);
+  const [qualityNotes, setQualityNotes] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoUrlsRef = useRef<string[]>([]);
   photoUrlsRef.current = photoUrls;
   const adFileInputRef = useRef<HTMLInputElement>(null);
   const adPhotoUrlsRef = useRef<string[]>([]);
   adPhotoUrlsRef.current = adPhotoUrls;
+  const qualityFileInputRef = useRef<HTMLInputElement>(null);
+  const qualityPhotoUrlsRef = useRef<string[]>([]);
+  qualityPhotoUrlsRef.current = qualityPhotoUrls;
 
   const isAdmin = !!adminStatus?.isAdmin;
   const adminComment = (checklist as any)?.adminComment as string | null | undefined;
@@ -101,6 +110,11 @@ export default function EditChecklist() {
       setAdLocalPreviews(existingAdPhotos);
       setAdItems((checklist as any).adItems || {});
       setAdNotes((checklist as any).adNotes || '');
+      const existingQualityPhotos: string[] = (checklist as any).qualityPhotoUrls || [];
+      setQualityPhotoUrls(existingQualityPhotos);
+      setQualityLocalPreviews(existingQualityPhotos);
+      setQualityItems((checklist as any).qualityItems || {});
+      setQualityNotes((checklist as any).qualityNotes || '');
     }
   }, [checklist]);
 
@@ -159,9 +173,38 @@ export default function EditChecklist() {
     setAdLocalPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleQualityFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+    const previews = files.map(f => URL.createObjectURL(f));
+    setQualityLocalPreviews(prev => [...prev, ...previews]);
+    setQualityUploadingCount(c => c + files.length);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      const uploaded: string[] = [];
+      results.forEach((r) => { if (r.status === 'fulfilled') uploaded.push(r.value); });
+      if (uploaded.length > 0) setQualityPhotoUrls([...qualityPhotoUrlsRef.current, ...uploaded]);
+    } finally {
+      setQualityUploadingCount(0);
+    }
+  };
+
+  const removeQualityPhoto = (index: number) => {
+    setQualityPhotoUrls(qualityPhotoUrls.filter((_, i) => i !== index));
+    setQualityLocalPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   const adGuide = adGuides[0] ?? null;
   const adGuideItems: string[] = (adGuide?.items as string[])?.filter(Boolean) || [];
   const adGuidePoints: string[] = (adGuide?.points as string[]) || [];
+
+  const qualityGuide = qualityGuides[0] ?? null;
+  const qualityGuideItems: string[] = (qualityGuide?.items as string[])?.filter(Boolean) || [];
+  const qualityGuidePoints: string[] = (qualityGuide?.points as string[]) || [];
+
+  const checklistType = (checklist as any)?.checklistType || 'vm';
 
   const handleSubmit = async () => {
     if (!checklist) return;
@@ -181,6 +224,13 @@ export default function EditChecklist() {
             adNotes: adNotes || null,
             ...(adGuideItems.length > 0 && {
               adItems: Object.keys(adItems).length > 0 ? adItems : null,
+            }),
+          }),
+          ...(checklistType === 'quality' && {
+            qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
+            qualityNotes: qualityNotes || null,
+            ...(qualityGuideItems.length > 0 && {
+              qualityItems: Object.keys(qualityItems).length > 0 ? qualityItems : null,
             }),
           }),
         } as any,
@@ -524,6 +574,153 @@ export default function EditChecklist() {
                 value={adNotes}
                 onChange={(e) => setAdNotes(e.target.value)}
                 data-testid="textarea-ad-notes"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Quality Inspection Section */}
+        {checklistType === 'quality' && (
+          <div className="space-y-5 pt-2">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <div className="px-4 py-2 bg-purple-50 border-2 border-purple-200 rounded-2xl flex items-center gap-2">
+                <span className="text-lg">⭐</span>
+                <span className="font-black text-purple-700 text-base">품질 점검</span>
+              </div>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {qualityGuide?.imageUrl && (
+              <div className="bg-purple-900 text-white rounded-3xl p-4 shadow-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="text-purple-300 w-6 h-6" />
+                  <h3 className="text-xl font-bold">품질 가이드</h3>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="w-full rounded-2xl overflow-hidden aspect-video bg-muted/20 border border-white/10 relative group active:scale-[0.98] transition-all">
+                      <img src={qualityGuide.imageUrl} alt="Quality Guide" className="w-full h-full object-contain bg-white" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
+                    <div className="w-full h-full flex items-center justify-center p-4">
+                      <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit={true}>
+                        <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+                          <img src={qualityGuide.imageUrl} alt="Quality Guide Full" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto" />
+                        </TransformComponent>
+                      </TransformWrapper>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
+
+            {qualityGuidePoints.length > 0 && (
+              <div className="bg-purple-50 rounded-3xl border border-purple-200 p-5 space-y-3">
+                <h4 className="text-lg font-bold text-purple-800 flex items-center gap-2">
+                  <div className="w-2 h-6 bg-purple-500 rounded-full" />품질 핵심 포인트
+                </h4>
+                <div className="space-y-2">
+                  {qualityGuidePoints.map((point, i) => (
+                    <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-purple-200/50 shadow-sm">
+                      <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                      <p className="text-base font-medium text-secondary leading-tight">{point}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-secondary">품질 현장 사진</h3>
+                {qualityLocalPreviews.length > 0 && <span className="text-sm font-bold text-muted-foreground">{qualityLocalPreviews.length}장</span>}
+              </div>
+              {qualityLocalPreviews.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {qualityLocalPreviews.map((preview, i) => (
+                    <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-purple-200 bg-muted">
+                      <img src={preview} alt={`품질 사진 ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removeQualityPhoto(i)}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+                        data-testid={`btn-remove-quality-photo-edit-${i}`}
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                      {i >= qualityPhotoUrls.length && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <Loader2 className="w-6 h-6 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => qualityFileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-purple-300 bg-purple-50 active:scale-[0.98] transition-all"
+                data-testid="btn-add-quality-photo-edit"
+              >
+                {qualityUploadingCount > 0
+                  ? <><Loader2 className="w-7 h-7 text-purple-500 animate-spin" /><span className="font-bold text-purple-600 text-lg">업로드 중...</span></>
+                  : <><Camera className="w-7 h-7 text-purple-500" /><span className="font-bold text-purple-600 text-lg">{qualityLocalPreviews.length > 0 ? '품질 사진 추가' : '품질 사진 업로드'}</span></>
+                }
+              </button>
+              <input ref={qualityFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleQualityFile} />
+            </div>
+
+            {qualityGuideItems.length > 0 && (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold text-secondary">품질 항목 점검</h3>
+                  <p className="text-sm text-muted-foreground">품질 기준과 일치하면 ○, 다르면 ✗를 선택하세요.</p>
+                </div>
+                {qualityGuideItems.map((item) => {
+                  const isOk = qualityItems[item] === 'ok';
+                  const isNotok = qualityItems[item] === 'notok';
+                  return (
+                    <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
+                      isOk ? 'border-purple-300 bg-purple-50' : isNotok ? 'border-primary bg-red-50' : 'border-border bg-white'
+                    }`}>
+                      <div className="flex items-center justify-between p-4">
+                        <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                        <div className="flex gap-3 shrink-0">
+                          <button
+                            onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'ok' }))}
+                            className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                              isOk ? 'bg-purple-500 border-purple-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                            }`}
+                            data-testid={`btn-quality-item-ok-edit-${item}`}
+                          >
+                            <CheckCircle2 className="w-8 h-8" />
+                          </button>
+                          <button
+                            onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'notok' }))}
+                            className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
+                              isNotok ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                            }`}
+                            data-testid={`btn-quality-item-notok-edit-${item}`}
+                          >
+                            <XOctagon className="w-8 h-8" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <h3 className="text-xl font-bold text-purple-700">품질 특이사항 (선택)</h3>
+              <textarea
+                placeholder="품질 관련 특이사항을 입력하세요..."
+                className="w-full p-5 rounded-2xl border-2 border-purple-200 bg-purple-50/50 text-lg focus:outline-none focus:border-purple-400 focus:ring-4 focus:ring-purple-200/40 transition-all min-h-[7rem] resize-none"
+                value={qualityNotes}
+                onChange={(e) => setQualityNotes(e.target.value)}
+                data-testid="textarea-quality-notes-edit"
               />
             </div>
           </div>

@@ -42,7 +42,7 @@ type GuideFormData = {
   category: string;
   product: string;
   storeType?: string | null;
-  guideType: 'vm' | 'ad';
+  guideType: 'vm' | 'ad' | 'quality';
   points: string[];
   items: string[];
   existingImageUrls: string[];
@@ -235,14 +235,14 @@ function GuideForm({
       <div className="space-y-2">
         <label className="text-sm font-bold text-secondary">가이드 종류</label>
         <div className="flex gap-2">
-          {([['vm', 'VM 진열'], ['ad', '광고']] as const).map(([val, label]) => (
+          {([['vm', 'VM 진열'], ['ad', '광고'], ['quality', '품질']] as const).map(([val, label]) => (
             <button
               key={val}
               type="button"
               onClick={() => setForm(f => ({ ...f, guideType: val }))}
               className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                 form.guideType === val
-                  ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500' : 'bg-primary text-white border-primary'
+                  ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500' : val === 'quality' ? 'bg-purple-600 text-white border-purple-600' : 'bg-primary text-white border-primary'
                   : 'bg-muted text-muted-foreground border-transparent'
               }`}
               data-testid={`btn-guide-type-${val}`}
