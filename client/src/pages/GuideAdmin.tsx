@@ -1220,7 +1220,7 @@ export default function GuideAdmin() {
               {/* Guide type filter */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => setGuideTypeFilter('vm')}
+                  onClick={() => { setGuideTypeFilter('vm'); setShowAddForm(true); setEditingId(null); }}
                   className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                     guideTypeFilter === 'vm' ? 'bg-primary text-white border-primary shadow-md' : 'bg-muted text-muted-foreground border-transparent'
                   }`}
@@ -1229,7 +1229,7 @@ export default function GuideAdmin() {
                   진열
                 </button>
                 <button
-                  onClick={() => setGuideTypeFilter('ad')}
+                  onClick={() => { setGuideTypeFilter('ad'); setShowAddForm(true); setEditingId(null); }}
                   className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                     guideTypeFilter === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-md' : 'bg-muted text-muted-foreground border-transparent'
                   }`}
@@ -1238,7 +1238,7 @@ export default function GuideAdmin() {
                   광고(+영상)
                 </button>
                 <button
-                  onClick={() => setGuideTypeFilter('quality')}
+                  onClick={() => { setGuideTypeFilter('quality'); setShowAddForm(true); setEditingId(null); }}
                   className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                     guideTypeFilter === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-muted text-muted-foreground border-transparent'
                   }`}
@@ -1276,6 +1276,8 @@ export default function GuideAdmin() {
 
               {showAddForm && (
                 <GuideForm
+                  key={`add-${guideTypeFilter}`}
+                  initial={{ guideType: guideTypeFilter }}
                   onSave={handleCreate}
                   onCancel={() => setShowAddForm(false)}
                   isPending={createMutation.isPending}
