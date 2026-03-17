@@ -300,7 +300,7 @@ export default function StaffDashboard() {
               }`}
               data-testid="tab-staff-vm"
             >
-              <BarChart3 className="w-4 h-4" /> VM 점검
+              <BarChart3 className="w-4 h-4" /> 진열
             </button>
             <button
               onClick={() => setActiveTab('ad')}
@@ -309,7 +309,7 @@ export default function StaffDashboard() {
               }`}
               data-testid="tab-staff-ad"
             >
-              <span className="text-base leading-none">📢</span> 광고
+              <span className="text-base leading-none">📢</span> 광고(+영상)
             </button>
             <button
               onClick={() => setActiveTab('quality')}
@@ -586,7 +586,7 @@ export default function StaffDashboard() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {(() => {
                 const rawRanking = activeTab === 'vm' ? vmRanking : activeTab === 'quality' ? qualityRanking : adRanking;
-                const title = activeTab === 'vm' ? 'VM 진열 월별 피드백' : activeTab === 'quality' ? '품질 월별 피드백' : '광고 월별 피드백';
+                const title = activeTab === 'vm' ? '진열 월별 피드백' : activeTab === 'quality' ? '품질 월별 피드백' : '광고(+영상) 월별 피드백';
                 const accentClass = activeTab === 'vm' ? 'text-primary' : activeTab === 'quality' ? 'text-purple-600' : 'text-amber-600';
                 // Sort by grade A→B→C, then same grade: score desc, then 대형→중형→소형
                 const gradeOrder = { A: 0, B: 1, C: 2 } as const;
@@ -696,7 +696,7 @@ export default function StaffDashboard() {
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
                     <ClipboardList className="w-8 h-8 opacity-40" />
                   </div>
-                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 {activeTab === 'ad' ? '광고 점검' : activeTab === 'quality' ? '품질 점검' : 'VM 점검'} 기록이 없습니다</p>
+                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 {activeTab === 'ad' ? '광고(+영상) 점검' : activeTab === 'quality' ? '품질 점검' : '진열 점검'} 기록이 없습니다</p>
                   <Link href="/checklist/new">
                     <button className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-base">
                       새 점검 등록하기

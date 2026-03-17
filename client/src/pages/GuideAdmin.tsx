@@ -1003,7 +1003,7 @@ export default function GuideAdmin() {
 
   const [activeTab, setActiveTab] = useState<'guides' | 'products'>('guides');
   const [guideCategory, setGuideCategory] = useState<string>('전체');
-  const [guideTypeFilter, setGuideTypeFilter] = useState<'vm' | 'ad'>('vm');
+  const [guideTypeFilter, setGuideTypeFilter] = useState<'vm' | 'ad' | 'quality'>('vm');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -1149,7 +1149,7 @@ export default function GuideAdmin() {
                   }`}
                   data-testid="tab-guide-type-vm"
                 >
-                  VM 진열
+                  진열
                 </button>
                 <button
                   onClick={() => setGuideTypeFilter('ad')}
@@ -1158,7 +1158,16 @@ export default function GuideAdmin() {
                   }`}
                   data-testid="tab-guide-type-ad"
                 >
-                  📢 광고
+                  📢 광고(+영상)
+                </button>
+                <button
+                  onClick={() => setGuideTypeFilter('quality')}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 border-2 ${
+                    guideTypeFilter === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-muted text-muted-foreground border-transparent'
+                  }`}
+                  data-testid="tab-guide-type-quality"
+                >
+                  ⭐ 품질
                 </button>
               </div>
 
@@ -1206,7 +1215,7 @@ export default function GuideAdmin() {
                   return true;
                 }).length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground text-lg">
-                  {guideCategory} {guideTypeFilter === 'ad' ? '광고' : 'VM'} 가이드가 없습니다.<br />새 가이드를 추가해주세요.
+                  {guideCategory} {guideTypeFilter === 'ad' ? '광고(+영상)' : guideTypeFilter === 'quality' ? '품질' : '진열'} 가이드가 없습니다.<br />새 가이드를 추가해주세요.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1227,7 +1236,7 @@ export default function GuideAdmin() {
                               category: guide.category,
                               product: guide.product,
                               storeType: guide.storeType,
-                              guideType: ((guide as any).guideType || 'vm') as 'vm' | 'ad',
+                              guideType: ((guide as any).guideType || 'vm') as 'vm' | 'ad' | 'quality',
                               points: guide.points as string[],
                               items: guide.items as string[],
                               imageUrls: ((guide as any).imageUrls as string[] | null) || (guide.imageUrl ? [guide.imageUrl] : []),
@@ -1267,8 +1276,8 @@ export default function GuideAdmin() {
                                 <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${categoryColor[guide.category] || 'bg-muted text-secondary'}`}>
                                   {guide.category}
                                 </span>
-                                <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${(guide as any).guideType === 'ad' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'}`}>
-                                  {(guide as any).guideType === 'ad' ? '광고' : 'VM 진열'}
+                                <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${(guide as any).guideType === 'ad' ? 'bg-amber-100 text-amber-700' : (guide as any).guideType === 'quality' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'}`}>
+                                  {(guide as any).guideType === 'ad' ? '광고(+영상)' : (guide as any).guideType === 'quality' ? '품질' : '진열'}
                                 </span>
                                 {(guide as any).videoUrl && (
                                   <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-700">
