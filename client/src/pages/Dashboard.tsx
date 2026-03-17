@@ -1468,10 +1468,18 @@ function RankingTab() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const ALL_BRANCHES = BRANCHES.slice(1);
   const STORE_TYPE_ORDER: Record<string, number> = {};
-  const LARGE = ['강남','강서','야탑','불광','송파','부천','평촌','분당','신구로'];
-  const MEDIUM = ['구의','유성','일산','수성','광명','쇼핑','해운대','산본','동수원','괴정'];
-  const SMALL = ['부산대','인천','안양','고잔','중계','김포','강북','청주'];
-  [...LARGE,...MEDIUM,...SMALL].forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
+  // 대형→중형→소형, 각 그룹 내 서울→수도권→지방 순
+  const SORTED_BRANCHES = [
+    '강남','강서','불광','송파','신구로', // 대형 서울
+    '야탑','부천','평촌','분당',           // 대형 수도권
+    '구의',                               // 중형 서울
+    '일산','광명','쇼핑','산본','동수원',  // 중형 수도권
+    '유성','수성','해운대','괴정',         // 중형 지방
+    '중계','강북',                         // 소형 서울
+    '인천','안양','고잔','김포',           // 소형 수도권
+    '부산대','청주',                       // 소형 지방
+  ];
+  SORTED_BRANCHES.forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
 
   const { data: agriAll, isLoading } = useChecklists({ category: '농산' });
 

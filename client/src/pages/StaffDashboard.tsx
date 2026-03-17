@@ -577,7 +577,17 @@ export default function StaffDashboard() {
                 // Sort by grade A→B→C, then same grade: score desc, then 대형→중형→소형
                 const gradeOrder = { A: 0, B: 1, C: 2 } as const;
                 const storeOrder: Record<string, number> = {};
-                [...(REGIONS['대형점'] ?? []), ...(REGIONS['중형점'] ?? []), ...(REGIONS['소형점'] ?? [])].forEach((b, i) => { storeOrder[b] = i; });
+                // 대형→중형→소형, 각 그룹 내 서울→수도권→지방 순
+                [
+                  '강남','강서','불광','송파','신구로',
+                  '야탑','부천','평촌','분당',
+                  '구의',
+                  '일산','광명','쇼핑','산본','동수원',
+                  '유성','수성','해운대','괴정',
+                  '중계','강북',
+                  '인천','안양','고잔','김포',
+                  '부산대','청주',
+                ].forEach((b, i) => { storeOrder[b] = i; });
                 const gradeList = rawRanking.filter(r => r.status === 'scored').map(r => ({ ...r, grade: getGrade(r.avg) }));
                 const sortedGrade = gradeList.sort((a, b) => {
                   const ga = a.grade ?? 'C', gb = b.grade ?? 'C';
