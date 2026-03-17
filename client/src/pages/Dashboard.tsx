@@ -7,7 +7,7 @@ import { useAdminStatus } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { calcCleaningScore, scoreColor } from "@/lib/scoring";
+import { calcCleaningScore, scoreColor, getGrade, gradeColor } from "@/lib/scoring";
 import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
@@ -1459,6 +1459,169 @@ type ActivityItem = {
   createdAt: string;
 };
 
+function RankingTab() {
+  const now = new Date();
+  const [rankYear, setRankYear] = useState(now.getFullYear());
+  const [rankMonth, setRankMonth] = useState(now.getMonth() + 1);
+  const [rankType, setRankType] = useState<'vm' | 'ad'>('vm');
+  const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
+  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  const ALL_BRANCHES = BRANCHES.slice(1);
+
+  const { data: agriAll, isLoading } = useChecklists({ category: '농산' });
+
+  const agriPeriod = (agriAll ?? []).filter(item => {
+    const itemYear = (item as any).year;
+    const itemMonth = (item as any).month;
+    if (itemYear && itemMonth) return itemYear === rankYear && itemMonth === rankMonth;
+    const d = new Date(item.createdAt);
+    return d.getFullYear() === rankYear && d.getMonth() + 1 === rankMonth;
+  });
+
+  const ranking = useMemo(() => {
+    const byBranch: Record<string, number[]> = {};
+    const pendingSet = new Set<string>();
+    agriPeriod.forEach(item => {
+      const br = (item as any).branch as string;
+      if (!br) return;
+      let score: number | null = null;
+      if (rankType === 'vm') {
+        if ((item as any).checklistType === 'ad') return;
+        score = (item as any).adminScore as number | null;
+      } else {
+        score = (item as any).adAdminScore as number | null;
+      }
+      if (score != null) {
+        (byBranch[br] = byBranch[br] ?? []).push(score);
+        pendingSet.delete(br);
+      } else if (!byBranch[br]) {
+        pendingSet.add(br);
+      }
+    });
+    const scoredList = Object.entries(byBranch)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length, status: 'scored' as const }))
+      .sort((a, b) => b.avg - a.avg);
+    const pendingList = [...pendingSet].map(branch => ({ branch, avg: null as number | null, count: 0, status: 'pending' as const }));
+    const scoredSet = new Set(Object.keys(byBranch));
+    const noneList = ALL_BRANCHES.filter(br => !scoredSet.has(br) && !pendingSet.has(br))
+      .map(branch => ({ branch, avg: null as number | null, count: 0, status: 'none' as const }));
+    return [...scoredList, ...pendingList, ...noneList];
+  }, [agriPeriod, rankType]);
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Year/Month filter */}
+      <div className="flex gap-2 items-center">
+        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+        <select value={rankYear} onChange={e => setRankYear(Number(e.target.value))}
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary">
+          {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
+        </select>
+        <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1 touch-pan-x">
+          {monthOptions.map(m => (
+            <button key={m} onClick={() => setRankMonth(m)}
+              className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                rankMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground'
+              }`}>
+              {m}월
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* VM / Ad toggle */}
+      <div className="flex gap-1.5">
+        {([['vm', 'VM 진열'], ['ad', '📢 광고']] as const).map(([val, label]) => (
+          <button key={val} onClick={() => setRankType(val)}
+            className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
+              rankType === val
+                ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                : 'bg-primary text-white border-primary shadow-sm'
+                : 'bg-muted text-muted-foreground border-transparent'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Grade legend */}
+      <div className="flex gap-2">
+        {(['A', 'B', 'C'] as const).map(g => (
+          <div key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${gradeColor(g)}`}>
+            <span className="font-black text-sm">{g}</span>
+            <span className="font-normal">{g === 'A' ? '67~100점' : g === 'B' ? '34~66점' : '0~33점'}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Ranking table */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {(() => {
+            let rankNum = 0;
+            return ranking.map(({ branch, avg, count, status }) => {
+              const isScored = status === 'scored';
+              const isPending = status === 'pending';
+              if (isScored) rankNum++;
+              const medal = rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null;
+              const grade = getGrade(avg);
+              const gColor = gradeColor(grade);
+              const avgColor = avg != null ? (avg >= 67 ? 'text-blue-600' : avg >= 34 ? 'text-amber-600' : 'text-red-500') : '';
+              const rowBg = isScored
+                ? (rankNum <= 3 ? 'bg-gradient-to-r from-primary/5 to-transparent border-primary/20 shadow-sm' : 'bg-white border-border/50')
+                : isPending ? 'bg-muted/40 border-border/30'
+                : 'bg-muted/20 border-border/20';
+              return (
+                <div key={branch}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 ${rowBg}`}
+                  data-testid={`row-ranking-${branch}`}>
+                  {/* Rank */}
+                  <div className="w-8 text-center shrink-0">
+                    {medal
+                      ? <span className="text-xl leading-none">{medal}</span>
+                      : isScored
+                        ? <span className="text-sm font-black text-muted-foreground">{rankNum}</span>
+                        : <span className="text-sm font-black text-muted-foreground/30">-</span>
+                    }
+                  </div>
+                  {/* Branch */}
+                  <div className="flex-1 min-w-0">
+                    <span className={`font-bold text-base ${isScored ? 'text-secondary' : 'text-muted-foreground/60'}`}>{branch}점</span>
+                    {isScored && <span className="text-xs text-muted-foreground ml-1.5">{count}건</span>}
+                  </div>
+                  {/* Score */}
+                  <div className="w-16 text-right shrink-0">
+                    {isScored ? (
+                      <span className={`text-xl font-black ${avgColor}`}>{avg}<span className="text-xs font-medium text-muted-foreground ml-0.5">점</span></span>
+                    ) : isPending ? (
+                      <span className="text-xs font-bold text-muted-foreground">미평가</span>
+                    ) : (
+                      <span className="text-xs font-bold text-muted-foreground/40">미점검</span>
+                    )}
+                  </div>
+                  {/* Grade */}
+                  <div className="w-10 text-center shrink-0">
+                    {grade ? (
+                      <span className={`text-base font-black px-2 py-0.5 rounded-lg border ${gColor}`}>{grade}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/30">-</span>
+                    )}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+      <p className="text-center text-xs text-muted-foreground pt-1">농산 카테고리 기준 · 관리자 입력 점수</p>
+    </div>
+  );
+}
+
 function ActivityTab() {
   const [selectedBranch, setSelectedBranch] = useState('전체');
 
@@ -1540,7 +1703,7 @@ function ActivityTab() {
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { data: adminStatus, isLoading: authLoading } = useAdminStatus();
-  const [activeTab, setActiveTab] = useState<'vm' | 'cleaning' | 'activity'>('vm');
+  const [activeTab, setActiveTab] = useState<'ranking' | 'vm' | 'cleaning' | 'activity'>('ranking');
   const [notifOpen, setNotifOpen] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState<{ type: 'vm' | 'cleaning'; id: number; date?: string; branch?: string } | null>(null);
   const { notifications, unreadCount, dismiss, dismissAll } = useAdminNotifications();
@@ -1578,7 +1741,7 @@ export default function Dashboard() {
         onDismissAll={dismissAll}
         onNavigate={(target, key) => {
           dismiss(key);
-          setActiveTab(target.type);
+          setActiveTab(target.type as 'vm' | 'cleaning');
           const id = target.type === 'vm' ? target.checklistId : target.cleaningId;
           if (id != null) setHighlightTarget({ type: target.type, id, date: target.date, branch: target.branch });
           setNotifOpen(false);
@@ -1588,13 +1751,22 @@ export default function Dashboard() {
         {/* Tab switcher + bell */}
         <div className="flex gap-1 p-3 bg-muted/50 border-b border-border items-center">
           <button
+            onClick={() => setActiveTab('ranking')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
+              activeTab === 'ranking' ? 'bg-white text-violet-600 shadow-sm' : 'text-muted-foreground'
+            }`}
+            data-testid="tab-ranking"
+          >
+            <Trophy className="w-4 h-4" /> 점별 순위
+          </button>
+          <button
             onClick={() => setActiveTab('vm')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
             }`}
             data-testid="tab-vm"
           >
-            <BarChart3 className="w-4 h-4" /> VM/광고 점검
+            <BarChart3 className="w-4 h-4" /> VM/광고
           </button>
           <button
             onClick={() => setActiveTab('cleaning')}
@@ -1603,7 +1775,7 @@ export default function Dashboard() {
             }`}
             data-testid="tab-cleaning"
           >
-            <Droplets className="w-4 h-4" /> 청소 점검
+            <Droplets className="w-4 h-4" /> 청소
           </button>
           <button
             onClick={() => setActiveTab('activity')}
@@ -1612,7 +1784,7 @@ export default function Dashboard() {
             }`}
             data-testid="tab-activity"
           >
-            <ClipboardList className="w-4 h-4" /> 활동 기록
+            <ClipboardList className="w-4 h-4" /> 활동
           </button>
           {/* Notification bell — only clickable when unread exist */}
           <button
@@ -1634,7 +1806,9 @@ export default function Dashboard() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {activeTab === 'vm' ? (
+          {activeTab === 'ranking' ? (
+            <RankingTab />
+          ) : activeTab === 'vm' ? (
             <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} highlightBranch={highlightTarget?.type === 'vm' ? highlightTarget.branch : undefined} />
           ) : activeTab === 'cleaning' ? (
             <CleaningTab highlightId={highlightTarget?.type === 'cleaning' ? highlightTarget.id : undefined} highlightDate={highlightTarget?.type === 'cleaning' ? highlightTarget.date : undefined} highlightBranch={highlightTarget?.type === 'cleaning' ? highlightTarget.branch : undefined} />

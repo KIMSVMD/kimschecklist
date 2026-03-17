@@ -44,3 +44,17 @@ export function scoreLabel(score: number): string {
   if (score >= 50) return "보통";
   return "미흡";
 }
+
+export function getGrade(score: number | null): 'A' | 'B' | 'C' | null {
+  if (score == null) return null;
+  if (score >= 67) return 'A';
+  if (score >= 34) return 'B';
+  return 'C';
+}
+
+export function gradeColor(grade: 'A' | 'B' | 'C' | null): string {
+  if (grade === 'A') return 'text-blue-600 bg-blue-50 border-blue-200';
+  if (grade === 'B') return 'text-amber-600 bg-amber-50 border-amber-200';
+  if (grade === 'C') return 'text-red-600 bg-red-50 border-red-200';
+  return 'text-muted-foreground bg-muted border-border';
+}

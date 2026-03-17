@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { calcCleaningScore, scoreColor } from "@/lib/scoring";
+import { calcCleaningScore, scoreColor, getGrade, gradeColor } from "@/lib/scoring";
 import { useStaffNotifications, useGuideNotifications, type StaffNotification } from "@/hooks/use-notifications";
 
 const REGIONS: Record<string, string[]> = {
@@ -571,78 +571,76 @@ export default function StaffDashboard() {
           (activeTab === 'vm' || activeTab === 'ad') ? (
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {(() => {
-                const ranking = activeTab === 'vm' ? vmRanking : adRanking;
-                const title = activeTab === 'vm' ? 'VM 진열 점수 순위' : '광고 점수 순위';
+                const rawRanking = activeTab === 'vm' ? vmRanking : adRanking;
+                const title = activeTab === 'vm' ? 'VM 진열 월별 피드백' : '광고 월별 피드백';
                 const accentClass = activeTab === 'vm' ? 'text-primary' : 'text-amber-600';
-                const topBg = activeTab === 'vm' ? 'from-primary/10 to-primary/5 border-primary/20' : 'from-amber-500/10 to-amber-500/5 border-amber-400/20';
+                // Sort by grade A→B→C, then pending, then none
+                const gradeOrder = { A: 0, B: 1, C: 2 } as const;
+                const gradeList = rawRanking.filter(r => r.status === 'scored').map(r => ({ ...r, grade: getGrade(r.avg) }));
+                const sortedGrade = gradeList.sort((a, b) => {
+                  const ga = a.grade ?? 'C', gb = b.grade ?? 'C';
+                  if (ga !== gb) return gradeOrder[ga] - gradeOrder[gb];
+                  return (b.avg as number) - (a.avg as number);
+                });
+                const pendingList = rawRanking.filter(r => r.status === 'pending');
+                const noneList = rawRanking.filter(r => r.status === 'none');
+                const sortedRanking = [...sortedGrade, ...pendingList, ...noneList];
                 return (
                   <>
                     <div className="flex items-center gap-2 pt-1 pb-2">
-                      <Trophy className={`w-5 h-5 ${accentClass}`} />
+                      <Star className={`w-5 h-5 ${accentClass}`} />
                       <h2 className={`text-base font-black ${accentClass}`}>{vmFilterYear}년 {vmFilterMonth}월 {title}</h2>
                       <span className="text-[11px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">농산 기준</span>
                     </div>
-                    {ranking.length === 0 ? (
+                    {/* Grade legend */}
+                    <div className="flex gap-2 pb-1">
+                      {(['A', 'B', 'C'] as const).map(g => (
+                        <div key={g} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${gradeColor(g)}`}>
+                          <span className="font-black text-sm">{g}</span>
+                          <span className="font-normal">{g === 'A' ? '67~100점' : g === 'B' ? '34~66점' : '0~33점'}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {sortedRanking.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                        <Trophy className="w-12 h-12 mb-3 opacity-20" />
+                        <Star className="w-12 h-12 mb-3 opacity-20" />
                         <p className="font-medium">이번 달 점검 제출 기록이 없습니다.</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {(() => {
-                          let scoredRank = 0;
-                          return ranking.map(({ branch, avg, count, status }) => {
-                            const isScored = status === 'scored';
-                            const isPending = status === 'pending';
-                            if (isScored) scoredRank++;
-                            const rankNum = isScored ? scoredRank : null;
-                            const medal = rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null;
-                            const isTop3 = isScored && scoredRank <= 3;
-                            const avgColor = avg != null
-                              ? (avg >= 90 ? 'text-emerald-600' : avg >= 70 ? 'text-amber-600' : 'text-red-500')
-                              : '';
-                            const rowBg = isTop3
-                              ? `bg-gradient-to-r ${topBg} shadow-md`
-                              : isScored
-                                ? 'bg-white border-border/50 hover:border-border'
-                                : isPending
-                                  ? 'bg-muted/40 border-border/30 hover:border-border/60'
-                                  : 'bg-muted/20 border-border/20 hover:border-border/40';
-                            return (
-                              <button
-                                key={branch}
-                                onClick={() => setFilterBranch(branch)}
-                                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${rowBg}`}
-                                data-testid={`btn-staff-rank-${branch}`}
-                              >
-                                <div className="w-9 text-center shrink-0">
-                                  {medal
-                                    ? <span className="text-2xl leading-none">{medal}</span>
-                                    : rankNum != null
-                                      ? <span className="text-base font-black text-muted-foreground">{rankNum}</span>
-                                      : <span className="text-base font-black text-muted-foreground/30">-</span>
-                                  }
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <span className={`font-bold text-base ${isScored ? 'text-secondary' : 'text-muted-foreground/60'}`}>{branch}점</span>
-                                  {isScored && <span className="text-xs text-muted-foreground ml-2">{count}건 평균</span>}
-                                </div>
-                                <div className="flex items-baseline gap-0.5 shrink-0">
-                                  {isScored ? (
-                                    <>
-                                      <span className={`text-2xl font-black ${avgColor}`}>{avg}</span>
-                                      <span className="text-xs text-muted-foreground font-medium">점</span>
-                                    </>
-                                  ) : isPending ? (
-                                    <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-1 rounded-lg">미평가</span>
-                                  ) : (
-                                    <span className="text-xs font-bold text-muted-foreground/50 bg-muted/60 px-2 py-1 rounded-lg">미점검</span>
-                                  )}
-                                </div>
-                              </button>
-                            );
-                          });
-                        })()}
+                        {sortedRanking.map(({ branch, avg, count, status }) => {
+                          const isScored = status === 'scored';
+                          const isPending = status === 'pending';
+                          const grade = getGrade(avg);
+                          const gColor = gradeColor(grade);
+                          const rowBg = isScored
+                            ? 'bg-white border-border/50'
+                            : isPending
+                              ? 'bg-muted/40 border-border/30'
+                              : 'bg-muted/20 border-border/20';
+                          return (
+                            <button
+                              key={branch}
+                              onClick={() => setFilterBranch(branch)}
+                              className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${rowBg}`}
+                              data-testid={`btn-staff-rank-${branch}`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <span className={`font-bold text-base ${isScored ? 'text-secondary' : 'text-muted-foreground/60'}`}>{branch}점</span>
+                                {isScored && <span className="text-xs text-muted-foreground ml-2">{count}건 평균</span>}
+                              </div>
+                              <div className="shrink-0">
+                                {isScored && grade ? (
+                                  <span className={`text-xl font-black px-3 py-1 rounded-xl border-2 ${gColor}`}>{grade}</span>
+                                ) : isPending ? (
+                                  <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-1 rounded-lg">미평가</span>
+                                ) : (
+                                  <span className="text-xs font-bold text-muted-foreground/50 bg-muted/60 px-2 py-1 rounded-lg">미점검</span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                     <p className="text-center text-xs text-muted-foreground pt-2">지점을 탭하면 해당 지점의 점검 내역을 볼 수 있습니다.</p>
