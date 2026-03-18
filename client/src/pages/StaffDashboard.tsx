@@ -75,7 +75,9 @@ export default function StaffDashboard() {
     branch: filterBranch || undefined,
   });
 
-  // Filter by year/month and checklist type client-side
+  const CATEGORY_ORDER = ['농산', '수산', '축산', '공산'];
+
+  // Filter by year/month, checklist type, and category client-side
   const checklists = (allVmChecklists ?? []).filter(item => {
     const itemYear = (item as any).year;
     const itemMonth = (item as any).month;
@@ -88,7 +90,17 @@ export default function StaffDashboard() {
       : activeTab === 'quality'
         ? itemType === 'quality'
         : itemType !== 'ad' && itemType !== 'quality';
-    return inMonth && typeMatch;
+    const catMatch = filterCategory === '전체' || (item as any).category === filterCategory;
+    return inMonth && typeMatch && catMatch;
+  }).sort((a, b) => {
+    const catA = (a as any).category as string;
+    const catB = (b as any).category as string;
+    if (filterCategory === '전체') {
+      const oA = CATEGORY_ORDER.indexOf(catA);
+      const oB = CATEGORY_ORDER.indexOf(catB);
+      if (oA !== oB) return oA - oB;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   // 농산 기준 월별 순위 계산
@@ -294,7 +306,7 @@ export default function StaffDashboard() {
           {/* Tab switcher */}
           <div className="flex gap-1 bg-muted p-1 rounded-2xl">
             <button
-              onClick={() => setActiveTab('vm')}
+              onClick={() => { setActiveTab('vm'); setFilterCategory('전체'); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
               }`}
@@ -303,7 +315,7 @@ export default function StaffDashboard() {
               <BarChart3 className="w-4 h-4" /> 진열
             </button>
             <button
-              onClick={() => setActiveTab('ad')}
+              onClick={() => { setActiveTab('ad'); setFilterCategory('전체'); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'ad' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
               }`}
@@ -312,7 +324,7 @@ export default function StaffDashboard() {
               광고(+영상)
             </button>
             <button
-              onClick={() => setActiveTab('quality')}
+              onClick={() => { setActiveTab('quality'); setFilterCategory('전체'); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
               }`}
@@ -321,7 +333,7 @@ export default function StaffDashboard() {
               품질
             </button>
             <button
-              onClick={() => setActiveTab('cleaning')}
+              onClick={() => { setActiveTab('cleaning'); setFilterCategory('전체'); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
               }`}
@@ -334,13 +346,11 @@ export default function StaffDashboard() {
           {/* Year/Month filter — VM / Ad / Quality tabs */}
           {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
             <div className="space-y-2">
-              <div className="flex gap-2 items-center">
+              <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x items-center">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="bg-muted rounded-xl px-3 py-2 font-bold text-sm text-secondary">
+                <span className="shrink-0 bg-muted rounded-xl px-3 py-2 font-bold text-sm text-secondary">
                   {vmFilterYear}년
                 </span>
-              </div>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                   <button key={m} onClick={() => setVmFilterMonth(m)}
                     className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
@@ -348,6 +358,17 @@ export default function StaffDashboard() {
                     }`}
                     data-testid={`btn-staff-vm-month-${m}`}>
                     {m}월
+                  </button>
+                ))}
+              </div>
+              <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x">
+                {CATEGORIES.map(cat => (
+                  <button key={cat} onClick={() => setFilterCategory(cat)}
+                    className={`shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                      filterCategory === cat ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-secondary'
+                    }`}
+                    data-testid={`btn-staff-cat-${cat}`}>
+                    {cat}
                   </button>
                 ))}
               </div>
