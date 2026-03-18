@@ -157,6 +157,7 @@ export const staffScoreNotifications = pgTable("staff_score_notifications", {
   newStatus: text("new_status").notNull(),
   product: text("product"),
   category: text("category"),
+  guideType: text("guide_type"), // 'vm' | 'ad' | 'quality' — guide 알람에만 사용
   zone: text("zone"),
   inspectionTime: text("inspection_time"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

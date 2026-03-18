@@ -151,6 +151,7 @@ export type GuideNotification = {
   newStatus: string;
   product?: string;
   category?: string;
+  guideType?: string; // 'vm' | 'ad' | 'quality'
   createdAt: string;
 };
 

@@ -140,6 +140,7 @@ export async function registerRoutes(
         newStatus: 'new_guide',
         product: guide.product ?? null,
         category: guide.category ?? null,
+        guideType: guide.guideType ?? null,
       });
       res.status(201).json(guide);
     } catch (err) {
@@ -165,6 +166,7 @@ export async function registerRoutes(
         newStatus: 'updated_guide',
         product: guide.product ?? null,
         category: guide.category ?? null,
+        guideType: guide.guideType ?? null,
       });
       res.json(guide);
     } catch (err) {
@@ -176,10 +178,11 @@ export async function registerRoutes(
   app.get('/api/guide-notifications', async (req, res) => {
     try {
       const notifs = await db.execute(sql`
-        SELECT DISTINCT ON (product)
+        SELECT DISTINCT ON (product, guide_type)
           id,
           category,
           product,
+          guide_type AS "guideType",
           item_name AS "itemName",
           new_status AS "newStatus",
           created_at AS "createdAt"
@@ -188,7 +191,7 @@ export async function registerRoutes(
           AND target_type = 'guide'
           AND created_at > NOW() - INTERVAL '7 days'
           AND product IN (SELECT product FROM guides)
-        ORDER BY product, created_at DESC
+        ORDER BY product, guide_type, created_at DESC
       `);
       res.json(notifs.rows);
     } catch (err) {

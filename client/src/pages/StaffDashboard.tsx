@@ -54,6 +54,20 @@ export default function StaffDashboard() {
   const commentUnread = commentReplies.length;
   const scoreUnread = scoreChanges.length;
 
+  // 탭별 가이드 알람 카운트 (탭 버튼 dot 표시용)
+  const vmGuideNotifCount = guideNotifs.filter(n => !n.guideType || (n.guideType !== 'ad' && n.guideType !== 'quality')).length;
+  const adGuideNotifCount = guideNotifs.filter(n => n.guideType === 'ad').length;
+  const qualityGuideNotifCount = guideNotifs.filter(n => n.guideType === 'quality').length;
+
+  // 현재 탭에 맞는 가이드 알람만 필터링
+  const tabGuideNotifs = guideNotifs.filter(n => {
+    if (!n.guideType) return true; // guideType 없는 오래된 알람은 모두 표시
+    if (activeTab === 'ad') return n.guideType === 'ad';
+    if (activeTab === 'quality') return n.guideType === 'quality';
+    return n.guideType !== 'ad' && n.guideType !== 'quality'; // vm 탭
+  });
+  const tabGuideUnread = tabGuideNotifs.length;
+
   const catBadge = (cat: string) => {
     if (!cat || cat === '전체') return 0;
     return [...commentReplies, ...scoreChanges].filter(n => {
@@ -360,10 +374,10 @@ export default function StaffDashboard() {
                 className="relative w-12 h-12 rounded-2xl bg-muted flex items-center justify-center shrink-0 active:scale-95 transition-all"
                 data-testid="btn-staff-notif-bell"
               >
-                <Bell className={`w-5 h-5 ${(commentUnread + scoreUnread) > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                {(commentUnread + scoreUnread) > 0 && (
+                <Bell className={`w-5 h-5 ${(commentUnread + scoreUnread + tabGuideUnread) > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                {(commentUnread + scoreUnread + tabGuideUnread) > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center px-1">
-                    {(commentUnread + scoreUnread) > 9 ? '9+' : (commentUnread + scoreUnread)}
+                    {(commentUnread + scoreUnread + tabGuideUnread) > 9 ? '9+' : (commentUnread + scoreUnread + tabGuideUnread)}
                   </span>
                 )}
               </button>
@@ -374,30 +388,33 @@ export default function StaffDashboard() {
           <div className="flex gap-1 bg-muted p-1 rounded-2xl">
             <button
               onClick={() => { setActiveTab('vm'); setFilterCategory('전체'); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-staff-vm"
             >
               <BarChart3 className="w-4 h-4" /> 진열
+              {vmGuideNotifCount > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
             </button>
             <button
               onClick={() => { setActiveTab('ad'); setFilterCategory('전체'); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'ad' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-staff-ad"
             >
               광고(+영상)
+              {adGuideNotifCount > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
             </button>
             <button
               onClick={() => { setActiveTab('quality'); setFilterCategory('전체'); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                 activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
               }`}
               data-testid="tab-staff-quality"
             >
               품질
+              {qualityGuideNotifCount > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
             </button>
             <button
               onClick={() => { setActiveTab('cleaning'); setFilterCategory('전체'); }}
@@ -539,7 +556,7 @@ export default function StaffDashboard() {
                 <span className="font-black text-secondary text-base">{filterBranch}점 알림</span>
               </div>
               <div className="flex items-center gap-2">
-                {(unreadCount + guideUnread) > 0 && (
+                {(unreadCount + tabGuideUnread) > 0 && (
                   <button onClick={() => { dismissAll(); dismissAllGuide(); }} className="text-xs font-bold text-muted-foreground px-2 py-1 rounded-lg hover:bg-muted transition-all" data-testid="btn-staff-notif-dismiss-all">
                     모두 읽음
                   </button>
@@ -554,7 +571,7 @@ export default function StaffDashboard() {
               {([
                 { key: 'comment_reply' as const, label: '코멘트/답글', count: commentUnread },
                 { key: 'score_change' as const, label: '점수 부여', count: scoreUnread },
-                { key: 'guide_update' as const, label: '새 가이드', count: guideUnread },
+                { key: 'guide_update' as const, label: '새 가이드', count: tabGuideUnread },
               ]).map(tab => (
                 <button
                   key={tab.key}
@@ -576,13 +593,13 @@ export default function StaffDashboard() {
             {/* Notification list */}
             <div className="overflow-y-auto flex-1">
               {notifTab === 'guide_update' ? (
-                guideNotifs.length === 0 ? (
+                tabGuideNotifs.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-muted-foreground space-y-2">
                     <Bell className="w-10 h-10 opacity-20" />
                     <p className="font-medium text-sm">새 가이드 알림이 없습니다</p>
                   </div>
                 ) : (
-                  guideNotifs.map(n => (
+                  tabGuideNotifs.map(n => (
                     <div
                       key={n.id}
                       className="flex items-start gap-3 p-4 border-b border-border/30"
