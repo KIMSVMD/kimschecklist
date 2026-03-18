@@ -61,10 +61,10 @@ export default function NewChecklist() {
 
   // VM tab: products with a valid VM guide for selYear/selMonth, not yet submitted
   const pendingGuideNotifs = validGuideProducts
-    .filter(g => g.guideType !== 'ad')
+    .filter(g => g.guideType !== 'ad' && g.guideType !== 'quality')
     .filter(g => !branchChecklists.some(c => {
       const ct = (c as any).checklistType || 'vm';
-      return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct !== 'ad';
+      return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct !== 'ad' && ct !== 'quality';
     }));
 
   // Ad tab: products with a valid Ad guide for selYear/selMonth, not yet submitted
