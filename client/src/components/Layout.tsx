@@ -17,6 +17,7 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
   const [swipeProgress, setSwipeProgress] = useState(0);
 
   const canGoBack = showBack && location !== "/";
+  const swipeEnabled = location !== "/";
 
   const handleBack = () => {
     if (onBack) {
@@ -27,9 +28,9 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
   };
 
   useEffect(() => {
-    if (!canGoBack) return;
+    if (!swipeEnabled) return;
 
-    const MIN_SWIPE_X = 90;
+    const MIN_SWIPE_X = 80;
     const MAX_ANGLE_RATIO = 1.5;
 
     const isInsideHScrollable = (el: HTMLElement | null): boolean => {
@@ -78,12 +79,12 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [canGoBack, onBack, location]);
+  }, [swipeEnabled, onBack, location]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto shadow-2xl relative overflow-hidden bg-white/50 md:border-x md:border-border/50">
       {/* Swipe back indicator */}
-      {canGoBack && swipeProgress > 0 && (
+      {swipeEnabled && swipeProgress > 0 && (
         <div
           className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex items-center pointer-events-none"
           style={{ opacity: swipeProgress }}
