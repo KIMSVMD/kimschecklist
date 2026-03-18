@@ -109,6 +109,31 @@ export default function StaffDashboard() {
 
   const CATEGORY_ORDER = ['농산', '수산', '축산', '공산'];
 
+  // 탭별 가이드 상품 세트를 미리 분리 (로딩 타이밍 무관하게 안정적 정렬)
+  const vmGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType !== 'ad' && g.guideType !== 'quality').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
+  const adGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType === 'ad').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
+  const qualityGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType === 'quality').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
   // Filter by year/month, checklist type, and category client-side
   const checklists = (allVmChecklists ?? []).filter(item => {
     const itemYear = (item as any).year;
@@ -125,27 +150,22 @@ export default function StaffDashboard() {
     const catMatch = filterCategory === '전체' || (item as any).category === filterCategory;
     return inMonth && typeMatch && catMatch;
   }).sort((a, b) => {
-    const tabGuideMatch = (guideType: string) => {
-      if (activeTab === 'ad') return guideType === 'ad';
-      if (activeTab === 'quality') return guideType === 'quality';
-      return guideType !== 'ad' && guideType !== 'quality';
-    };
-    const guidePriority = (product: string) => {
-      if (validGuideProducts.some(g => g.product === product && tabGuideMatch(g.guideType) && g.hasDateRange)) return 0;
-      if (validGuideProducts.some(g => g.product === product && tabGuideMatch(g.guideType))) return 1;
+    const itemTypeA = (a as any).checklistType || 'vm';
+    const guideSet = itemTypeA === 'ad' ? adGuideSet : itemTypeA === 'quality' ? qualityGuideSet : vmGuideSet;
+    const itemTypeB = (b as any).checklistType || 'vm';
+    const guideSetB = itemTypeB === 'ad' ? adGuideSet : itemTypeB === 'quality' ? qualityGuideSet : vmGuideSet;
+    const guidePriority = (product: string, gs: typeof vmGuideSet) => {
+      if (gs.seasonal.has(product)) return 0;
+      if (gs.regular.has(product)) return 1;
       return 2;
     };
-    const pA = guidePriority((a as any).product);
-    const pB = guidePriority((b as any).product);
+    const pA = guidePriority((a as any).product, guideSet);
+    const pB = guidePriority((b as any).product, guideSetB);
     if (pA !== pB) return pA - pB;
-    if (!filterBranch) {
-      const catA = (a as any).category as string;
-      const catB = (b as any).category as string;
-      if (filterCategory === '전체') {
-        const oA = CATEGORY_ORDER.indexOf(catA);
-        const oB = CATEGORY_ORDER.indexOf(catB);
-        if (oA !== oB) return oA - oB;
-      }
+    if (!filterBranch && filterCategory === '전체') {
+      const oA = CATEGORY_ORDER.indexOf((a as any).category);
+      const oB = CATEGORY_ORDER.indexOf((b as any).category);
+      if (oA !== oB) return oA - oB;
     }
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });

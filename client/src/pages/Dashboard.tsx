@@ -684,6 +684,31 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   const { data: agriAll } = useChecklists({ category: '농산' });
   const { data: validGuideProducts = [] } = useValidGuideProducts(filterYear, filterMonth);
 
+  // 탭별 가이드 상품 세트를 미리 분리
+  const vmGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType !== 'ad' && g.guideType !== 'quality').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
+  const adGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType === 'ad').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
+  const qualityGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType === 'quality').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
   // 카테고리 내 상품 목록 (날짜 무관, 선택된 카테고리/지점 기준)
   const availableProducts = useMemo(() => {
     const CAT_ORDER = ['농산', '수산', '축산', '공산'];
@@ -723,14 +748,12 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   }).sort((a, b) => {
     const cTypeA = (a as any).checklistType || 'vm';
     const cTypeB = (b as any).checklistType || 'vm';
-    const tabGuideMatch = (guideType: string, cType: string) => {
-      if (cType === 'ad') return guideType === 'ad';
-      if (cType === 'quality') return guideType === 'quality';
-      return guideType !== 'ad' && guideType !== 'quality';
-    };
+    const getGuideSet = (cType: string) =>
+      cType === 'ad' ? adGuideSet : cType === 'quality' ? qualityGuideSet : vmGuideSet;
     const guidePriority = (product: string, cType: string) => {
-      if (validGuideProducts.some(g => g.product === product && tabGuideMatch(g.guideType, cType) && g.hasDateRange)) return 0;
-      if (validGuideProducts.some(g => g.product === product && tabGuideMatch(g.guideType, cType))) return 1;
+      const gs = getGuideSet(cType);
+      if (gs.seasonal.has(product)) return 0;
+      if (gs.regular.has(product)) return 1;
       return 2;
     };
     const pA = guidePriority(a.product ?? '', cTypeA);
