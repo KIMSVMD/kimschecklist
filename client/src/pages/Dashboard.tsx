@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus, useUpdateChecklistScore, useUpdateChecklistAdScore, useUpdateChecklistQualityScore } from "@/hooks/use-checklists";
-import { useAdminStatus } from "@/hooks/use-guides";
+import { useAdminStatus, useValidGuideProducts } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -682,6 +682,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
 
   // 농산 전체 데이터 — 순위 계산용
   const { data: agriAll } = useChecklists({ category: '농산' });
+  const { data: validGuideProducts = [] } = useValidGuideProducts(filterYear, filterMonth);
 
   // 카테고리 내 상품 목록 (날짜 무관, 선택된 카테고리/지점 기준)
   const availableProducts = useMemo(() => {
@@ -720,15 +721,16 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     if (viewFilter === 'vm') return cType !== 'ad' && cType !== 'quality';
     return true;
   }).sort((a, b) => {
-    if (filterBranch !== '전체') {
-      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (dateDiff !== 0) return dateDiff;
+    const guideA = validGuideProducts.some(g => g.product === a.product) ? 0 : 1;
+    const guideB = validGuideProducts.some(g => g.product === b.product) ? 0 : 1;
+    if (guideA !== guideB) return guideA - guideB;
+    if (filterBranch === '전체') {
+      const catA = CATEGORY_ORDER.indexOf((a as any).category ?? '');
+      const catB = CATEGORY_ORDER.indexOf((b as any).category ?? '');
+      const oA = catA === -1 ? 99 : catA;
+      const oB = catB === -1 ? 99 : catB;
+      if (oA !== oB) return oA - oB;
     }
-    const catA = CATEGORY_ORDER.indexOf((a as any).category ?? '');
-    const catB = CATEGORY_ORDER.indexOf((b as any).category ?? '');
-    const oA = catA === -1 ? 99 : catA;
-    const oB = catB === -1 ? 99 : catB;
-    if (oA !== oB) return oA - oB;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 

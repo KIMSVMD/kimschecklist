@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
+import { useValidGuideProducts } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
@@ -104,6 +105,8 @@ export default function StaffDashboard() {
     branch: filterBranch || undefined,
   });
 
+  const { data: validGuideProducts = [] } = useValidGuideProducts(vmFilterYear, vmFilterMonth);
+
   const CATEGORY_ORDER = ['농산', '수산', '축산', '공산'];
 
   // Filter by year/month, checklist type, and category client-side
@@ -122,16 +125,17 @@ export default function StaffDashboard() {
     const catMatch = filterCategory === '전체' || (item as any).category === filterCategory;
     return inMonth && typeMatch && catMatch;
   }).sort((a, b) => {
-    if (filterBranch) {
-      // 지점 선택 시: 최신 제출 순 우선
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
-    const catA = (a as any).category as string;
-    const catB = (b as any).category as string;
-    if (filterCategory === '전체') {
-      const oA = CATEGORY_ORDER.indexOf(catA);
-      const oB = CATEGORY_ORDER.indexOf(catB);
-      if (oA !== oB) return oA - oB;
+    const guideA = validGuideProducts.some(g => g.product === (a as any).product) ? 0 : 1;
+    const guideB = validGuideProducts.some(g => g.product === (b as any).product) ? 0 : 1;
+    if (guideA !== guideB) return guideA - guideB;
+    if (!filterBranch) {
+      const catA = (a as any).category as string;
+      const catB = (b as any).category as string;
+      if (filterCategory === '전체') {
+        const oA = CATEGORY_ORDER.indexOf(catA);
+        const oB = CATEGORY_ORDER.indexOf(catB);
+        if (oA !== oB) return oA - oB;
+      }
     }
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
