@@ -433,7 +433,14 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
                 <p className="font-medium">등록된 상품 그룹이 없습니다</p>
               </div>
             ) : (
-              groups.map(group => {
+              [...groups].sort((a, b) => {
+                const badgeA = groupBadge(a) > 0 ? 0 : 1;
+                const badgeB = groupBadge(b) > 0 ? 0 : 1;
+                if (badgeA !== badgeB) return badgeA - badgeB;
+                const hasGuideA = allGuideProducts.some(g => g.product === `[${a}]` || g.product.startsWith(`[${a}]`)) ? 0 : 1;
+                const hasGuideB = allGuideProducts.some(g => g.product === `[${b}]` || g.product.startsWith(`[${b}]`)) ? 0 : 1;
+                return hasGuideA - hasGuideB;
+              }).map(group => {
                 const cnt = dbProducts.filter(p => p.groupName === group && p.productName).length;
                 const badge = groupBadge(group);
                 return (
