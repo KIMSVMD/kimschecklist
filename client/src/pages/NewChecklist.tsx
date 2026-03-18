@@ -36,6 +36,17 @@ export default function NewChecklist() {
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
   const [selMonth, setSelMonth] = useState(nowDate.getMonth() + 1);
 
+  const prevMonth = () => {
+    if (selMonth === 1) { setSelYear(y => y - 1); setSelMonth(12); }
+    else { setSelMonth(m => m - 1); }
+    resetVm();
+  };
+  const nextMonth = () => {
+    if (selMonth === 12) { setSelYear(y => y + 1); setSelMonth(1); }
+    else { setSelMonth(m => m + 1); }
+    resetVm();
+  };
+
   const [vmStage, setVmStage] = useState<VMStage>('category');
   const [selCategory, setSelCategory] = useState('');
   const [selGroup, setSelGroup] = useState('');
@@ -191,31 +202,20 @@ export default function NewChecklist() {
 
           {/* Year/Month filter — VM / Ad / Quality tabs */}
           {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
-            <div className="space-y-1.5">
-              <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x items-center">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="shrink-0 bg-muted rounded-xl px-3 py-2 font-bold text-sm text-secondary">
-                  {selYear}년
-                </span>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => { setSelMonth(m); resetVm(); }}
-                    className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                      selMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-secondary'
-                    }`}
-                    data-testid={`btn-new-month-${m}`}
-                  >
-                    {m}월
-                  </button>
-                ))}
+                <span className="font-bold text-sm text-secondary whitespace-nowrap">{selYear}년</span>
               </div>
-              {selCategory && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium px-1">
-                  <span className="shrink-0 text-primary font-bold">{selCategory}</span>
-                  {selGroup && <><ChevronRight className="w-3 h-3 shrink-0" /><span className="truncate">{selGroup}</span></>}
-                </div>
-              )}
+              <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5 flex-1 justify-between">
+                <button onClick={prevMonth} className="active:scale-95 transition-all" data-testid="btn-new-prev-month">
+                  <ChevronLeft className="w-4 h-4 text-secondary" />
+                </button>
+                <span className="font-bold text-sm text-secondary">{selMonth}월</span>
+                <button onClick={nextMonth} className="active:scale-95 transition-all" data-testid="btn-new-next-month">
+                  <ChevronRight className="w-4 h-4 text-secondary" />
+                </button>
+              </div>
             </div>
           )}
         </div>
