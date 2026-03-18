@@ -52,7 +52,7 @@ export function useAllAdGuideProducts() {
 }
 
 export function useValidGuideProducts(year: number, month: number) {
-  return useQuery<{ product: string; category: string; guideType: string }[]>({
+  return useQuery<{ product: string; category: string; guideType: string; hasDateRange: boolean }[]>({
     queryKey: ['/api/guide-products', year, month],
     queryFn: async () => {
       const res = await fetch(`/api/guide-products?year=${year}&month=${month}`, { credentials: 'include' });

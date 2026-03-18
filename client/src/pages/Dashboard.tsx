@@ -721,9 +721,14 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     if (viewFilter === 'vm') return cType !== 'ad' && cType !== 'quality';
     return true;
   }).sort((a, b) => {
-    const guideA = validGuideProducts.some(g => g.product === a.product) ? 0 : 1;
-    const guideB = validGuideProducts.some(g => g.product === b.product) ? 0 : 1;
-    if (guideA !== guideB) return guideA - guideB;
+    const guidePriority = (product: string) => {
+      if (validGuideProducts.some(g => g.product === product && g.hasDateRange)) return 0;
+      if (validGuideProducts.some(g => g.product === product)) return 1;
+      return 2;
+    };
+    const pA = guidePriority(a.product ?? '');
+    const pB = guidePriority(b.product ?? '');
+    if (pA !== pB) return pA - pB;
     if (filterBranch === '전체') {
       const catA = CATEGORY_ORDER.indexOf((a as any).category ?? '');
       const catB = CATEGORY_ORDER.indexOf((b as any).category ?? '');
