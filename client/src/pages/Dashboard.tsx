@@ -721,13 +721,20 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     if (viewFilter === 'vm') return cType !== 'ad' && cType !== 'quality';
     return true;
   }).sort((a, b) => {
-    const guidePriority = (product: string) => {
-      if (validGuideProducts.some(g => g.product === product && g.hasDateRange)) return 0;
-      if (validGuideProducts.some(g => g.product === product)) return 1;
+    const cTypeA = (a as any).checklistType || 'vm';
+    const cTypeB = (b as any).checklistType || 'vm';
+    const tabGuideMatch = (guideType: string, cType: string) => {
+      if (cType === 'ad') return guideType === 'ad';
+      if (cType === 'quality') return guideType === 'quality';
+      return guideType !== 'ad' && guideType !== 'quality';
+    };
+    const guidePriority = (product: string, cType: string) => {
+      if (validGuideProducts.some(g => g.product === product && tabGuideMatch(g.guideType, cType) && g.hasDateRange)) return 0;
+      if (validGuideProducts.some(g => g.product === product && tabGuideMatch(g.guideType, cType))) return 1;
       return 2;
     };
-    const pA = guidePriority(a.product ?? '');
-    const pB = guidePriority(b.product ?? '');
+    const pA = guidePriority(a.product ?? '', cTypeA);
+    const pB = guidePriority(b.product ?? '', cTypeB);
     if (pA !== pB) return pA - pB;
     if (filterBranch === '전체') {
       const catA = CATEGORY_ORDER.indexOf((a as any).category ?? '');

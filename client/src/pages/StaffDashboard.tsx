@@ -125,9 +125,14 @@ export default function StaffDashboard() {
     const catMatch = filterCategory === '전체' || (item as any).category === filterCategory;
     return inMonth && typeMatch && catMatch;
   }).sort((a, b) => {
+    const tabGuideMatch = (guideType: string) => {
+      if (activeTab === 'ad') return guideType === 'ad';
+      if (activeTab === 'quality') return guideType === 'quality';
+      return guideType !== 'ad' && guideType !== 'quality';
+    };
     const guidePriority = (product: string) => {
-      if (validGuideProducts.some(g => g.product === product && g.hasDateRange)) return 0;
-      if (validGuideProducts.some(g => g.product === product)) return 1;
+      if (validGuideProducts.some(g => g.product === product && tabGuideMatch(g.guideType) && g.hasDateRange)) return 0;
+      if (validGuideProducts.some(g => g.product === product && tabGuideMatch(g.guideType))) return 1;
       return 2;
     };
     const pA = guidePriority((a as any).product);
