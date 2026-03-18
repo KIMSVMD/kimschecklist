@@ -23,7 +23,7 @@ const REGIONS: Record<string, string[]> = {
   '중형점': ['구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정'],
   '소형점': ['부산대', '인천', '안양', '고잔', '중계', '김포', '강북', '청주'],
 };
-const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
+const CATEGORIES = ['전체', '입구', '농산', '수산', '축산', '공산'];
 const ZONES = ['입구', '농산', '수산', '축산', '공산'];
 
 function toLocalDateStr(d: Date) {
@@ -55,6 +55,15 @@ export default function StaffDashboard() {
 
   const isToday = selectedDate === todayStr;
   const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+
+  const prevVmMonth = () => {
+    if (vmFilterMonth === 1) { setVmFilterYear(y => y - 1); setVmFilterMonth(12); }
+    else { setVmFilterMonth(m => m - 1); }
+  };
+  const nextVmMonth = () => {
+    if (vmFilterMonth === 12) { setVmFilterYear(y => y + 1); setVmFilterMonth(1); }
+    else { setVmFilterMonth(m => m + 1); }
+  };
 
   const goBack = () => {
     const d = new Date(selectedDate);
@@ -346,20 +355,20 @@ export default function StaffDashboard() {
           {/* Year/Month filter — VM / Ad / Quality tabs */}
           {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
             <div className="space-y-2">
-              <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x items-center">
-                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="shrink-0 bg-muted rounded-xl px-3 py-2 font-bold text-sm text-secondary">
-                  {vmFilterYear}년
-                </span>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                  <button key={m} onClick={() => setVmFilterMonth(m)}
-                    className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                      vmFilterMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-secondary'
-                    }`}
-                    data-testid={`btn-staff-vm-month-${m}`}>
-                    {m}월
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2">
+                  <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="font-bold text-sm text-secondary whitespace-nowrap">{vmFilterYear}년</span>
+                </div>
+                <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
+                  <button onClick={prevVmMonth} className="active:scale-95 transition-all p-0.5" data-testid="btn-staff-prev-month">
+                    <ChevronLeft className="w-4 h-4 text-secondary" />
                   </button>
-                ))}
+                  <span className="font-bold text-sm text-secondary">{vmFilterMonth}월</span>
+                  <button onClick={nextVmMonth} className="active:scale-95 transition-all p-0.5" data-testid="btn-staff-next-month">
+                    <ChevronRight className="w-4 h-4 text-secondary" />
+                  </button>
+                </div>
               </div>
               <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x">
                 {CATEGORIES.map(cat => (
