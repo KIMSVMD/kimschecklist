@@ -374,23 +374,24 @@ export default function StaffDashboard() {
 
           {/* Year/Month filter — VM / Ad / Quality tabs */}
           {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
                   <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
                   <span className="font-bold text-sm text-secondary whitespace-nowrap">{vmFilterYear}년</span>
                 </div>
-                <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
-                  <button onClick={prevVmMonth} className="active:scale-95 transition-all p-0.5" data-testid="btn-staff-prev-month">
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5 flex-1 justify-between">
+                  <button onClick={prevVmMonth} className="active:scale-95 transition-all" data-testid="btn-staff-prev-month">
                     <ChevronLeft className="w-4 h-4 text-secondary" />
                   </button>
                   <span className="font-bold text-sm text-secondary">{vmFilterMonth}월</span>
-                  <button onClick={nextVmMonth} className="active:scale-95 transition-all p-0.5" data-testid="btn-staff-next-month">
+                  <button onClick={nextVmMonth} className="active:scale-95 transition-all" data-testid="btn-staff-next-month">
                     <ChevronRight className="w-4 h-4 text-secondary" />
                   </button>
                 </div>
               </div>
-              <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x">
+              {/* pt-3 reserves space for the -top-1.5 badge overflow above each button */}
+              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pt-3 pb-1 touch-pan-x">
                 {CATEGORIES.map(cat => {
                   const badge = catBadge(cat);
                   return (
@@ -402,7 +403,7 @@ export default function StaffDashboard() {
                       data-testid={`btn-staff-cat-${cat}`}>
                       {cat}
                       {badge > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 leading-none shadow-sm">
+                        <span className="absolute -top-2 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 leading-none shadow-sm">
                           {badge > 9 ? '9+' : badge}
                         </span>
                       )}
