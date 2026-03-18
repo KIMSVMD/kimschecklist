@@ -124,6 +124,11 @@ export default function StaffDashboard() {
   }).sort((a, b) => {
     const catA = (a as any).category as string;
     const catB = (b as any).category as string;
+    if (filterBranch) {
+      // 지점 선택 시: 최신 제출 순 우선
+      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (dateDiff !== 0) return dateDiff;
+    }
     if (filterCategory === '전체') {
       const oA = CATEGORY_ORDER.indexOf(catA);
       const oB = CATEGORY_ORDER.indexOf(catB);
