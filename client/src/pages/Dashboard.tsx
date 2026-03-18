@@ -691,6 +691,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   }, [allChecklists]);
 
   // Filter by year/month and product client-side
+  const CATEGORY_ORDER = ['농산', '수산', '축산', '공산'];
   const checklists = (allChecklists ?? []).filter(item => {
     const itemYear = (item as any).year;
     const itemMonth = (item as any).month;
@@ -708,6 +709,12 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     if (viewFilter === 'ad') return cType === 'ad';
     if (viewFilter === 'vm') return cType !== 'ad' && cType !== 'quality';
     return true;
+  }).sort((a, b) => {
+    const catA = CATEGORY_ORDER.indexOf((a as any).category ?? '');
+    const catB = CATEGORY_ORDER.indexOf((b as any).category ?? '');
+    const oA = catA === -1 ? 99 : catA;
+    const oB = catB === -1 ? 99 : catB;
+    return oA - oB;
   });
 
   // 농산 기준 월별 순위 계산
