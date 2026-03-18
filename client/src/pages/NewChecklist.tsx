@@ -191,21 +191,12 @@ export default function NewChecklist() {
 
           {/* Year/Month filter — VM / Ad / Quality tabs */}
           {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
-            <div className="space-y-2">
-              <div className="flex gap-2 items-center">
+            <div className="space-y-1.5">
+              <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x items-center">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="bg-muted rounded-xl px-3 py-2 font-bold text-sm text-secondary">
+                <span className="shrink-0 bg-muted rounded-xl px-3 py-2 font-bold text-sm text-secondary">
                   {selYear}년
                 </span>
-                {/* Breadcrumb for current selection */}
-                {selCategory && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium overflow-hidden">
-                    <span className="shrink-0 text-primary font-bold">{selCategory}</span>
-                    {selGroup && <><ChevronRight className="w-3 h-3 shrink-0" /><span className="truncate">{selGroup}</span></>}
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                   <button
                     key={m}
@@ -219,6 +210,12 @@ export default function NewChecklist() {
                   </button>
                 ))}
               </div>
+              {selCategory && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium px-1">
+                  <span className="shrink-0 text-primary font-bold">{selCategory}</span>
+                  {selGroup && <><ChevronRight className="w-3 h-3 shrink-0" /><span className="truncate">{selGroup}</span></>}
+                </div>
+              )}
             </div>
           )}
         </div>
