@@ -122,13 +122,12 @@ export default function StaffDashboard() {
     const catMatch = filterCategory === '전체' || (item as any).category === filterCategory;
     return inMonth && typeMatch && catMatch;
   }).sort((a, b) => {
-    const catA = (a as any).category as string;
-    const catB = (b as any).category as string;
     if (filterBranch) {
       // 지점 선택 시: 최신 제출 순 우선
-      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (dateDiff !== 0) return dateDiff;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     }
+    const catA = (a as any).category as string;
+    const catB = (b as any).category as string;
     if (filterCategory === '전체') {
       const oA = CATEGORY_ORDER.indexOf(catA);
       const oB = CATEGORY_ORDER.indexOf(catB);

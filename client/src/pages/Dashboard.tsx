@@ -720,11 +720,16 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     if (viewFilter === 'vm') return cType !== 'ad' && cType !== 'quality';
     return true;
   }).sort((a, b) => {
+    if (filterBranch !== '전체') {
+      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (dateDiff !== 0) return dateDiff;
+    }
     const catA = CATEGORY_ORDER.indexOf((a as any).category ?? '');
     const catB = CATEGORY_ORDER.indexOf((b as any).category ?? '');
     const oA = catA === -1 ? 99 : catA;
     const oB = catB === -1 ? 99 : catB;
-    return oA - oB;
+    if (oA !== oB) return oA - oB;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   // 농산 기준 월별 순위 계산
