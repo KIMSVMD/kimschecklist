@@ -13,6 +13,7 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
   const [location] = useLocation();
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+  const isValidSwipe = useRef(false);
   const [swipeProgress, setSwipeProgress] = useState(0);
 
   const canGoBack = showBack && location !== "/";
@@ -28,38 +29,44 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
   useEffect(() => {
     if (!canGoBack) return;
 
-    const EDGE_THRESHOLD = 60;
-    const MIN_SWIPE_X = 72;
+    const MIN_SWIPE_X = 90;
     const MAX_ANGLE_RATIO = 1.5;
+
+    const isInsideHScrollable = (el: HTMLElement | null): boolean => {
+      while (el) {
+        const style = window.getComputedStyle(el);
+        if (style.overflowX === 'auto' || style.overflowX === 'scroll') return true;
+        el = el.parentElement;
+      }
+      return false;
+    };
 
     const onTouchStart = (e: TouchEvent) => {
       touchStartX.current = e.touches[0].clientX;
       touchStartY.current = e.touches[0].clientY;
+      isValidSwipe.current = !isInsideHScrollable(e.target as HTMLElement);
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (touchStartX.current > EDGE_THRESHOLD) return;
+      if (!isValidSwipe.current) return;
       const dx = e.touches[0].clientX - touchStartX.current;
       const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
       if (dx > 0 && dx > dy * 0.5) {
-        const progress = Math.min(dx / MIN_SWIPE_X, 1);
-        setSwipeProgress(progress);
+        setSwipeProgress(Math.min(dx / MIN_SWIPE_X, 1));
+      } else {
+        setSwipeProgress(0);
       }
     };
 
     const onTouchEnd = (e: TouchEvent) => {
+      setSwipeProgress(0);
+      if (!isValidSwipe.current) return;
       const dx = e.changedTouches[0].clientX - touchStartX.current;
       const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-
-      setSwipeProgress(0);
-
-      if (
-        touchStartX.current <= EDGE_THRESHOLD &&
-        dx >= MIN_SWIPE_X &&
-        dx > dy * MAX_ANGLE_RATIO
-      ) {
+      if (dx >= MIN_SWIPE_X && dx > dy * MAX_ANGLE_RATIO) {
         handleBack();
       }
+      isValidSwipe.current = false;
     };
 
     window.addEventListener("touchstart", onTouchStart, { passive: true });
