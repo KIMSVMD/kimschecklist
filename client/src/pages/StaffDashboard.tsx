@@ -23,7 +23,7 @@ const REGIONS: Record<string, string[]> = {
   '중형점': ['구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정'],
   '소형점': ['부산대', '인천', '안양', '고잔', '중계', '김포', '강북', '청주'],
 };
-const CATEGORIES = ['전체', '입구', '농산', '수산', '축산', '공산'];
+const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
 const ZONES = ['입구', '농산', '수산', '축산', '공산'];
 
 function toLocalDateStr(d: Date) {
@@ -52,6 +52,26 @@ export default function StaffDashboard() {
   const scoreChanges = notifications.filter(n => n.notifCategory === 'score_change');
   const commentUnread = commentReplies.length;
   const scoreUnread = scoreChanges.length;
+
+  const catBadge = (cat: string) => {
+    if (!cat || cat === '전체') return 0;
+    return [...commentReplies, ...scoreChanges].filter(n => {
+      const isVmType = n.type?.startsWith('vm');
+      const tabMatch = (activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') ? isVmType : !isVmType;
+      const catField = isVmType ? n.category : n.zone;
+      return tabMatch && catField === cat;
+    }).length;
+  };
+
+  const dismissCategoryNotifs = (cat: string) => {
+    if (!cat || cat === '전체') return;
+    [...commentReplies, ...scoreChanges].filter(n => {
+      const isVmType = n.type?.startsWith('vm');
+      const tabMatch = (activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') ? isVmType : !isVmType;
+      const catField = isVmType ? n.category : n.zone;
+      return tabMatch && catField === cat;
+    }).forEach(n => dismiss(staffNotifKey(n)));
+  };
 
   const isToday = selectedDate === todayStr;
   const selectedDateObj = new Date(selectedDate + 'T00:00:00');
@@ -371,15 +391,24 @@ export default function StaffDashboard() {
                 </div>
               </div>
               <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 touch-pan-x">
-                {CATEGORIES.map(cat => (
-                  <button key={cat} onClick={() => setFilterCategory(cat)}
-                    className={`shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                      filterCategory === cat ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-secondary'
-                    }`}
-                    data-testid={`btn-staff-cat-${cat}`}>
-                    {cat}
-                  </button>
-                ))}
+                {CATEGORIES.map(cat => {
+                  const badge = catBadge(cat);
+                  return (
+                    <button key={cat}
+                      onClick={() => { setFilterCategory(cat); dismissCategoryNotifs(cat); }}
+                      className={`relative shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                        filterCategory === cat ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-secondary'
+                      }`}
+                      data-testid={`btn-staff-cat-${cat}`}>
+                      {cat}
+                      {badge > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 leading-none shadow-sm">
+                          {badge > 9 ? '9+' : badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
