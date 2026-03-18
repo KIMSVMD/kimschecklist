@@ -374,7 +374,7 @@ export default function StaffDashboard() {
 
           {/* Year/Month filter — VM / Ad / Quality tabs */}
           {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
-            <div className="space-y-3">
+            <div className="space-y-0">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
                   <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
