@@ -685,9 +685,19 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
 
   // 카테고리 내 상품 목록 (날짜 무관, 선택된 카테고리/지점 기준)
   const availableProducts = useMemo(() => {
-    const products = new Set<string>();
-    (allChecklists ?? []).forEach(item => { if (item.product) products.add(item.product); });
-    return ['전체', ...Array.from(products).sort()];
+    const CAT_ORDER = ['농산', '수산', '축산', '공산'];
+    const productCatMap = new Map<string, string>();
+    (allChecklists ?? []).forEach(item => {
+      if (item.product && !productCatMap.has(item.product)) {
+        productCatMap.set(item.product, (item as any).category ?? '');
+      }
+    });
+    const sorted = Array.from(productCatMap.keys()).sort((a, b) => {
+      const oA = CAT_ORDER.indexOf(productCatMap.get(a) ?? '');
+      const oB = CAT_ORDER.indexOf(productCatMap.get(b) ?? '');
+      return (oA === -1 ? 99 : oA) - (oB === -1 ? 99 : oB);
+    });
+    return ['전체', ...sorted];
   }, [allChecklists]);
 
   // Filter by year/month and product client-side
