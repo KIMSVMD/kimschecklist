@@ -262,6 +262,7 @@ export default function NewChecklist() {
                 setNotes={setNotes}
                 onReset={resetVm}
                 pendingGuideNotifs={pendingQualityGuideNotifs}
+                allGuideProducts={validGuideProducts.filter(g => g.guideType === 'quality')}
               />
             ) : activeTab === 'ad' ? (
               /* Ad tab */
@@ -287,6 +288,7 @@ export default function NewChecklist() {
                 setNotes={setNotes}
                 onReset={resetVm}
                 pendingGuideNotifs={pendingAdGuideNotifs}
+                allGuideProducts={validGuideProducts.filter(g => g.guideType === 'ad')}
               />
             ) : activeTab === 'cleaning' ? (
               /* Cleaning tab */
@@ -333,6 +335,7 @@ export default function NewChecklist() {
                 setNotes={setNotes}
                 onReset={resetVm}
                 pendingGuideNotifs={pendingGuideNotifs}
+                allGuideProducts={validGuideProducts.filter(g => g.guideType !== 'ad' && g.guideType !== 'quality')}
               />
             )}
           </AnimatePresence>
@@ -357,9 +360,10 @@ type VMContentProps = {
   notes: string; setNotes: (v: string) => void;
   onReset: () => void;
   pendingGuideNotifs: { product: string; category: string }[];
+  allGuideProducts?: { product: string; category: string }[];
 };
 
-function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset, pendingGuideNotifs }: VMContentProps) {
+function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmStage, setVmStage, selCategory, setSelCategory, selGroup, setSelGroup, selProduct, setSelProduct, items, setItems, photoUrls, setPhotoUrls, notes, setNotes, onReset, pendingGuideNotifs, allGuideProducts = [] }: VMContentProps) {
   const { data: dbProducts = [], isLoading } = useProducts(selCategory);
   const groups = Array.from(new Set(dbProducts.map(p => p.groupName)));
 
@@ -467,7 +471,16 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
               <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {selCategory} · {selGroup}</p>
               <h2 className="text-2xl font-black text-secondary">상품 선택</h2>
             </div>
-            {dbProducts.filter(p => p.groupName === selGroup && p.productName).map(p => {
+            {dbProducts.filter(p => p.groupName === selGroup && p.productName).sort((a, b) => {
+              const keyA = `[${selGroup}]${a.productName}`;
+              const keyB = `[${selGroup}]${b.productName}`;
+              const badgeA = productBadge(keyA) ? 0 : 1;
+              const badgeB = productBadge(keyB) ? 0 : 1;
+              if (badgeA !== badgeB) return badgeA - badgeB;
+              const guideA = allGuideProducts.some(g => g.product === keyA) ? 0 : 1;
+              const guideB = allGuideProducts.some(g => g.product === keyB) ? 0 : 1;
+              return guideA - guideB;
+            }).map(p => {
               const hasBadge = productBadge(`[${selGroup}]${p.productName}`);
               return (
                 <button key={p.id}
