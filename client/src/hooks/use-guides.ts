@@ -163,6 +163,8 @@ export function useCreateGuide() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/guides'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/guide-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/guide-notifications'] });
     },
   });
 }
@@ -186,6 +188,8 @@ export function useUpdateGuide() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/guides'] });
       queryClient.invalidateQueries({ queryKey: ['/api/guides/product'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/guide-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/guide-notifications'] });
     },
   });
 }
@@ -202,6 +206,8 @@ export function useDeleteGuide() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/guides'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/guide-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/guide-notifications'] });
     },
   });
 }
