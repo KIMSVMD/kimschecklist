@@ -51,6 +51,7 @@ export const guides = pgTable("guides", {
   imageUrl: text("image_url"),
   imageUrls: text("image_urls").array(),
   videoUrl: text("video_url"),
+  videoLinkUrl: text("video_link_url"),
   attachFileUrls: text("attach_file_urls").array(),
   points: text("points").array().notNull().default([]),
   items: text("items").array().notNull().default([]),

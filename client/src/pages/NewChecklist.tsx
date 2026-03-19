@@ -756,18 +756,37 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
         <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {effectiveInspectionType === 'ad' ? '광고(+영상) 점검' : effectiveInspectionType === 'quality' ? '품질 점검' : '진열 점검'}</p>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <h2 className="text-xl font-black text-secondary">{displayProduct}</h2>
-          {(adOnly || effectiveInspectionType === 'ad') && (adGuide as any)?.videoUrl && (
-            <a
-              href={(adGuide as any).videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 active:scale-95 transition-all text-white text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
-              </svg>
-              영상
-            </a>
+          {(adOnly || effectiveInspectionType === 'ad') && (
+            <div className="flex items-center gap-2 shrink-0">
+              {(adGuide as any)?.videoUrl && (
+                <a
+                  href={(adGuide as any).videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all text-white text-xs font-bold px-3 py-1.5 rounded-full"
+                  data-testid="link-ad-video"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
+                  </svg>
+                  영상
+                </a>
+              )}
+              {(adGuide as any)?.videoLinkUrl && (
+                <a
+                  href={(adGuide as any).videoLinkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all text-white text-xs font-bold px-3 py-1.5 rounded-full"
+                  data-testid="link-ad-video-link"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  링크
+                </a>
+              )}
+            </div>
           )}
         </div>
         {/* VM product file downloads */}

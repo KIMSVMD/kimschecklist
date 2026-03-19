@@ -49,6 +49,7 @@ type GuideFormData = {
   newImageFiles: File[];
   videoFile?: File | null;
   videoUrl?: string;
+  videoLinkUrl?: string;
   existingAttachFileUrls: string[];
   newAttachFiles: File[];
   validFromYear?: number | null;
@@ -91,6 +92,7 @@ function GuideForm({
     newImageFiles: [],
     videoFile: null,
     videoUrl: (initial as any)?.videoUrl || '',
+    videoLinkUrl: (initial as any)?.videoLinkUrl || '',
     existingAttachFileUrls: getInitialAttachFileUrls(),
     newAttachFiles: [],
     validFromYear: (initial as any)?.validFromYear ?? null,
@@ -385,6 +387,30 @@ function GuideForm({
             </button>
           )}
           <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={handleVideoChange} />
+        </div>
+      )}
+
+      {form.guideType === 'ad' && (
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-secondary">광고 링크 URL <span className="text-xs text-muted-foreground font-normal">(유튜브, 외부 링크 등)</span></label>
+          <div className="flex items-center gap-2 p-3 rounded-2xl border-2 border-amber-200 bg-amber-50">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            <input
+              type="url"
+              placeholder="https://youtube.com/..."
+              value={form.videoLinkUrl || ''}
+              onChange={e => setForm(f => ({ ...f, videoLinkUrl: e.target.value }))}
+              className="flex-1 bg-transparent text-sm text-amber-900 placeholder:text-amber-400 outline-none"
+              data-testid="input-guide-video-link"
+            />
+            {form.videoLinkUrl && (
+              <button type="button" onClick={() => setForm(f => ({ ...f, videoLinkUrl: '' }))} className="p-1 rounded-lg bg-amber-200 text-amber-700 hover:bg-amber-300 transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1117,6 +1143,7 @@ export default function GuideAdmin() {
       imageUrl: allImageUrls[0] || null,
       imageUrls: allImageUrls.length > 0 ? allImageUrls : null,
       videoUrl: videoUrl || null,
+      videoLinkUrl: data.videoLinkUrl?.trim() || null,
       attachFileUrls: allAttachFileUrls.length > 0 ? allAttachFileUrls : null,
       validFromYear: data.validFromYear ?? null,
       validFromMonth: data.validFromMonth ?? null,
@@ -1320,6 +1347,7 @@ export default function GuideAdmin() {
                               items: guide.items as string[],
                               imageUrls: ((guide as any).imageUrls as string[] | null) || (guide.imageUrl ? [guide.imageUrl] : []),
                               videoUrl: (guide as any).videoUrl || '',
+                              videoLinkUrl: (guide as any).videoLinkUrl || '',
                               validFromYear: (guide as any).validFromYear ?? null,
                               validFromMonth: (guide as any).validFromMonth ?? null,
                               validToYear: (guide as any).validToYear ?? null,
@@ -1359,8 +1387,13 @@ export default function GuideAdmin() {
                                   {(guide as any).guideType === 'ad' ? '광고(+영상)' : (guide as any).guideType === 'quality' ? '품질' : '진열'}
                                 </span>
                                 {(guide as any).videoUrl && (
-                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-700">
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-700">
                                     <Video className="w-3 h-3" />영상
+                                  </span>
+                                )}
+                                {(guide as any).videoLinkUrl && (
+                                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-700">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>링크
                                   </span>
                                 )}
                               {guide.storeType && (
