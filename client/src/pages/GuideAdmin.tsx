@@ -268,7 +268,7 @@ function GuideForm({
       <div className="space-y-2">
         <label className="text-sm font-bold text-secondary">가이드 종류</label>
         <div className="flex gap-2">
-          {([['vm', '진열'], ['ad', '광고(+영상)'], ['quality', '품질']] as const).map(([val, label]) => (
+          {([['vm', '진열'], ['ad', '광고(+셀링)'], ['quality', '품질']] as const).map(([val, label]) => (
             <button
               key={val}
               type="button"
@@ -1262,7 +1262,7 @@ export default function GuideAdmin() {
                   }`}
                   data-testid="tab-guide-type-ad"
                 >
-                  광고(+영상)
+                  광고(+셀링)
                 </button>
                 <button
                   onClick={() => { setGuideTypeFilter('quality'); setShowAddForm(true); setEditingId(null); }}
@@ -1321,7 +1321,7 @@ export default function GuideAdmin() {
                   return true;
                 }).length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground text-lg">
-                  {guideCategory} {guideTypeFilter === 'ad' ? '광고(+영상)' : guideTypeFilter === 'quality' ? '품질' : '진열'} 가이드가 없습니다.<br />새 가이드를 추가해주세요.
+                  {guideCategory} {guideTypeFilter === 'ad' ? '광고(+셀링)' : guideTypeFilter === 'quality' ? '품질' : '진열'} 가이드가 없습니다.<br />새 가이드를 추가해주세요.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1384,7 +1384,7 @@ export default function GuideAdmin() {
                                   {guide.category}
                                 </span>
                                 <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${(guide as any).guideType === 'ad' ? 'bg-amber-100 text-amber-700' : (guide as any).guideType === 'quality' ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'}`}>
-                                  {(guide as any).guideType === 'ad' ? '광고(+영상)' : (guide as any).guideType === 'quality' ? '품질' : '진열'}
+                                  {(guide as any).guideType === 'ad' ? '광고(+셀링)' : (guide as any).guideType === 'quality' ? '품질' : '진열'}
                                 </span>
                                 {(guide as any).videoUrl && (
                                   <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-700">

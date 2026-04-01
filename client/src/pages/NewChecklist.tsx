@@ -168,7 +168,7 @@ export default function NewChecklist() {
               }`}
               data-testid="tab-new-ad"
             >
-              광고(+영상)
+              광고(+셀링)
               {pendingAdGuideNotifs.length > 0 && (
                 <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
                   {pendingAdGuideNotifs.length}
@@ -394,7 +394,7 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
         {vmStage === 'category' && (
           <motion.div key="cat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
             <div className="mb-5">
-              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {adOnly ? '광고(+영상) 점검' : '진열 점검'}</p>
+              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {adOnly ? '광고(+셀링) 점검' : '진열 점검'}</p>
               <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
             </div>
             {CATEGORIES.map(cat => {
@@ -753,7 +753,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-10">
       <div className="border-b-2 border-border pb-4">
-        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {effectiveInspectionType === 'ad' ? '광고(+영상) 점검' : effectiveInspectionType === 'quality' ? '품질 점검' : '진열 점검'}</p>
+        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {effectiveInspectionType === 'ad' ? '광고(+셀링) 점검' : effectiveInspectionType === 'quality' ? '품질 점검' : '진열 점검'}</p>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <h2 className="text-xl font-black text-secondary">{displayProduct}</h2>
           {(adOnly || effectiveInspectionType === 'ad') && (
