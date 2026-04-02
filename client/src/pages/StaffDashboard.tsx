@@ -917,6 +917,13 @@ export default function StaffDashboard() {
                           }).length;
                           return (
                             <div className="mb-3">
+                              {hasAdData && (
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className="flex-1 h-px bg-primary/20" />
+                                  <span className="text-[11px] font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">진열 점검</span>
+                                  <div className="flex-1 h-px bg-primary/20" />
+                                </div>
+                              )}
                               {changedCount > 0 && (
                                 <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-xl bg-amber-50 border border-amber-200 w-fit">
                                   <span className="text-[10px] font-black text-amber-700">관리자 수정 {changedCount}항목</span>

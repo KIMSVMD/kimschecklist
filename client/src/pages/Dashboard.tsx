@@ -1096,33 +1096,42 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                   )}
 
                   {viewFilter !== 'ad' && viewFilter !== 'quality' && item.items && Object.keys(item.items as object).length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {Object.entries(item.items as Record<string, string>).map(([name, status]) => {
-                        const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
-                        const adminVal = adminItems?.[name];
-                        const staffIsOk = status === 'ok' || status === 'excellent';
-                        const adminIsOk = adminVal === 'ok';
-                        const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
-                        return (
-                          <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                            wasChanged
-                              ? 'bg-amber-50 border-amber-300 text-amber-700'
-                              : staffIsOk ? 'bg-blue-50 border-blue-200 text-blue-600'
-                              : 'bg-red-50 border-red-200 text-red-600'
-                          }`}>
-                            {name}:&nbsp;
-                            {wasChanged ? (
-                              <>
-                                <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
-                                <span>→ {adminIsOk ? '○' : '✗'}</span>
-                                <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
-                              </>
-                            ) : (
-                              <span>{staffIsOk ? '○' : '✗'}</span>
-                            )}
-                          </span>
-                        );
-                      })}
+                    <div className="mt-3">
+                      {hasAdItems && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex-1 h-px bg-primary/20" />
+                          <span className="text-[11px] font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">진열 점검</span>
+                          <div className="flex-1 h-px bg-primary/20" />
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(item.items as Record<string, string>).map(([name, status]) => {
+                          const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
+                          const adminVal = adminItems?.[name];
+                          const staffIsOk = status === 'ok' || status === 'excellent';
+                          const adminIsOk = adminVal === 'ok';
+                          const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                          return (
+                            <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                              wasChanged
+                                ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                : staffIsOk ? 'bg-blue-50 border-blue-200 text-blue-600'
+                                : 'bg-red-50 border-red-200 text-red-600'
+                            }`}>
+                              {name}:&nbsp;
+                              {wasChanged ? (
+                                <>
+                                  <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                  <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                  <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                </>
+                              ) : (
+                                <span>{staffIsOk ? '○' : '✗'}</span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
