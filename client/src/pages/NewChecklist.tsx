@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
   Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
-  Calendar, BarChart3, FileText, Download, Paperclip,
+  Calendar, FileText, Paperclip,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -30,7 +30,7 @@ export default function NewChecklist() {
   const { toast } = useToast();
 
   const [branch, setBranch] = useState('');
-  const [activeTab, setActiveTab] = useState<'vm' | 'ad' | 'quality' | 'cleaning'>('vm');
+  const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>('vm');
 
   const nowDate = new Date();
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
@@ -59,20 +59,12 @@ export default function NewChecklist() {
   const { data: branchChecklists = [] } = useChecklists({ branch: branch || undefined });
   const { data: validGuideProducts = [] } = useValidGuideProducts(selYear, selMonth);
 
-  // VM tab: products with a valid VM guide for selYear/selMonth, not yet submitted
+  // VM tab: products with a valid VM or Ad guide (not quality), not yet submitted
   const pendingGuideNotifs = validGuideProducts
-    .filter(g => g.guideType !== 'ad' && g.guideType !== 'quality')
+    .filter(g => g.guideType !== 'quality')
     .filter(g => !branchChecklists.some(c => {
       const ct = (c as any).checklistType || 'vm';
-      return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct !== 'ad' && ct !== 'quality';
-    }));
-
-  // Ad tab: products with a valid Ad guide for selYear/selMonth, not yet submitted
-  const pendingAdGuideNotifs = validGuideProducts
-    .filter(g => g.guideType === 'ad')
-    .filter(g => !branchChecklists.some(c => {
-      const ct = (c as any).checklistType || 'vm';
-      return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct === 'ad';
+      return c.product === g.product && (c as any).year === selYear && (c as any).month === selMonth && ct === 'vm';
     }));
 
   // Quality tab: products with a valid Quality guide for selYear/selMonth, not yet submitted
@@ -93,7 +85,7 @@ export default function NewChecklist() {
     setNotes('');
   };
 
-  const handleTabChange = (tab: 'vm' | 'ad' | 'quality' | 'cleaning') => {
+  const handleTabChange = (tab: 'vm' | 'quality' | 'cleaning') => {
     setActiveTab(tab);
     if (tab !== 'cleaning') resetVm();
   };
@@ -154,24 +146,10 @@ export default function NewChecklist() {
               }`}
               data-testid="tab-new-vm"
             >
-              <BarChart3 className="w-4 h-4" /> 진열
+              진열(+광고)
               {pendingGuideNotifs.length > 0 && (
                 <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
                   {pendingGuideNotifs.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => handleTabChange('ad')}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'ad' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
-              }`}
-              data-testid="tab-new-ad"
-            >
-              광고(+셀링)
-              {pendingAdGuideNotifs.length > 0 && (
-                <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
-                  {pendingAdGuideNotifs.length}
                 </span>
               )}
             </button>
@@ -200,8 +178,8 @@ export default function NewChecklist() {
             </button>
           </div>
 
-          {/* Year/Month filter — VM / Ad / Quality tabs */}
-          {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
+          {/* Year/Month filter — VM / Quality tabs */}
+          {(activeTab === 'vm' || activeTab === 'quality') && (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
                 <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -264,32 +242,6 @@ export default function NewChecklist() {
                 pendingGuideNotifs={pendingQualityGuideNotifs}
                 allGuideProducts={validGuideProducts.filter(g => g.guideType === 'quality')}
               />
-            ) : activeTab === 'ad' ? (
-              /* Ad tab */
-              <VMContent
-                key="ad"
-                adOnly={true}
-                branch={branch}
-                selYear={selYear}
-                selMonth={selMonth}
-                vmStage={vmStage}
-                setVmStage={setVmStage}
-                selCategory={selCategory}
-                setSelCategory={setSelCategory}
-                selGroup={selGroup}
-                setSelGroup={setSelGroup}
-                selProduct={selProduct}
-                setSelProduct={setSelProduct}
-                items={items}
-                setItems={setItems}
-                photoUrls={photoUrls}
-                setPhotoUrls={setPhotoUrls}
-                notes={notes}
-                setNotes={setNotes}
-                onReset={resetVm}
-                pendingGuideNotifs={pendingAdGuideNotifs}
-                allGuideProducts={validGuideProducts.filter(g => g.guideType === 'ad')}
-              />
             ) : activeTab === 'cleaning' ? (
               /* Cleaning tab */
               <motion.div key="cleaning"
@@ -335,7 +287,7 @@ export default function NewChecklist() {
                 setNotes={setNotes}
                 onReset={resetVm}
                 pendingGuideNotifs={pendingGuideNotifs}
-                allGuideProducts={validGuideProducts.filter(g => g.guideType !== 'ad' && g.guideType !== 'quality')}
+                allGuideProducts={validGuideProducts.filter(g => g.guideType !== 'quality')}
               />
             )}
           </AnimatePresence>
@@ -394,7 +346,7 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
         {vmStage === 'category' && (
           <motion.div key="cat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
             <div className="mb-5">
-              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {adOnly ? '광고(+셀링) 점검' : '진열 점검'}</p>
+              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {qualityOnly ? '품질 점검' : '진열(+광고) 점검'}</p>
               <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
             </div>
             {CATEGORIES.map(cat => {
@@ -667,13 +619,10 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   };
 
   const submitForm = async () => {
-    const isAd = effectiveInspectionType === 'ad';
     const isQuality = effectiveInspectionType === 'quality';
-    const hasNotok = isAd
-      ? Object.values(adItems).includes('notok')
-      : isQuality
-        ? Object.values(qualityItems).includes('notok')
-        : Object.values(items).includes('notok');
+    const hasNotok = isQuality
+      ? Object.values(qualityItems).includes('notok')
+      : Object.values(items).includes('notok') || Object.values(adItems).includes('notok');
     const finalStatus = hasNotok ? 'poor' : 'excellent';
     try {
       const created = await createMutation.mutateAsync({
@@ -681,14 +630,14 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
         category: selCategory,
         product: selProduct,
         status: finalStatus,
-        checklistType: isAd ? 'ad' : isQuality ? 'quality' : 'vm',
-        photoUrl: isAd ? (adPhotoUrls[0] || null) : isQuality ? (qualityPhotoUrls[0] || null) : (photoUrls[0] || null),
-        photoUrls: isAd ? (adPhotoUrls.length > 0 ? adPhotoUrls : null) : isQuality ? (qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null) : (photoUrls.length > 0 ? photoUrls : null),
-        notes: isAd ? null : isQuality ? null : (notes || null),
-        items: isAd ? {} : isQuality ? {} : items,
+        checklistType: isQuality ? 'quality' : 'vm',
+        photoUrl: isQuality ? (qualityPhotoUrls[0] || null) : (photoUrls[0] || null),
+        photoUrls: isQuality ? (qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null) : (photoUrls.length > 0 ? photoUrls : null),
+        notes: isQuality ? null : (notes || null),
+        items: isQuality ? {} : items,
         year: selYear,
         month: selMonth,
-        ...(isAd && {
+        ...(!isQuality && adGuide && {
           adItems: Object.keys(adItems).length > 0 ? adItems : null,
           adPhotoUrls: adPhotoUrls.length > 0 ? adPhotoUrls : null,
           adNotes: adNotes.trim() || null,
@@ -728,12 +677,10 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
     return qualityGuide?.imageUrl ? [qualityGuide.imageUrl] : [];
   })();
   const qualityGuideAttachFiles: string[] = (qualityGuide as any)?.attachFileUrls ?? [];
-  const effectiveInspectionType = qualityOnly ? 'quality' : adOnly ? 'ad' : (adGuide && !hasVmGuide ? 'ad' : 'vm');
-  const allItemsChecked = effectiveInspectionType === 'ad'
+  const effectiveInspectionType = qualityOnly ? 'quality' : 'vm';
+  const allItemsChecked = effectiveInspectionType === 'quality'
     ? true
-    : effectiveInspectionType === 'quality'
-      ? true
-      : (guideItems.length === 0 || guideItems.every(item => items[item]));
+    : (guideItems.length === 0 || guideItems.every(item => items[item]));
 
   const displayProduct = selProduct?.replace(/\[(.+?)\](.*)/, (_: string, g: string, rest: string) => rest ? `${g} > ${rest}` : g) || selProduct;
 
@@ -753,10 +700,10 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-10">
       <div className="border-b-2 border-border pb-4">
-        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {effectiveInspectionType === 'ad' ? '광고(+셀링) 점검' : effectiveInspectionType === 'quality' ? '품질 점검' : '진열 점검'}</p>
+        <p className="text-xs text-muted-foreground font-medium">{branch}점 · {selCategory} · {selYear}년 {selMonth}월 · {effectiveInspectionType === 'quality' ? '품질 점검' : '진열(+광고) 점검'}</p>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <h2 className="text-xl font-black text-secondary">{displayProduct}</h2>
-          {(adOnly || effectiveInspectionType === 'ad') && (
+          {effectiveInspectionType === 'vm' && adGuide && (
             <div className="flex items-center gap-2 shrink-0">
               {(adGuide as any)?.videoUrl && (
                 <a
@@ -1040,15 +987,14 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
           onChange={(e) => setNotes(e.target.value)}
         />
       </div>}
-      {/* Ad Inspection Section */}
-      {effectiveInspectionType === 'ad' && !adGuide && (
-        <div className="bg-muted/30 rounded-3xl border border-border p-6 text-center text-muted-foreground">
-          <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-40" />
-          <p>이 상품의 광고 가이드가 아직 등록되지 않았습니다.</p>
-        </div>
-      )}
-      {effectiveInspectionType === 'ad' && adGuide && (
+      {/* Ad Inspection Section — shown inline within VM tab */}
+      {effectiveInspectionType === 'vm' && adGuide && (
         <div className="space-y-5 pt-2">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-amber-200" />
+            <span className="text-sm font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">광고(+셀링) 점검</span>
+            <div className="h-px flex-1 bg-amber-200" />
+          </div>
 
           {adGuideImages.length > 0 && (
             <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-3">

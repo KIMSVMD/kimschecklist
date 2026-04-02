@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
   ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin,
-  CheckCheck, Droplets, Sun, Moon, XCircle, BarChart3,
+  CheckCheck, Droplets, Sun, Moon, XCircle,
   ChevronLeft, ChevronRight, Calendar, Bell, X, MessageCircle, Star, Trophy,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -36,7 +36,7 @@ export default function StaffDashboard() {
 
   const [filterBranch, setFilterBranch] = useState('');
   const [filterCategory, setFilterCategory] = useState('전체');
-  const [activeTab, setActiveTab] = useState<'vm' | 'ad' | 'quality' | 'cleaning'>('vm');
+  const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>('vm');
   const nowDate = new Date();
   const [vmFilterYear, setVmFilterYear] = useState(nowDate.getFullYear());
   const [vmFilterMonth, setVmFilterMonth] = useState(nowDate.getMonth() + 1);
@@ -55,16 +55,14 @@ export default function StaffDashboard() {
   const scoreUnread = scoreChanges.length;
 
   // 탭별 가이드 알람 카운트 (탭 버튼 dot 표시용)
-  const vmGuideNotifCount = guideNotifs.filter(n => !n.guideType || (n.guideType !== 'ad' && n.guideType !== 'quality')).length;
-  const adGuideNotifCount = guideNotifs.filter(n => n.guideType === 'ad').length;
+  const vmGuideNotifCount = guideNotifs.filter(n => !n.guideType || n.guideType !== 'quality').length;
   const qualityGuideNotifCount = guideNotifs.filter(n => n.guideType === 'quality').length;
 
   // 현재 탭에 맞는 가이드 알람만 필터링
   const tabGuideNotifs = guideNotifs.filter(n => {
     if (!n.guideType) return true; // guideType 없는 오래된 알람은 모두 표시
-    if (activeTab === 'ad') return n.guideType === 'ad';
     if (activeTab === 'quality') return n.guideType === 'quality';
-    return n.guideType !== 'ad' && n.guideType !== 'quality'; // vm 탭
+    return n.guideType !== 'quality'; // vm 탭 (진열 + 광고)
   });
   const tabGuideUnread = tabGuideNotifs.length;
 
@@ -72,7 +70,7 @@ export default function StaffDashboard() {
     if (!cat || cat === '전체') return 0;
     return [...commentReplies, ...scoreChanges].filter(n => {
       const isVmType = n.type?.startsWith('vm');
-      const tabMatch = (activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') ? isVmType : !isVmType;
+      const tabMatch = (activeTab === 'vm' || activeTab === 'quality') ? isVmType : !isVmType;
       const catField = isVmType ? n.category : n.zone;
       return tabMatch && catField === cat;
     }).length;
@@ -82,7 +80,7 @@ export default function StaffDashboard() {
     if (!cat || cat === '전체') return;
     [...commentReplies, ...scoreChanges].filter(n => {
       const isVmType = n.type?.startsWith('vm');
-      const tabMatch = (activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') ? isVmType : !isVmType;
+      const tabMatch = (activeTab === 'vm' || activeTab === 'quality') ? isVmType : !isVmType;
       const catField = isVmType ? n.category : n.zone;
       return tabMatch && catField === cat;
     }).forEach(n => dismiss(staffNotifKey(n)));
@@ -126,15 +124,7 @@ export default function StaffDashboard() {
   // 탭별 가이드 상품 세트를 미리 분리 (로딩 타이밍 무관하게 안정적 정렬)
   const vmGuideSet = useMemo(() => {
     const seasonal = new Set<string>(), regular = new Set<string>();
-    validGuideProducts.filter(g => g.guideType !== 'ad' && g.guideType !== 'quality').forEach(g => {
-      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
-    });
-    return { seasonal, regular };
-  }, [validGuideProducts]);
-
-  const adGuideSet = useMemo(() => {
-    const seasonal = new Set<string>(), regular = new Set<string>();
-    validGuideProducts.filter(g => g.guideType === 'ad').forEach(g => {
+    validGuideProducts.filter(g => g.guideType !== 'quality').forEach(g => {
       if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
     });
     return { seasonal, regular };
@@ -156,18 +146,16 @@ export default function StaffDashboard() {
       ? itemYear === vmFilterYear && itemMonth === vmFilterMonth
       : (() => { const d = new Date(item.createdAt); return d.getFullYear() === vmFilterYear && d.getMonth() + 1 === vmFilterMonth; })();
     const itemType = (item as any).checklistType || 'vm';
-    const typeMatch = activeTab === 'ad'
-      ? itemType === 'ad'
-      : activeTab === 'quality'
-        ? itemType === 'quality'
-        : itemType !== 'ad' && itemType !== 'quality';
+    const typeMatch = activeTab === 'quality'
+      ? itemType === 'quality'
+      : itemType !== 'quality'; // vm 탭: vm + ad 모두 표시 (이제 vm checklistType으로 저장됨)
     const catMatch = filterCategory === '전체' || (item as any).category === filterCategory;
     return inMonth && typeMatch && catMatch;
   }).sort((a, b) => {
     const itemTypeA = (a as any).checklistType || 'vm';
-    const guideSet = itemTypeA === 'ad' ? adGuideSet : itemTypeA === 'quality' ? qualityGuideSet : vmGuideSet;
+    const guideSet = itemTypeA === 'quality' ? qualityGuideSet : vmGuideSet;
     const itemTypeB = (b as any).checklistType || 'vm';
-    const guideSetB = itemTypeB === 'ad' ? adGuideSet : itemTypeB === 'quality' ? qualityGuideSet : vmGuideSet;
+    const guideSetB = itemTypeB === 'quality' ? qualityGuideSet : vmGuideSet;
     const guidePriority = (product: string, gs: typeof vmGuideSet) => {
       if (gs.seasonal.has(product)) return 0;
       if (gs.regular.has(product)) return 1;
@@ -197,11 +185,10 @@ export default function StaffDashboard() {
 
   const ALL_BRANCHES = Object.values(REGIONS).flat();
 
-  const buildRanking = (getScore: (item: any) => number | null, skipAdType = true) => {
+  const buildRanking = (getScore: (item: any) => number | null) => {
     const scored: Record<string, number[]> = {};
     const pending = new Set<string>();
     agriPeriod.forEach(item => {
-      if (skipAdType && (item as any).checklistType === 'ad') return;
       const br = (item as any).branch as string;
       if (!br) return;
       const score = getScore(item);
@@ -223,9 +210,8 @@ export default function StaffDashboard() {
     return [...scoredList, ...pendingList, ...noneList];
   };
 
-  const vmRanking = buildRanking(item => (item as any).adminScore as number | null, true);
-  const adRanking = buildRanking(item => (item as any).adAdminScore as number | null, false);
-  const qualityRanking = buildRanking(item => (item as any).qualityAdminScore as number | null, false);
+  const vmRanking = buildRanking(item => (item as any).adminScore as number | null);
+  const qualityRanking = buildRanking(item => (item as any).qualityAdminScore as number | null);
 
   const { data: cleaningRecords = [], isLoading: cleaningLoading } = useCleaningInspections(
     filterBranch ? { branch: filterBranch } : {}
@@ -393,18 +379,8 @@ export default function StaffDashboard() {
               }`}
               data-testid="tab-staff-vm"
             >
-              <BarChart3 className="w-4 h-4" /> 진열
+              진열(+광고)
               {vmGuideNotifCount > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
-            </button>
-            <button
-              onClick={() => { setActiveTab('ad'); setFilterCategory('전체'); }}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'ad' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
-              }`}
-              data-testid="tab-staff-ad"
-            >
-              광고(+셀링)
-              {adGuideNotifCount > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
             </button>
             <button
               onClick={() => { setActiveTab('quality'); setFilterCategory('전체'); }}
@@ -427,8 +403,8 @@ export default function StaffDashboard() {
             </button>
           </div>
 
-          {/* Year/Month filter — VM / Ad / Quality tabs */}
-          {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
+          {/* Year/Month filter — VM / Quality tabs */}
+          {(activeTab === 'vm' || activeTab === 'quality') && (
             <div className="space-y-0">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
@@ -697,12 +673,12 @@ export default function StaffDashboard() {
 
         {/* No branch selected */}
         {!filterBranch ? (
-          (activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') ? (
+          (activeTab === 'vm' || activeTab === 'quality') ? (
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {(() => {
-                const rawRanking = activeTab === 'vm' ? vmRanking : activeTab === 'quality' ? qualityRanking : adRanking;
-                const title = activeTab === 'vm' ? '진열 월별 피드백' : activeTab === 'quality' ? '품질 월별 피드백' : '광고(+셀링) 월별 피드백';
-                const accentClass = activeTab === 'vm' ? 'text-primary' : activeTab === 'quality' ? 'text-purple-600' : 'text-amber-600';
+                const rawRanking = activeTab === 'quality' ? qualityRanking : vmRanking;
+                const title = activeTab === 'quality' ? '품질 월별 피드백' : '진열(+광고) 월별 피드백';
+                const accentClass = activeTab === 'quality' ? 'text-purple-600' : 'text-primary';
                 // Sort by grade A→B→C, then same grade: score desc, then 대형→중형→소형
                 const gradeOrder = { A: 0, B: 1, C: 2 } as const;
                 const storeOrder: Record<string, number> = {};
@@ -799,8 +775,8 @@ export default function StaffDashboard() {
         ) : (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-            {/* ── VM / AD / QUALITY TAB ── */}
-            {(activeTab === 'vm' || activeTab === 'ad' || activeTab === 'quality') && (
+            {/* ── VM / QUALITY TAB ── */}
+            {(activeTab === 'vm' || activeTab === 'quality') && (
               vmLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                   <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
@@ -811,7 +787,7 @@ export default function StaffDashboard() {
                   <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
                     <ClipboardList className="w-8 h-8 opacity-40" />
                   </div>
-                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 {activeTab === 'ad' ? '광고(+셀링) 점검' : activeTab === 'quality' ? '품질 점검' : '진열 점검'} 기록이 없습니다</p>
+                  <p className="font-medium text-lg">{vmFilterYear}년 {vmFilterMonth}월 {activeTab === 'quality' ? '품질 점검' : '진열(+광고) 점검'} 기록이 없습니다</p>
                   <Link href="/checklist/new">
                     <button className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-base">
                       새 점검 등록하기
