@@ -798,6 +798,32 @@ export default function StaffDashboard() {
                 checklists.map((item, index) => {
                   const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
                   const adminScore = (item as any).adminScore as number | null | undefined;
+                  const adAdminScore = (item as any).adAdminScore as number | null | undefined;
+                  const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
+                  const adAdminItems = (item as any).adAdminItems as Record<string, 'ok' | 'notok'> | null;
+                  const vmItemsRaw = item.items as Record<string, string> | null;
+                  const adItemsRaw = (item as any).adItems as Record<string, string> | null;
+                  const hasAdData = !!(adItemsRaw && Object.keys(adItemsRaw).length > 0) || !!((item as any).adNotes);
+
+                  // 진열+광고 항목 동그라미 합산 점수
+                  let combinedOk = 0, combinedTotal = 0;
+                  if (adminScore != null && vmItemsRaw && Object.keys(vmItemsRaw).length > 0) {
+                    const eff = adminItems
+                      ? adminItems
+                      : Object.fromEntries(Object.entries(vmItemsRaw).map(([k, v]) => [k, (v === 'ok' || v === 'excellent') ? 'ok' : 'notok']));
+                    combinedOk += Object.values(eff).filter(v => v === 'ok').length;
+                    combinedTotal += Object.keys(eff).length;
+                  }
+                  if (adAdminScore != null && adItemsRaw && Object.keys(adItemsRaw).length > 0) {
+                    const eff = adAdminItems
+                      ? adAdminItems
+                      : Object.fromEntries(Object.entries(adItemsRaw).map(([k, v]) => [k, v === 'ok' ? 'ok' : 'notok']));
+                    combinedOk += Object.values(eff).filter(v => v === 'ok').length;
+                    combinedTotal += Object.keys(eff).length;
+                  }
+                  const displayScore = combinedTotal > 0
+                    ? Math.round((combinedOk / combinedTotal) * 100)
+                    : (adminScore ?? adAdminScore ?? null);
                   return (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -863,13 +889,16 @@ export default function StaffDashboard() {
                             )}
                           </div>
                           <div className="flex flex-col items-end gap-1.5">
-                            {adminScore != null ? (
+                            {displayScore != null ? (
                               <div className={`px-3 py-1.5 rounded-xl border text-sm font-black flex items-center gap-1 ${
-                                adminScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
-                                adminScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                                displayScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                                displayScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-700' :
                                 'bg-red-50 border-red-200 text-primary'
                               }`} data-testid={`text-admin-score-${item.id}`}>
-                                <Star className="w-3.5 h-3.5" /> {adminScore}점
+                                <Star className="w-3.5 h-3.5" /> {displayScore}점
+                                {hasAdData && combinedTotal > 0 && (
+                                  <span className="text-[10px] font-medium opacity-70 ml-0.5">({combinedOk}/{combinedTotal})</span>
+                                )}
                               </div>
                             ) : (
                               <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
@@ -924,60 +953,74 @@ export default function StaffDashboard() {
                           );
                         })()}
 
-                        {(item as any).adItems && Object.keys((item as any).adItems).length > 0 && (() => {
-                          const adItems = (item as any).adItems as Record<string, string>;
-                          const adAdminItems = (item as any).adAdminItems as Record<string, 'ok' | 'notok'> | null;
-                          const adAdminScore = (item as any).adAdminScore as number | null | undefined;
-                          const adEntries = Object.entries(adItems);
-                          const adChangedCount = adEntries.filter(([name, st]) => {
-                            const av = adAdminItems?.[name];
-                            if (!av) return false;
-                            return (av === 'ok') !== (st === 'ok');
-                          }).length;
-                          return (
-                            <div className="mb-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-amber-50 border-amber-300 text-amber-700 inline-flex items-center gap-1">📢 광고</span>
-                                {adAdminScore != null && (
-                                  <span className={`text-[10px] px-2 py-1 rounded-full font-black border inline-flex items-center gap-1 ${
-                                    adAdminScore >= 80 ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                                    adAdminScore >= 60 ? 'bg-orange-50 border-orange-200 text-orange-700' :
-                                    'bg-red-50 border-red-200 text-red-600'
-                                  }`}>{adAdminScore}점</span>
-                                )}
-                                {adChangedCount > 0 && (
-                                  <span className="text-[10px] px-2 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-black">관리자 수정 {adChangedCount}항목</span>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {adEntries.map(([name, st]) => {
-                                  const adminVal = adAdminItems?.[name];
-                                  const staffIsOk = st === 'ok';
-                                  const adminIsOk = adminVal === 'ok';
-                                  const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
-                                  return (
-                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                      wasChanged ? 'bg-amber-50 border-amber-300 text-amber-700'
-                                      : staffIsOk ? 'bg-amber-50 border-amber-200 text-amber-600'
-                                      : 'bg-red-50 border-red-200 text-red-600'
-                                    }`}>
-                                      {name}:&nbsp;
-                                      {wasChanged ? (
-                                        <>
-                                          <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
-                                          <span>→ {adminIsOk ? '○' : '✗'}</span>
-                                          <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
-                                        </>
-                                      ) : (
-                                        <span>{staffIsOk ? '○' : '✗'}</span>
-                                      )}
-                                    </span>
-                                  );
-                                })}
-                              </div>
+                        {/* 진열 특이사항 — vm 항목 바로 다음 */}
+                        {item.notes && (
+                          <div className="mb-3 p-3 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
+                            <strong className="block mb-1 text-xs text-muted-foreground">특이사항:</strong>
+                            {item.notes}
+                          </div>
+                        )}
+
+                        {/* 광고 섹션 */}
+                        {hasAdData && (
+                          <>
+                            <div className="my-4 flex items-center gap-2">
+                              <div className="flex-1 h-px bg-amber-200" />
+                              <span className="text-[11px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">📢 광고(+셀링) 점검</span>
+                              <div className="flex-1 h-px bg-amber-200" />
                             </div>
-                          );
-                        })()}
+                            {adItemsRaw && Object.keys(adItemsRaw).length > 0 && (() => {
+                              const adEntries = Object.entries(adItemsRaw);
+                              const adChangedCount = adEntries.filter(([name, st]) => {
+                                const av = adAdminItems?.[name];
+                                if (!av) return false;
+                                return (av === 'ok') !== (st === 'ok');
+                              }).length;
+                              return (
+                                <div className="mb-3">
+                                  {adChangedCount > 0 && (
+                                    <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-xl bg-amber-50 border border-amber-200 w-fit">
+                                      <span className="text-[10px] font-black text-amber-700">관리자 수정 {adChangedCount}항목</span>
+                                    </div>
+                                  )}
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {adEntries.map(([name, st]) => {
+                                      const adminVal = adAdminItems?.[name];
+                                      const staffIsOk = st === 'ok';
+                                      const adminIsOk = adminVal === 'ok';
+                                      const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                      return (
+                                        <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                          wasChanged ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                          : staffIsOk ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                          : 'bg-red-50 border-red-200 text-red-600'
+                                        }`}>
+                                          {name}:&nbsp;
+                                          {wasChanged ? (
+                                            <>
+                                              <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                              <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                              <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                            </>
+                                          ) : (
+                                            <span>{staffIsOk ? '○' : '✗'}</span>
+                                          )}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            {/* 광고 특이사항 — 광고 항목 바로 다음 */}
+                            {(item as any).adNotes && (
+                              <div className="mb-3 p-3 bg-amber-50 rounded-2xl text-secondary text-sm border border-amber-200">
+                                <strong className="block mb-1 text-[11px] text-amber-700 font-black">📢 광고 특이사항:</strong>
+                                {(item as any).adNotes}
+                              </div>
+                            )}
+                          </>
+                        )}
 
                         {(item as any).qualityItems && Object.keys((item as any).qualityItems).length > 0 && (() => {
                           const qItems = (item as any).qualityItems as Record<string, string>;
@@ -1037,20 +1080,6 @@ export default function StaffDashboard() {
                         <p className="text-sm text-muted-foreground mb-3">
                           {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                         </p>
-
-                        {item.notes && (
-                          <div className="mb-3 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
-                            <strong className="block mb-1 text-xs text-muted-foreground">특이사항:</strong>
-                            {item.notes}
-                          </div>
-                        )}
-
-                        {(item as any).adNotes && (
-                          <div className="mb-3 p-4 bg-amber-50 rounded-2xl text-secondary text-sm border border-amber-200">
-                            <strong className="block mb-1 text-[11px] text-amber-700 font-black">📢 광고 특이사항:</strong>
-                            {(item as any).adNotes}
-                          </div>
-                        )}
 
                         {(item as any).adminComment && (
                           <VMCommentThread
