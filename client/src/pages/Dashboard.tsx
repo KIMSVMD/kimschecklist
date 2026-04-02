@@ -636,7 +636,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   const [filterProduct, setFilterProduct] = useState('전체');
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
-  const [viewFilter, setViewFilter] = useState<'all' | 'vm' | 'ad' | 'quality'>('all');
+  const [viewFilter, setViewFilter] = useState<'all' | 'vm' | 'quality'>('all');
   const { toast } = useToast();
 
   const currentYear = now.getFullYear();
@@ -742,8 +742,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     if (filterProduct !== '전체' && item.product !== filterProduct) return false;
     const cType = (item as any).checklistType || 'vm';
     if (viewFilter === 'quality') return cType === 'quality';
-    if (viewFilter === 'ad') return cType === 'ad';
-    if (viewFilter === 'vm') return cType !== 'ad' && cType !== 'quality';
+    if (viewFilter === 'vm') return cType !== 'quality';
     return true;
   }).sort((a, b) => {
     const cTypeA = (a as any).checklistType || 'vm';
@@ -837,14 +836,13 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     <>
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
         <div className="flex gap-1.5">
-          {([['all', '전체'], ['vm', '진열(+광고)'], ['ad', '광고(구버전)'], ['quality', '품질']] as const).map(([val, label]) => (
+          {([['all', '전체'], ['vm', '진열(+광고)'], ['quality', '품질']] as const).map(([val, label]) => (
             <button
               key={val}
               onClick={() => setViewFilter(val)}
               className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                 viewFilter === val
-                  ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                  : val === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                  ? val === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                   : 'bg-primary text-white border-primary shadow-sm'
                   : 'bg-muted text-muted-foreground border-transparent'
               }`}
@@ -903,10 +901,10 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
       <div className="p-4 space-y-4">
         {/* ── 지점 순위 리더보드 (지점 미선택 + VM/광고 탭) ── */}
         {showLeaderboard ? (() => {
-          const ranking = viewFilter === 'vm' ? vmRanking : viewFilter === 'quality' ? qualityRanking : adRanking;
-          const title = viewFilter === 'vm' ? '진열 점수 순위' : viewFilter === 'quality' ? '품질 점수 순위' : '광고(+셀링) 점수 순위';
-          const accentClass = viewFilter === 'vm' ? 'text-primary' : viewFilter === 'quality' ? 'text-purple-700' : 'text-amber-600';
-          const topBg = viewFilter === 'vm' ? 'from-primary/10 to-primary/5 border-primary/20' : viewFilter === 'quality' ? 'from-purple-500/10 to-purple-500/5 border-purple-300/20' : 'from-amber-500/10 to-amber-500/5 border-amber-400/20';
+          const ranking = viewFilter === 'quality' ? qualityRanking : vmRanking;
+          const title = viewFilter === 'quality' ? '품질 점수 순위' : '진열 점수 순위';
+          const accentClass = viewFilter === 'quality' ? 'text-purple-700' : 'text-primary';
+          const topBg = viewFilter === 'quality' ? 'from-purple-500/10 to-purple-500/5 border-purple-300/20' : 'from-primary/10 to-primary/5 border-primary/20';
           return (
             <div className="space-y-3">
               <div className="flex items-center gap-2 pt-1 pb-2">
@@ -977,7 +975,11 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
             const adminScore = (item as any).adminScore as number | null | undefined;
             const adAdminScore = (item as any).adAdminScore as number | null | undefined;
             const qualityAdminScore = (item as any).qualityAdminScore as number | null | undefined;
-            const hasAdItems = !!(((item as any).adItems && Object.keys((item as any).adItems).length > 0) || ((item as any).adPhotoUrls && (item as any).adPhotoUrls.length > 0) || (item as any).adNotes);
+            const hasAdItems = !!(
+              (item as any).checklistType === 'ad'
+                ? (item.items && Object.keys(item.items as object).length > 0) || item.photoUrl || (item as any).photoUrls?.length || item.notes
+                : ((item as any).adItems && Object.keys((item as any).adItems).length > 0) || ((item as any).adPhotoUrls && (item as any).adPhotoUrls.length > 0) || (item as any).adNotes
+            );
             const hasQualityItems = !!(((item as any).qualityItems && Object.keys((item as any).qualityItems).length > 0) || ((item as any).qualityPhotoUrls && (item as any).qualityPhotoUrls.length > 0) || (item as any).qualityNotes);
             return (
               <motion.div
@@ -1069,7 +1071,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                           </div>
                         )
                       )}
-                      {hasQualityItems && viewFilter !== 'vm' && viewFilter !== 'ad' && (
+                      {hasQualityItems && viewFilter !== 'vm' && (item as any).checklistType !== 'ad' && (
                         qualityAdminScore != null ? (
                           <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
                             qualityAdminScore >= 80 ? 'bg-purple-50 border-purple-200 text-purple-700' :
@@ -1095,7 +1097,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     </p>
                   )}
 
-                  {viewFilter !== 'ad' && viewFilter !== 'quality' && item.items && Object.keys(item.items as object).length > 0 && (
+                  {(item as any).checklistType !== 'ad' && viewFilter !== 'quality' && item.items && Object.keys(item.items as object).length > 0 && (
                     <div className="mt-3">
                       {hasAdItems && (
                         <div className="flex items-center gap-2 mb-2">
@@ -1139,14 +1141,14 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                   </p>
 
-                  {viewFilter !== 'ad' && viewFilter !== 'quality' && item.notes && (
+                  {(item as any).checklistType !== 'ad' && viewFilter !== 'quality' && item.notes && (
                     <div className="mt-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
                       <strong className="block mb-1 text-xs text-muted-foreground">요청/특이사항:</strong>
                       {item.notes}
                     </div>
                   )}
 
-                  {viewFilter !== 'ad' && viewFilter !== 'quality' && (
+                  {(item as any).checklistType !== 'ad' && viewFilter !== 'quality' && (
                     <AdminScoreInput
                       id={item.id}
                       existingScore={(item as any).adminScore}
@@ -1156,9 +1158,14 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                   )}
 
                   {(() => {
-                    const adItems = (item as any).adItems as Record<string, string> | null;
-                    const adPhotoUrls = (item as any).adPhotoUrls as string[] | null;
-                    const adNotes = (item as any).adNotes as string | null;
+                    const isOldAdType = (item as any).checklistType === 'ad';
+                    const adItems = isOldAdType
+                      ? (item.items as Record<string, string> | null)
+                      : (item as any).adItems as Record<string, string> | null;
+                    const adPhotoUrls = isOldAdType
+                      ? ((item as any).photoUrls as string[] | null) ?? (item.photoUrl ? [(item.photoUrl as string)] : null)
+                      : (item as any).adPhotoUrls as string[] | null;
+                    const adNotes = isOldAdType ? (item.notes as string | null) : (item as any).adNotes as string | null;
                     const hasAdItems = adItems && Object.keys(adItems).length > 0;
                     const hasAdPhotos = adPhotoUrls && adPhotoUrls.length > 0;
                     const hasAdData = hasAdItems || hasAdPhotos || adNotes;
@@ -1233,7 +1240,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     const hasQualityItemsInner = qualityItems && Object.keys(qualityItems).length > 0;
                     const hasQualityPhotos = qualityPhotoUrls && qualityPhotoUrls.length > 0;
                     const hasQualityData = hasQualityItemsInner || hasQualityPhotos || qualityNotes;
-                    if (!hasQualityData || viewFilter === 'vm' || viewFilter === 'ad') return null;
+                    if (!hasQualityData || viewFilter === 'vm' || (item as any).checklistType === 'ad') return null;
                     const qualityAdminItems = (item as any).qualityAdminItems as Record<string, 'ok' | 'notok'> | null;
                     return (
                       <>
