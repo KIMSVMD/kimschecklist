@@ -837,7 +837,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     <>
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
         <div className="flex gap-1.5">
-          {([['all', '전체'], ['vm', '진열'], ['ad', '광고(+셀링)'], ['quality', '품질']] as const).map(([val, label]) => (
+          {([['all', '전체'], ['vm', '진열(+광고)'], ['ad', '광고(구버전)'], ['quality', '품질']] as const).map(([val, label]) => (
             <button
               key={val}
               onClick={() => setViewFilter(val)}
@@ -1054,7 +1054,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                       ) : (
                         <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
                       )}
-                      {hasAdItems && viewFilter !== 'vm' && viewFilter !== 'quality' && (
+                      {hasAdItems && viewFilter !== 'quality' && (
                         adAdminScore != null ? (
                           <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
                             adAdminScore >= 80 ? 'bg-amber-50 border-amber-200 text-amber-700' :
@@ -1153,13 +1153,28 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     const hasAdItems = adItems && Object.keys(adItems).length > 0;
                     const hasAdPhotos = adPhotoUrls && adPhotoUrls.length > 0;
                     const hasAdData = hasAdItems || hasAdPhotos || adNotes;
-                    if (!hasAdData || viewFilter === 'vm') return null;
+                    if (!hasAdData || viewFilter === 'quality') return null;
                     const adAdminItems = (item as any).adAdminItems as Record<string, 'ok' | 'notok'> | null;
                     return (
                       <>
+                        {/* 광고 구분선 */}
+                        <div className="mt-5 flex items-center gap-2">
+                          <div className="flex-1 h-px bg-amber-200" />
+                          <span className="text-[11px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">📢 광고(+셀링) 점검</span>
+                          <div className="flex-1 h-px bg-amber-200" />
+                        </div>
+                        {/* 광고 사진 */}
+                        {hasAdPhotos && (
+                          <div className="mt-3 flex gap-1.5 overflow-x-auto no-scrollbar">
+                            {adPhotoUrls!.map((url, pi) => (
+                              <PhotoThumbnail key={pi} src={url} className="shrink-0 w-28 h-28 rounded-2xl overflow-hidden block">
+                                <img src={url} alt={`광고사진 ${pi + 1}`} className="w-full h-full object-cover" />
+                              </PhotoThumbnail>
+                            ))}
+                          </div>
+                        )}
                         {hasAdItems && (
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-amber-50 border-amber-300 text-amber-700 inline-flex items-center gap-1">📢 광고</span>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
                             {Object.entries(adItems!).map(([name, status]) => {
                               const adminVal = adAdminItems?.[name];
                               const staffIsOk = status === 'ok';
