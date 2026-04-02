@@ -26,7 +26,7 @@ import { useAdminNotifications } from "@/hooks/use-notifications";
 import { NotificationPanel } from "@/components/NotificationPanel";
 
 const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
-const BRANCHES = ['전체', '강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정', '부산대', '인천', '안양', '고잔', '중계', '김포', '청주'];
+const BRANCHES = ['전체', '강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정', '부산대', '인천', '고잔', '중계', '김포', '청주'];
 const ZONES = ['입구', '농산', '축산', '수산', '공산'];
 
 function AdminCommentInput({ 
@@ -1786,7 +1786,7 @@ function RankingTab() {
     '일산','광명','쇼핑','산본','동수원',  // 중형 수도권
     '유성','수성','해운대','괴정',         // 중형 지방
     '중계',                                // 소형 서울
-    '인천','안양','고잔','김포',           // 소형 수도권
+    '인천',,'고잔','김포',           // 소형 수도권
     '부산대','청주',                       // 소형 지방
   ];
   SORTED_BRANCHES.forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
