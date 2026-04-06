@@ -42,7 +42,6 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         <div className="flex items-center gap-3">
           <div>
             <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-6 w-auto object-contain" />
-            <p className="text-[11px] text-muted-foreground leading-tight mt-1">VMD 관리 시스템</p>
           </div>
         </div>
         {onClose && (
