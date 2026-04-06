@@ -2,9 +2,10 @@ import { ReactNode, useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ChevronLeft, Menu, Home, ClipboardCheck, ClipboardList,
-  LayoutDashboard, BookOpen, Brush, Store, X
+  LayoutDashboard, BookOpen, Brush, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import kimsClubLogo from "@assets/image_1775461936743.png";
 
 interface LayoutProps {
   children: ReactNode;
@@ -39,12 +40,9 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
     <div className="flex flex-col h-full bg-white">
       <div className="p-5 border-b border-border/40 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center">
-            <Store className="w-5 h-5 text-primary" />
-          </div>
           <div>
-            <p className="font-black text-secondary text-sm leading-tight">KIMS CLUB</p>
-            <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">VMD 관리 시스템</p>
+            <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-6 w-auto object-contain" />
+            <p className="text-[11px] text-muted-foreground leading-tight mt-1">VMD 관리 시스템</p>
           </div>
         </div>
         {onClose && (
@@ -84,8 +82,9 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-border/40">
-        <p className="text-[10px] text-muted-foreground text-center">KIMS CLUB VMD v1.0</p>
+      <div className="p-4 border-t border-border/40 flex flex-col items-center gap-1">
+        <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-4 w-auto object-contain opacity-50" />
+        <p className="text-[10px] text-muted-foreground text-center">VMD v1.0</p>
       </div>
     </div>
   );
@@ -201,9 +200,13 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
             <Menu className="w-6 h-6" />
           </button>
 
-          <h1 className="text-base font-bold text-foreground truncate flex-1 text-center mx-2 font-display tracking-wide">
-            {title}
-          </h1>
+          {title === "KIMS CLUB" ? (
+            <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-5 w-auto object-contain flex-1 mx-2" />
+          ) : (
+            <h1 className="text-base font-bold text-foreground truncate flex-1 text-center mx-2 font-display tracking-wide">
+              {title}
+            </h1>
+          )}
 
           <div className="w-10 flex items-center justify-end">
             {canGoBack && (
@@ -228,9 +231,13 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
               뒤로
             </button>
           )}
-          <h1 className="text-base font-bold text-foreground font-display tracking-wide">
-            {title}
-          </h1>
+          {title === "KIMS CLUB" ? (
+            <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-5 w-auto object-contain" />
+          ) : (
+            <h1 className="text-base font-bold text-foreground font-display tracking-wide">
+              {title}
+            </h1>
+          )}
         </header>
 
         {/* Swipe back indicator (mobile) */}
