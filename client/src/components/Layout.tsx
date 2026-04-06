@@ -1,6 +1,10 @@
 import { ReactNode, useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft, Menu } from "lucide-react";
+import {
+  ChevronLeft, Menu, Home, ClipboardCheck, ClipboardList,
+  LayoutDashboard, BookOpen, Brush, Store, X
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,8 +13,87 @@ interface LayoutProps {
   onBack?: () => void;
 }
 
+const NAV_SECTIONS = [
+  {
+    label: "현장 직원",
+    items: [
+      { href: "/", icon: Home, label: "홈" },
+      { href: "/checklist/new", icon: ClipboardCheck, label: "새 점검 등록" },
+      { href: "/staff-dashboard", icon: ClipboardList, label: "점검 월별 피드백" },
+      { href: "/cleaning/new", icon: Brush, label: "청소 점검" },
+    ],
+  },
+  {
+    label: "VMD 관리자",
+    items: [
+      { href: "/dashboard", icon: LayoutDashboard, label: "관리자 대시보드" },
+      { href: "/admin/guides", icon: BookOpen, label: "가이드 관리" },
+    ],
+  },
+];
+
+function Sidebar({ onClose }: { onClose?: () => void }) {
+  const [location] = useLocation();
+
+  return (
+    <div className="flex flex-col h-full bg-white">
+      <div className="p-5 border-b border-border/40 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center">
+            <Store className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p className="font-black text-secondary text-sm leading-tight">KIMS CLUB</p>
+            <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">VMD 관리 시스템</p>
+          </div>
+        </div>
+        {onClose && (
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors md:hidden">
+            <X className="w-5 h-5 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+
+      <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label}>
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-2 mb-2">
+              {section.label}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map(({ href, icon: Icon, label }) => {
+                const isActive = location === href;
+                return (
+                  <Link key={href} href={href} onClick={onClose}>
+                    <div
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer",
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-secondary hover:bg-muted/70 hover:text-foreground"
+                      )}
+                    >
+                      <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                      {label}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      <div className="p-4 border-t border-border/40">
+        <p className="text-[10px] text-muted-foreground text-center">KIMS CLUB VMD v1.0</p>
+      </div>
+    </div>
+  );
+}
+
 export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onBack }: LayoutProps) {
   const [location] = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isValidSwipe = useRef(false);
@@ -36,7 +119,7 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
     const isInsideHScrollable = (el: HTMLElement | null): boolean => {
       while (el) {
         const style = window.getComputedStyle(el);
-        if (style.overflowX === 'auto' || style.overflowX === 'scroll') return true;
+        if (style.overflowX === "auto" || style.overflowX === "scroll") return true;
         el = el.parentElement;
       }
       return false;
@@ -82,51 +165,96 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
   }, [swipeEnabled, onBack, location]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto shadow-2xl relative overflow-hidden bg-white/50 md:border-x md:border-border/50">
-      {/* Swipe back indicator */}
-      {swipeEnabled && swipeProgress > 0 && (
+    <div className="min-h-screen bg-background flex">
+
+      {/* ── Desktop Sidebar (md+) ── */}
+      <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border/50 fixed left-0 top-0 h-screen z-40">
+        <Sidebar />
+      </aside>
+
+      {/* ── Mobile Sidebar Overlay ── */}
+      {mobileMenuOpen && (
         <div
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex items-center pointer-events-none"
-          style={{ opacity: swipeProgress }}
+          className="fixed inset-0 z-50 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
         >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div
-            className="bg-secondary/80 text-white rounded-r-2xl flex items-center justify-center shadow-xl"
-            style={{
-              width: `${20 + swipeProgress * 28}px`,
-              height: `${40 + swipeProgress * 20}px`,
-            }}
+            className="absolute left-0 top-0 h-full w-72 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            <ChevronLeft className="w-5 h-5" style={{ opacity: swipeProgress }} />
+            <Sidebar onClose={() => setMobileMenuOpen(false)} />
           </div>
         </div>
       )}
 
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-border/50 px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center w-16">
+      {/* ── Main Area ── */}
+      <div className="flex-1 flex flex-col min-h-screen md:ml-60">
+
+        {/* Mobile header */}
+        <header className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 h-14 flex items-center justify-between shrink-0">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-all text-secondary"
+            data-testid="btn-mobile-menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+
+          <h1 className="text-base font-bold text-foreground truncate flex-1 text-center mx-2 font-display tracking-wide">
+            {title}
+          </h1>
+
+          <div className="w-10 flex items-center justify-end">
+            {canGoBack && (
+              <button
+                onClick={handleBack}
+                className="p-2 -mr-2 rounded-full hover:bg-muted active:scale-95 transition-all text-secondary"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Desktop header bar */}
+        <header className="hidden md:flex sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-border/50 px-8 h-14 items-center gap-3 shrink-0">
           {canGoBack && (
-            <button 
+            <button
               onClick={handleBack}
-              className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-all text-secondary"
+              className="p-1.5 rounded-lg hover:bg-muted active:scale-95 transition-all text-secondary flex items-center gap-1 text-sm font-semibold"
             >
-              <ChevronLeft className="w-7 h-7" />
+              <ChevronLeft className="w-5 h-5" />
+              뒤로
             </button>
           )}
-        </div>
-        
-        <h1 className="text-lg font-bold text-foreground truncate flex-1 text-center font-display tracking-wide">
-          {title}
-        </h1>
-        
-        <div className="flex items-center justify-end w-16">
-          <Link href="/" className="p-2 -mr-2 rounded-full hover:bg-muted active:scale-95 transition-all text-secondary">
-            <Menu className="w-6 h-6" />
-          </Link>
-        </div>
-      </header>
+          <h1 className="text-base font-bold text-foreground font-display tracking-wide">
+            {title}
+          </h1>
+        </header>
 
-      <main className="flex-1 flex flex-col overflow-y-auto w-full">
-        {children}
-      </main>
+        {/* Swipe back indicator (mobile) */}
+        {swipeEnabled && swipeProgress > 0 && (
+          <div
+            className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex items-center pointer-events-none md:hidden"
+            style={{ opacity: swipeProgress }}
+          >
+            <div
+              className="bg-secondary/80 text-white rounded-r-2xl flex items-center justify-center shadow-xl"
+              style={{
+                width: `${20 + swipeProgress * 28}px`,
+                height: `${40 + swipeProgress * 20}px`,
+              }}
+            >
+              <ChevronLeft className="w-5 h-5" style={{ opacity: swipeProgress }} />
+            </div>
+          </div>
+        )}
+
+        <main className="flex-1 flex flex-col overflow-y-auto w-full">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

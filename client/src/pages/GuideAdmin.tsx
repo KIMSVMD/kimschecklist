@@ -1239,7 +1239,7 @@ export default function GuideAdmin() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-4 pb-6 space-y-4 max-w-6xl mx-auto w-full">
           {activeTab === 'products' ? (
             <ProductManager />
           ) : (

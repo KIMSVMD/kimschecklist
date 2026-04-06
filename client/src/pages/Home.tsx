@@ -121,7 +121,7 @@ export default function Home() {
 
   return (
     <Layout title="KIMS CLUB" showBack={false}>
-      <div className="flex flex-col p-6 space-y-8 h-full">
+      <div className="flex flex-col p-6 space-y-8 h-full max-w-lg mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -2,7 +2,7 @@
 
 ## 개요
 킴스클럽 매장 VMD 담당자 및 현장 직원용 디지털 점검 시스템.  
-Mobile-first, 장갑 착용 환경 고려한 대형 UI.
+모바일 및 데스크탑 반응형 UI (PC에서 사이드바 네비게이션 + 넓은 컨텐츠 영역).
 
 ## 기술 스택
 - **Frontend**: React + Vite + TanStack Query + Wouter + Tailwind CSS + shadcn/ui + Framer Motion

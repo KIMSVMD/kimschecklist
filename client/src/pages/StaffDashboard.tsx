@@ -773,7 +773,7 @@ export default function StaffDashboard() {
             </div>
           )
         ) : (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-7xl mx-auto w-full">
 
             {/* ── VM / QUALITY TAB ── */}
             {(activeTab === 'vm' || activeTab === 'quality') && (
@@ -795,7 +795,8 @@ export default function StaffDashboard() {
                   </Link>
                 </div>
               ) : (
-                checklists.map((item, index) => {
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {checklists.map((item, index) => {
                   const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
                   const adminScore = (item as any).adminScore as number | null | undefined;
                   const adAdminScore = (item as any).adAdminScore as number | null | undefined;
@@ -1118,7 +1119,8 @@ export default function StaffDashboard() {
                       </div>
                     </motion.div>
                   );
-                })
+                })}
+                </div>
               )
             )}
 

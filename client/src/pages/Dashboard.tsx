@@ -834,7 +834,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
 
   return (
     <>
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm max-w-7xl mx-auto w-full">
         <div className="flex gap-1.5">
           {([['all', '전체'], ['vm', '진열(+광고)'], ['quality', '품질']] as const).map(([val, label]) => (
             <button
@@ -898,7 +898,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 md:p-8 space-y-4 max-w-7xl mx-auto w-full">
         {/* ── 지점 순위 리더보드 (지점 미선택 + VM/광고 탭) ── */}
         {showLeaderboard ? (() => {
           const ranking = viewFilter === 'quality' ? qualityRanking : vmRanking;
@@ -970,7 +970,8 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
             <p className="font-medium text-lg">{filterYear}년 {filterMonth}월 점검 기록이 없습니다.</p>
           </div>
         ) : (
-          checklists.map((item, index) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {checklists.map((item, index) => {
             const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
             const adminScore = (item as any).adminScore as number | null | undefined;
             const adAdminScore = (item as any).adAdminScore as number | null | undefined;
@@ -1330,7 +1331,8 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                 </div>
               </motion.div>
             );
-          })
+          })}
+          </div>
         )}
       </div>
     </>
@@ -1547,7 +1549,7 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
         </div>}
       </div>
 
-      <div className="p-4 space-y-5">
+      <div className="p-4 md:p-8 space-y-5 max-w-7xl mx-auto w-full">
       {!filterBranch ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
           <Droplets className="w-12 h-12 text-emerald-300" />
@@ -1868,7 +1870,7 @@ function RankingTab() {
   }, [agriPeriod, rankType]);
 
   return (
-    <div className="p-3 space-y-2">
+    <div className="p-3 md:p-6 space-y-2 max-w-5xl mx-auto w-full">
       {/* Year/Month filter */}
       <div className="flex gap-1.5 items-center">
         <select value={rankYear} onChange={e => setRankYear(Number(e.target.value))}
@@ -2004,7 +2006,7 @@ function ActivityTab() {
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 md:p-8 space-y-4 max-w-5xl mx-auto w-full">
       {/* Branch filter */}
       <select
         value={selectedBranch}
