@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import {
-  ClipboardCheck, ClipboardList, ChevronRight, Store, Settings,
+  ClipboardCheck, ClipboardList, ChevronRight, Settings,
   BookOpen, X, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -127,15 +127,12 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="py-8"
         >
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6">
-            <Store className="w-8 h-8 text-primary" />
-          </div>
           <h1 className="text-4xl font-black text-secondary leading-tight">
-            디지털 VM<br />
+            매장 점검<br />
             <span className="text-primary">체크리스트</span>
           </h1>
           <p className="mt-4 text-muted-foreground text-lg">
-            모바일 현장 점검 및 VMD 관리 시스템
+            현장 점검 및 진열, 품질 관리 시스템
           </p>
         </motion.div>
 
