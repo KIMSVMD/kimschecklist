@@ -47,3 +47,6 @@ ADMIN_PASSWORD = "vmd2024!"
 
 [agent]
 integrations = ["javascript_object_storage:2.0.0"]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-0853a66f-f83a-46a9-b5d6-711230a201a7"
