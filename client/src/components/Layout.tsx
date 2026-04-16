@@ -5,7 +5,7 @@ import {
   LayoutDashboard, BookOpen, Brush, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import kimsClubLogo from "@assets/image_1775461936743.png";
+import kimsClubLogo from "../assets/image_1775461936743.png";
 
 interface LayoutProps {
   children: ReactNode;
