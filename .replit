@@ -45,6 +45,9 @@ waitForPort = 5000
 [userenv.shared]
 ADMIN_PASSWORD = "vmd2024!"
 
+[userenv.production]
+RENDER_DATABASE_URL = "postgresql://kimschecklist_db_user:yUqc53YxjxgncclBkKki2ed1ycbpx01r@dpg-d7g6kla8qa3s73dk0h90-a.singapore-postgres.render.com/kimschecklist_db?sslmode=require"
+
 [agent]
 integrations = ["javascript_object_storage:2.0.0"]
 
