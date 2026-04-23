@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Layout } from "@/components/Layout";
 import {
-  ClipboardCheck, ClipboardList, ChevronRight, Settings,
+  ClipboardCheck, ClipboardList,
   BookOpen, X, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -74,18 +73,18 @@ function ManualSection({ section }: { section: typeof MANUAL_SECTIONS[0] }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-2xl border border-border/60 overflow-hidden bg-white">
+    <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
       <button
-        className="w-full flex items-center justify-between px-4 py-3.5 text-left active:bg-muted/50"
+        className="w-full flex items-center justify-between px-4 py-3.5 text-left active:bg-gray-50"
         onClick={() => setExpanded(v => !v)}
       >
         <div>
-          <p className="text-sm font-black text-secondary">{section.title}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{section.subtitle}</p>
+          <p className="text-sm font-black text-gray-800">{section.title}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{section.subtitle}</p>
         </div>
         {expanded
-          ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-          : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+          ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
+          : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />}
       </button>
 
       <AnimatePresence initial={false}>
@@ -97,14 +96,14 @@ function ManualSection({ section }: { section: typeof MANUAL_SECTIONS[0] }) {
             transition={{ duration: 0.22, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border/40">
+            <div className="border-t border-gray-100">
               <div className="px-4 py-3 space-y-2">
                 {section.steps.map((step, i) => (
                   <div key={i} className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="w-5 h-5 rounded-full bg-green-800/10 text-green-800 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
                       {i + 1}
                     </span>
-                    <p className="text-sm text-secondary leading-snug">{step}</p>
+                    <p className="text-sm text-gray-700 leading-snug">{step}</p>
                   </div>
                 ))}
               </div>
@@ -120,100 +119,88 @@ export default function Home() {
   const [manualOpen, setManualOpen] = useState(false);
 
   return (
-    <Layout title="KIMS CLUB" showBack={false}>
-      <div className="flex flex-col p-6 space-y-8 h-full max-w-lg mx-auto w-full">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="py-8"
+    <div className="min-h-screen bg-white flex flex-col">
+
+      {/* Top bar */}
+      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <span
+          className="font-black text-xl text-gray-900 tracking-tight"
+          style={{ fontFamily: 'Outfit, sans-serif' }}
         >
-          <h1 className="text-4xl font-black text-secondary leading-tight">
-            매장 점검<br />
-            <span className="text-primary">체크리스트</span>
-          </h1>
-          <p className="mt-4 text-muted-foreground text-lg">
-            현장 점검 및 진열, 품질 관리 시스템
-          </p>
-        </motion.div>
-
-        <div className="flex flex-col gap-4 mt-auto pb-8">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">현장 직원</p>
-
-          <Link href="/checklist/new" className="block w-full">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-br from-primary to-primary/90 text-white rounded-3xl p-6 shadow-xl shadow-primary/25 border border-primary/20 flex items-center justify-between"
-              data-testid="link-new-checklist"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm">
-                  <ClipboardCheck className="w-8 h-8" />
-                </div>
-                <div className="text-left">
-                  <h2 className="text-2xl font-bold">새 점검 등록</h2>
-                  <p className="text-primary-foreground/80 font-medium mt-1">현장 점검 시작하기</p>
-                </div>
-              </div>
-              <ChevronRight className="w-8 h-8 opacity-70" />
-            </motion.div>
-          </Link>
-
-          <Link href="/staff-dashboard" className="block w-full">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-white text-secondary rounded-3xl p-6 shadow-lg shadow-black/5 border-2 border-border flex items-center justify-between"
-              data-testid="link-staff-dashboard"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-muted p-4 rounded-2xl">
-                  <ClipboardList className="w-8 h-8 text-secondary" />
-                </div>
-                <div className="text-left">
-                  <h2 className="text-2xl font-bold">점검 월별 피드백</h2>
-                  <p className="text-muted-foreground font-medium mt-1">수정 및 삭제 가능</p>
-                </div>
-              </div>
-              <ChevronRight className="w-8 h-8 text-muted-foreground" />
-            </motion.div>
-          </Link>
-
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1 mt-2">VMD 관리자</p>
-
-          <Link href="/admin/login" className="block w-full">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-muted text-secondary rounded-3xl p-5 border-2 border-border flex items-center justify-between"
-              data-testid="link-admin"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-white p-3 rounded-2xl">
-                  <Settings className="w-6 h-6 text-secondary" />
-                </div>
-                <div className="text-left">
-                  <h2 className="text-xl font-bold">관리자 메뉴</h2>
-                  <p className="text-muted-foreground text-sm font-medium mt-0.5">진열 가이드 · 대시보드</p>
-                </div>
-              </div>
-              <ChevronRight className="w-6 h-6 text-muted-foreground" />
-            </motion.div>
-          </Link>
-
-          {/* 사용 매뉴얼 버튼 */}
+          KIM'S CLUB
+        </span>
+        <Link href="/admin/login">
           <button
+            className="bg-gray-900 text-white font-bold text-sm px-5 py-2 rounded-full active:scale-95 transition-transform"
+            data-testid="btn-admin-mode"
+          >
+            관리자 모드
+          </button>
+        </Link>
+      </header>
+
+      {/* Main content */}
+      <main className="flex flex-col items-center justify-center flex-1 px-6 py-10">
+        <div className="w-full max-w-sm mx-auto flex flex-col items-center gap-8">
+
+          {/* Title */}
+          <div className="text-center">
+            <h1 className="text-4xl font-black text-gray-900 leading-tight">
+              매장 점검{' '}
+              <span className="text-green-800">체크리스트</span>
+            </h1>
+            <p className="mt-3 text-gray-400 text-sm">
+              현장 점검·진열·품질 관리 시스템
+            </p>
+          </div>
+
+          {/* Two menu cards */}
+          <div className="grid grid-cols-2 gap-4 w-full">
+            <Link href="/checklist/new" className="block" data-testid="link-new-checklist">
+              <motion.div
+                whileTap={{ scale: 0.97 }}
+                className="bg-green-800 text-white rounded-2xl p-6 flex flex-col items-center justify-center gap-4 aspect-square cursor-pointer"
+              >
+                <ClipboardCheck className="w-10 h-10" />
+                <div className="text-center">
+                  <p className="font-bold text-base leading-tight">새 점검 등록</p>
+                  <p className="text-green-300 text-xs mt-1">현장 점검 시작하기</p>
+                </div>
+              </motion.div>
+            </Link>
+
+            <Link href="/staff-dashboard" className="block" data-testid="link-staff-dashboard">
+              <motion.div
+                whileTap={{ scale: 0.97 }}
+                className="bg-white border-2 border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 aspect-square cursor-pointer"
+              >
+                <ClipboardList className="w-10 h-10 text-gray-700" />
+                <div className="text-center">
+                  <p className="font-bold text-base text-gray-900 leading-tight">점검 월별 피드백</p>
+                  <p className="text-gray-400 text-xs mt-1">수정 및 삭제 가능</p>
+                </div>
+              </motion.div>
+            </Link>
+          </div>
+
+          {/* Manual button */}
+          <motion.button
+            whileTap={{ scale: 0.98 }}
             onClick={() => setManualOpen(true)}
-            className="flex items-center justify-center gap-2 mt-2 py-2.5 rounded-2xl border border-border bg-white text-muted-foreground text-sm font-bold hover:text-primary hover:border-primary transition-all active:scale-95"
+            className="w-full bg-gray-100 text-gray-800 font-bold py-4 rounded-2xl text-base active:bg-gray-200 transition-colors"
             data-testid="btn-open-manual"
           >
-            <BookOpen className="w-4 h-4" />
             사용 매뉴얼 보기
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </main>
 
-      {/* 매뉴얼 바텀 시트 */}
+      {/* Footer */}
+      <footer className="py-6 text-center text-xs text-gray-400">
+        © 2026, 킴스클럽 VMD. All rights reserved.
+      </footer>
+
+      {/* Manual bottom sheet */}
       <AnimatePresence>
         {manualOpen && (
           <motion.div
@@ -231,26 +218,24 @@ export default function Home() {
               className="w-full bg-white rounded-t-3xl max-h-[92vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
-              {/* 헤더 */}
-              <div className="flex items-center justify-between px-6 py-5 border-b border-border/50 shrink-0">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-primary" />
-                  <span className="text-lg font-black text-secondary">사용 매뉴얼</span>
+                  <BookOpen className="w-5 h-5 text-green-800" />
+                  <span className="text-lg font-black text-gray-900">사용 매뉴얼</span>
                 </div>
                 <button
                   onClick={() => setManualOpen(false)}
-                  className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center active:scale-95"
+                  className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center active:scale-95"
                   data-testid="btn-close-manual"
                 >
-                  <X className="w-4 h-4 text-muted-foreground" />
+                  <X className="w-4 h-4 text-gray-500" />
                 </button>
               </div>
 
-              <p className="px-6 pt-4 pb-2 text-xs text-muted-foreground">
+              <p className="px-6 pt-4 pb-2 text-xs text-gray-400">
                 각 항목을 탭하면 실제 화면과 함께 자세한 설명을 볼 수 있어요.
               </p>
 
-              {/* 섹션 목록 */}
               <div className="overflow-y-auto flex-1 px-6 py-2 space-y-3 pb-8">
                 {MANUAL_SECTIONS.map(section => (
                   <ManualSection key={section.id} section={section} />
@@ -260,6 +245,6 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-    </Layout>
+    </div>
   );
 }
