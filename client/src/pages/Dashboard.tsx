@@ -504,12 +504,13 @@ function gradeColorDash(grade: string): string {
 }
 
 function AdminQualityScoreInput({
-  id, existingScore, staffQualityItems, existingAdminItems
+  id, existingScore, staffQualityItems, existingAdminItems, weightedScore
 }: {
   id: number;
   existingScore?: number | null;
   staffQualityItems: Record<string, any>;
   existingAdminItems?: Record<string, any> | null;
+  weightedScore?: string | null;
 }) {
   const { toast } = useToast();
   const qualityScoreMutation = useUpdateChecklistQualityScore();
@@ -587,7 +588,12 @@ function AdminQualityScoreInput({
       {open && isNewFormat && (
         <div className="mt-2 space-y-3">
           <div className={`flex items-center justify-between px-4 py-3 rounded-xl border font-bold ${scoreColorClass(autoScore)}`}>
-            <span className="text-sm">자동 계산 ({totalItems}개 항목)</span>
+            <div>
+              <span className="text-sm">자동 계산 ({totalItems}개 항목)</span>
+              {weightedScore && (
+                <div className="text-xs text-indigo-700 font-black mt-0.5">환산비율합계 {parseFloat(weightedScore).toFixed(2)}</div>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColorDash(getQualityGradeDash(autoScore))}`}>{getQualityGradeDash(autoScore)}등급</span>
               <span className="text-2xl font-black">{autoScore}점</span>
@@ -1378,6 +1384,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                           existingScore={(item as any).qualityAdminScore}
                           staffQualityItems={qualityItems || {}}
                           existingAdminItems={qualityAdminItems}
+                          weightedScore={(item as any).qualityWeightedScore}
                         />
                       </>
                     );

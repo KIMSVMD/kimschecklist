@@ -45,6 +45,7 @@ type GuideFormData = {
   guideType: 'vm' | 'ad' | 'quality';
   points: string[];
   items: string[];
+  itemWeights: Record<string, number>;
   existingImageUrls: string[];
   newImageFiles: File[];
   videoFile?: File | null;
@@ -88,6 +89,7 @@ function GuideForm({
     guideType: (initial as any)?.guideType || 'vm',
     points: initial?.points || [''],
     items: initial?.items || [''],
+    itemWeights: (initial as any)?.itemWeights || {},
     existingImageUrls: getInitialImageUrls(),
     newImageFiles: [],
     videoFile: null,
@@ -453,11 +455,24 @@ function GuideForm({
       {(['points', 'items'] as const).map((field) => (
         <div key={field} className="space-y-3">
           <label className="text-sm font-bold text-secondary">
-            {field === 'points' ? '진열 핵심 포인트' : '진열 상태 평가 항목'}
+            {field === 'points' ? '진열 핵심 포인트'
+              : form.guideType === 'quality' ? '품질 점검 아이템 (+ 환산 비율)'
+              : '진열 상태 평가 항목'}
           </label>
+          {/* 품질 가이드 + items 필드: 비율 합계 표시 */}
+          {form.guideType === 'quality' && field === 'items' && (
+            <div className="flex items-center justify-between text-xs font-bold text-purple-700 bg-purple-50 rounded-xl px-3 py-2 border border-purple-200">
+              <span>비율 합계 (총 100% 기준)</span>
+              <span className={`font-black text-base ${
+                Math.abs(Object.values(form.itemWeights).reduce((s, v) => s + v, 0) - 100) < 0.01 ? 'text-green-600' : 'text-amber-600'
+              }`}>
+                {Object.values(form.itemWeights).reduce((s, v) => s + v, 0).toFixed(3)}%
+              </span>
+            </div>
+          )}
           <div className="space-y-2">
             {form[field].map((val, idx) => (
-              <div key={idx} className="flex gap-2">
+              <div key={idx} className="flex gap-2 items-center">
                 <input
                   type="text"
                   value={val}
@@ -466,7 +481,35 @@ function GuideForm({
                   className="flex-1 px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
                   data-testid={`input-${field}-${idx}`}
                 />
-                <button type="button" onClick={() => removeListItem(field, idx)} className="p-3 rounded-xl bg-muted text-muted-foreground hover:text-primary transition-colors">
+                {/* 품질 가이드: 비율 입력 */}
+                {form.guideType === 'quality' && field === 'items' && val.trim() && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.001}
+                      value={form.itemWeights[val] ?? ''}
+                      onChange={e => {
+                        const w = parseFloat(e.target.value) || 0;
+                        setForm(f => ({ ...f, itemWeights: { ...f.itemWeights, [val]: w } }));
+                      }}
+                      placeholder="비율"
+                      className="w-20 px-2 py-3 rounded-xl border-2 border-purple-300 text-sm font-bold text-center focus:outline-none focus:border-purple-500 bg-purple-50"
+                      data-testid={`input-weight-${idx}`}
+                    />
+                    <span className="text-xs text-purple-600 font-bold">%</span>
+                  </div>
+                )}
+                <button type="button" onClick={() => {
+                  if (form.guideType === 'quality' && field === 'items' && val.trim()) {
+                    setForm(f => {
+                      const { [val]: _, ...rest } = f.itemWeights;
+                      return { ...f, itemWeights: rest };
+                    });
+                  }
+                  removeListItem(field, idx);
+                }} className="p-3 rounded-xl bg-muted text-muted-foreground hover:text-primary transition-colors shrink-0">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -1133,13 +1176,21 @@ export default function GuideAdmin() {
     );
     const allAttachFileUrls = [...(data.existingAttachFileUrls as string[]), ...uploadedAttachUrls];
 
+    const filteredItems: string[] = data.items.filter((i: string) => i.trim());
+    // Only keep weights for items that still exist
+    const filteredWeights: Record<string, number> = {};
+    filteredItems.forEach((item: string) => {
+      if (data.itemWeights?.[item] != null) filteredWeights[item] = data.itemWeights[item];
+    });
+
     return {
       category: data.category,
       product: data.product,
       storeType: data.storeType || null,
       guideType: data.guideType || 'vm',
       points: data.points.filter((p: string) => p.trim()),
-      items: data.items.filter((i: string) => i.trim()),
+      items: filteredItems,
+      itemWeights: Object.keys(filteredWeights).length > 0 ? filteredWeights : null,
       imageUrl: allImageUrls[0] || null,
       imageUrls: allImageUrls.length > 0 ? allImageUrls : null,
       videoUrl: videoUrl || null,
@@ -1345,6 +1396,7 @@ export default function GuideAdmin() {
                               guideType: ((guide as any).guideType || 'vm') as 'vm' | 'ad' | 'quality',
                               points: guide.points as string[],
                               items: guide.items as string[],
+                              itemWeights: ((guide as any).itemWeights as Record<string, number> | null) || {},
                               imageUrls: ((guide as any).imageUrls as string[] | null) || (guide.imageUrl ? [guide.imageUrl] : []),
                               videoUrl: (guide as any).videoUrl || '',
                               videoLinkUrl: (guide as any).videoLinkUrl || '',

@@ -607,6 +607,8 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   const qualityGuide = allQualityGuides[0] ?? null;
   const qualityGuideItems: string[] = (qualityGuide?.items as string[])?.filter(Boolean) || [];
   const qualityGuidePoints: string[] = (qualityGuide?.points as string[]) || [];
+  const qualityItemWeights: Record<string, number> = (qualityGuide as any)?.itemWeights || {};
+  const hasWeights = Object.keys(qualityItemWeights).length > 0;
   const [qualityItems, setQualityItems] = useState<Record<string, QualityGradeData>>({});
   const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
   const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
@@ -728,6 +730,13 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
           qualityItems: Object.keys(qualityItems).length > 0 ? qualityItems : null,
           qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
           qualityNotes: qualityNotes.trim() || null,
+          qualityWeightedScore: hasWeights
+            ? String(qualityGuideItems.reduce((sum, item) => {
+                const d = qualityItems[item]; const w = qualityItemWeights[item] ?? 0;
+                if (!d || !d.선도 || !d.상해) return sum;
+                return sum + calcQualityItemScore(d as QualityGradeData) * (w / 100);
+              }, 0).toFixed(4))
+            : null,
         }),
       } as any);
       toast({ title: "제출 완료!" });
@@ -1412,8 +1421,23 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                 {Object.keys(qualityItems).length > 0 && (() => {
                   const avg = calcOverallQualityScore(qualityItems);
                   const g = getQualityGrade(avg);
+                  // 환산비율합계점수 = Σ(매장점수_i × weight_i / 100)
+                  const weightedTotal = hasWeights
+                    ? qualityGuideItems.reduce((sum, item) => {
+                        const d = qualityItems[item];
+                        const w = qualityItemWeights[item] ?? 0;
+                        if (!d || !d.선도 || !d.상해) return sum;
+                        return sum + calcQualityItemScore(d as QualityGradeData) * (w / 100);
+                      }, 0)
+                    : null;
                   return (
-                    <div className="text-right flex items-center gap-2">
+                    <div className="text-right flex items-center gap-3">
+                      {weightedTotal !== null && (
+                        <div className="text-right">
+                          <div className="text-xl font-black text-indigo-700">{weightedTotal.toFixed(2)}</div>
+                          <div className="text-[10px] text-muted-foreground">환산합계</div>
+                        </div>
+                      )}
                       <span className={`text-xl font-black px-3 py-1 rounded-full ${gradeColor(g)}`}>{g}등급</span>
                       <div>
                         <div className="text-2xl font-black text-purple-600">{avg}점</div>
@@ -1438,13 +1462,25 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                   <div key={item} className={`rounded-2xl border-2 p-4 space-y-3 transition-all ${
                     allFilled ? (itemScore !== null && itemScore >= 90 ? 'border-purple-300 bg-purple-50' : 'border-primary/40 bg-red-50') : 'border-border bg-white'
                   }`}>
-                    {/* 항목명 + 점수 + 출력 등급 */}
+                    {/* 항목명 + 비율 + 점수 + 출력 등급 */}
                     <div className="flex items-center justify-between">
-                      <h4 className="text-base font-bold text-secondary">{item}</h4>
+                      <div>
+                        <h4 className="text-base font-bold text-secondary">{item}</h4>
+                        {hasWeights && qualityItemWeights[item] != null && (
+                          <span className="text-[10px] text-indigo-600 font-bold">비율 {qualityItemWeights[item]}%</span>
+                        )}
+                      </div>
                       {allFilled && itemScore !== null && (() => {
                         const g = getQualityGrade(itemScore);
+                        const w = qualityItemWeights[item];
+                        const weighted = hasWeights && w != null ? itemScore * (w / 100) : null;
                         return (
                           <div className="flex items-center gap-1.5">
+                            {weighted !== null && (
+                              <span className="text-xs font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                환산 {weighted.toFixed(3)}
+                              </span>
+                            )}
                             <span className={`text-xs font-black px-2 py-0.5 rounded-full ${gradeColor(g)}`}>{g}</span>
                             <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColor(g)}`}>{itemScore}점</span>
                           </div>
@@ -1518,7 +1554,18 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                 {Object.keys(qualityItems).length > 0 && (() => {
                   const avg = calcOverallQualityScore(qualityItems);
                   const g = getQualityGrade(avg);
-                  return <span className="font-bold text-purple-600">평균 {avg}점 ({g}등급)</span>;
+                  const wTotal = hasWeights
+                    ? qualityGuideItems.reduce((sum, item) => {
+                        const d = qualityItems[item]; const w = qualityItemWeights[item] ?? 0;
+                        if (!d || !d.선도 || !d.상해) return sum;
+                        return sum + calcQualityItemScore(d as QualityGradeData) * (w / 100);
+                      }, 0)
+                    : null;
+                  return (
+                    <span className="font-bold text-purple-600">
+                      평균 {avg}점 ({g}등급){wTotal !== null ? ` · 환산 ${wTotal.toFixed(2)}` : ''}
+                    </span>
+                  );
                 })()}
               </div>
             </div>
