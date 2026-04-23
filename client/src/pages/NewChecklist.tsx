@@ -174,7 +174,7 @@ export default function NewChecklist() {
           {/* Row 1: Branch selector + Tab switcher */}
           <div className="flex items-center gap-2">
             {/* Branch selector */}
-            <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 shrink-0 w-24">
+            <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 shrink-0 w-28">
               <MapPin className="w-4 h-4 text-primary shrink-0" />
               <select
                 value={branch}
@@ -240,7 +240,7 @@ export default function NewChecklist() {
           {/* Row 2: Year/Month filter — VM / Quality tabs only */}
           {(activeTab === 'vm' || activeTab === 'quality') && (
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 w-24 shrink-0">
+              <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 w-28 shrink-0">
                 <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="font-bold text-sm text-secondary whitespace-nowrap">{selYear}년</span>
               </div>
