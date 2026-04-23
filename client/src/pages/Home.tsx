@@ -124,7 +124,12 @@ export default function Home() {
 
       {/* Top bar */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-        <img src={logoKimsClub} alt="KIM'S CLUB" className="h-7 object-contain" />
+        <img
+          src={logoKimsClub}
+          alt="KIM'S CLUB"
+          className="h-7 object-contain"
+          style={{ filter: 'drop-shadow(0px 0px 0.6px #111) drop-shadow(0px 0px 0.6px #111)' }}
+        />
         <Link href="/admin/login">
           <button
             className="bg-gray-900 text-white font-bold text-sm px-5 py-2 rounded-full active:scale-95 transition-transform"
