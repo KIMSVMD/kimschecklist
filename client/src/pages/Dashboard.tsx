@@ -25,7 +25,7 @@ import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { useAdminNotifications } from "@/hooks/use-notifications";
 import { NotificationPanel } from "@/components/NotificationPanel";
 
-const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
+const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const BRANCHES = ['전체', '강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정', '부산대', '인천', '고잔', '중계', '김포', '청주'];
 const ZONES = ['입구', '농산', '축산', '수산', '공산'];
 
@@ -1072,6 +1072,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
             className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
             data-testid="select-filter-category">
+            <option value="전체">전체 카테고리</option>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>

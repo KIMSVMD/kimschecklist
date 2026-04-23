@@ -24,7 +24,7 @@ const REGIONS: Record<string, string[]> = {
   '중형점': ['구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정'],
   '소형점': ['부산대', '인천', '고잔', '중계', '김포', '청주'],
 };
-const CATEGORIES = ['전체', '농산', '수산', '축산', '공산'];
+const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const ZONES = ['입구', '농산', '수산', '축산', '공산'];
 
 function toLocalDateStr(d: Date) {
@@ -431,7 +431,7 @@ export default function StaffDashboard() {
                   const badge = catBadge(cat);
                   return (
                     <button key={cat}
-                      onClick={() => { setFilterCategory(cat); dismissCategoryNotifs(cat); }}
+                      onClick={() => { setFilterCategory(filterCategory === cat ? '전체' : cat); dismissCategoryNotifs(cat); }}
                       className={`relative shrink-0 px-4 py-1.5 rounded-full text-sm transition-all active:scale-95 ${
                         filterCategory === cat
                           ? 'bg-black text-white'
