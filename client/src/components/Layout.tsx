@@ -38,7 +38,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      <div className="p-5 border-b border-border/40 flex items-center justify-between">
+      <div className="h-14 px-5 border-b border-border/40 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div>
             <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-6 w-auto object-contain" />
