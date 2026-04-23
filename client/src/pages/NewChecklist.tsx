@@ -25,7 +25,8 @@ const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['농산', '수산', '축산'];
 
 const QUALITY_GRADE_SCORES: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
-const QUALITY_CRITERIA_PREFIXES = ['선도', '상해', '규격', '혼입율'];
+const QUALITY_CRITERIA_PREFIXES = ['선도', '형상', '규격', '혼입율', '상해'];
+const CRITERION_DISPLAY_ORDER = ['선도', '형상', '규격', '혼입율', '상해'];
 
 type QualityItemData = { grade?: string; note?: string; };
 
@@ -34,6 +35,16 @@ function parseCriterionType(text: string): string | null {
     if (text === c || text.startsWith(c + ':') || text.startsWith(c + ' ')) return c;
   }
   return null;
+}
+
+function sortBycriterionOrder(items: string[]): string[] {
+  return [...items].sort((a, b) => {
+    const ai = CRITERION_DISPLAY_ORDER.findIndex(c => a === c || a.startsWith(c + ':') || a.startsWith(c + ' '));
+    const bi = CRITERION_DISPLAY_ORDER.findIndex(c => b === c || b.startsWith(c + ':') || b.startsWith(c + ' '));
+    const ao = ai === -1 ? CRITERION_DISPLAY_ORDER.length : ai;
+    const bo = bi === -1 ? CRITERION_DISPLAY_ORDER.length : bi;
+    return ao - bo;
+  });
 }
 
 function calcGradeScore(grade?: string): number {
@@ -1484,8 +1495,8 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                 })()}
               </div>
 
-              {/* 항목별 등급 카드 — 가이드 항목당 1개 등급 */}
-              {qualityGuideItems.map((item, idx) => {
+              {/* 항목별 등급 카드 — 가이드 항목당 1개 등급 (선도→형상→규격→혼입율 순) */}
+              {sortBycriterionOrder(qualityGuideItems).map((item, idx) => {
                 const d = qualityItems[item] || {};
                 const selectedGrade = d.grade;
                 const noteVal = d.note;

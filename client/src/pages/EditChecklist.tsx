@@ -683,8 +683,14 @@ export default function EditChecklist() {
               <div className="space-y-4">
                 {(() => {
                   const GRADE_PTS: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
-                  const CRIT_PFXS = ['선도', '상해', '규격', '혼입율'];
+                  const CRIT_PFXS = ['선도', '형상', '규격', '혼입율', '상해'];
+                  const CRIT_ORDER = ['선도', '형상', '규격', '혼입율', '상해'];
                   const parseCrit = (t: string) => CRIT_PFXS.find(c => t === c || t.startsWith(c + ':') || t.startsWith(c + ' ')) ?? null;
+                  const sortedItems = [...qualityGuideItems].sort((a, b) => {
+                    const ai = CRIT_ORDER.findIndex(c => a === c || a.startsWith(c + ':') || a.startsWith(c + ' '));
+                    const bi = CRIT_ORDER.findIndex(c => b === c || b.startsWith(c + ':') || b.startsWith(c + ' '));
+                    return (ai === -1 ? CRIT_ORDER.length : ai) - (bi === -1 ? CRIT_ORDER.length : bi);
+                  });
                   const gradeScore = (g?: string) => GRADE_PTS[g || ''] ?? 0;
                   const gradeColorEdit = (g: string) => g === 'A' ? 'bg-purple-600 border-purple-700 text-white' : g === 'B' ? 'bg-purple-400 border-purple-500 text-white' : g === 'C' ? 'bg-amber-400 border-amber-500 text-white' : 'bg-red-500 border-red-600 text-white';
                   const gradeChipColor = (g: string) => g === 'A' ? 'bg-purple-600 text-white' : g === 'B' ? 'bg-purple-400 text-white' : g === 'C' ? 'bg-amber-400 text-white' : 'bg-red-500 text-white';
@@ -728,8 +734,8 @@ export default function EditChecklist() {
                         )}
                       </div>
 
-                      {/* New format: one grade card per guide item */}
-                      {qualityGuideItems.map((item, idx) => {
+                      {/* New format: one grade card per guide item (선도→형상→규격→혼입율 순) */}
+                      {sortedItems.map((item, idx) => {
                         const d = (qualityItems[item] as any) || {};
                         const selectedGrade: string | undefined = isNewFmt ? d.grade : isOldCritFmt ? undefined : (typeof qualityItems[item] === 'string' ? undefined : undefined);
                         const noteVal: string | undefined = isNewFmt ? d.note : undefined;

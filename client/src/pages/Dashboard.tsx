@@ -579,14 +579,31 @@ function AdminQualityScoreInput({
   const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
   const calcOldScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
 
+  const ADMIN_CRIT_LABELS = ['선도', '형상', '규격', '혼입율'] as const;
+  const [adminCritNotes, setAdminCritNotes] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const c of ADMIN_CRIT_LABELS) {
+      init[c] = (existingAdminItems as any)?.[`__admin_${c}_note`] || '';
+    }
+    return init;
+  });
+
   const scoreColorClass = (s: number) =>
     s >= 90 ? 'text-purple-700 bg-purple-50 border-purple-300' :
     s >= 70 ? 'text-purple-600 bg-purple-50 border-purple-200' :
     'text-primary bg-red-50 border-red-300';
 
+  const buildAdminItems = () => {
+    const notes: Record<string, string> = {};
+    for (const c of ADMIN_CRIT_LABELS) {
+      if (adminCritNotes[c]?.trim()) notes[`__admin_${c}_note`] = adminCritNotes[c].trim();
+    }
+    return notes;
+  };
+
   const handleSaveNew = async (scoreToSave: number) => {
     try {
-      await qualityScoreMutation.mutateAsync({ id, qualityAdminScore: scoreToSave, qualityAdminItems: {} });
+      await qualityScoreMutation.mutateAsync({ id, qualityAdminScore: scoreToSave, qualityAdminItems: buildAdminItems() });
       toast({ title: `품질 ${scoreToSave}점 확정` });
       setOpen(false);
     } catch {
@@ -713,6 +730,23 @@ function AdminQualityScoreInput({
                 {savedMoldy > 0 && <span className="text-red-600">곰팡이 {savedMoldy}개 (-{savedMoldy * 5}점)</span>}
               </div>
             )}
+          </div>
+          {/* 관리자 기준별 내용 입력 */}
+          <div className="space-y-2 border-t border-purple-200/60 pt-3">
+            <p className="text-xs font-black text-purple-700">관리자 기준별 내용</p>
+            {ADMIN_CRIT_LABELS.map(crit => (
+              <div key={crit} className="flex gap-2 items-start">
+                <span className="shrink-0 text-xs font-black text-white bg-secondary px-2 py-1 rounded-lg mt-0.5 min-w-[36px] text-center">{crit}</span>
+                <textarea
+                  rows={2}
+                  placeholder={`${crit} 점검 내용을 입력하세요`}
+                  value={adminCritNotes[crit] || ''}
+                  onChange={e => setAdminCritNotes(prev => ({ ...prev, [crit]: e.target.value }))}
+                  className="flex-1 px-3 py-2 rounded-xl border border-purple-200 text-xs focus:outline-none focus:border-purple-400 bg-purple-50/30 resize-none"
+                  data-testid={`textarea-admin-crit-${crit}-${id}`}
+                />
+              </div>
+            ))}
           </div>
           {/* 확정 or 재정의 */}
           <div className="flex gap-2">
