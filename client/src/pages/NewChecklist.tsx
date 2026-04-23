@@ -398,24 +398,15 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
       {vmStage !== 'category' && (
         <button
           onClick={() => {
-            const hasSubcategory = qualityOnly && allGuideProducts.filter(g => g.category === selCategory).length > 1;
             if (vmStage === 'group') { setVmStage('category'); setSelCategory(''); setSelGroup(''); }
             else if (vmStage === 'product') { setVmStage('group'); setSelGroup(''); }
-            else if (vmStage === 'items') {
-              if (qualityOnly && hasSubcategory) {
-                setVmStage('group'); setSelGroup(''); setSelProduct('');
-              } else if (qualityOnly) {
-                setVmStage('category'); setSelCategory(''); setSelProduct('');
-              } else {
-                setVmStage('product'); setSelProduct('');
-              }
-            }
+            else if (vmStage === 'items') { setVmStage('product'); setSelProduct(''); }
           }}
           className="flex items-center gap-2 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
           data-testid="btn-vm-back"
         >
           <ChevronLeft className="w-4 h-4" />
-          {vmStage === 'group' ? '카테고리 선택으로' : vmStage === 'product' ? '그룹 선택으로' : (qualityOnly && allGuideProducts.filter(g => g.category === selCategory).length > 1) ? '구분 선택으로' : qualityOnly ? '카테고리 선택으로' : '상품 선택으로'} 돌아가기
+          {vmStage === 'group' ? '카테고리 선택으로' : vmStage === 'product' ? '그룹 선택으로' : '상품 선택으로'} 돌아가기
         </button>
       )}
 
@@ -434,17 +425,7 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
                   onClick={() => {
                     setSelCategory(cat);
                     setSelGroup('');
-                    if (qualityOnly) {
-                      const catProducts = allGuideProducts.filter(g => g.category === cat);
-                      if (catProducts.length <= 1) {
-                        setSelProduct(catProducts[0]?.product ?? cat);
-                        setVmStage('items');
-                      } else {
-                        setVmStage('group');
-                      }
-                    } else {
-                      setVmStage('group');
-                    }
+                    setVmStage('group');
                   }}
                   className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
                   data-testid={`btn-new-category-${cat}`}
@@ -467,49 +448,21 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
           <motion.div key="grp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
             <div className="mb-5">
               <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {selCategory} · {qualityOnly ? '품질 점검' : '진열(+광고) 점검'}</p>
-              <h2 className="text-2xl font-black text-secondary">{qualityOnly ? '구분 선택' : '상품 그룹 선택'}</h2>
+              <h2 className="text-2xl font-black text-secondary">상품 그룹 선택</h2>
             </div>
 
-            {/* Quality → 가이드에서 등록된 상품 목록 동적 표시 */}
-            {qualityOnly && (() => {
-              const catProducts = allGuideProducts.filter(g => g.category === selCategory);
-              if (catProducts.length === 0) {
-                return (
-                  <div className="text-center py-16 text-muted-foreground">
-                    <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p className="font-medium">등록된 품질 가이드가 없습니다</p>
-                    <p className="text-xs mt-1">가이드 관리에서 품질 가이드를 먼저 등록해주세요</p>
-                  </div>
-                );
-              }
-              return (
-                <div className="space-y-3">
-                  {catProducts.map(g => (
-                    <button
-                      key={g.product}
-                      onClick={() => { setSelGroup(g.product); setSelProduct(g.product); setVmStage('items'); }}
-                      className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-purple-400/50 shadow-sm active:scale-[0.98] transition-all"
-                      data-testid={`btn-quality-sub-${g.product}`}
-                    >
-                      <span className="text-3xl font-bold">{g.product}</span>
-                      <ChevronRight className="w-6 h-6 text-muted-foreground" />
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* VM 상품 그룹 선택 */}
-            {!qualityOnly && isLoading && (
+            {/* 상품 그룹 선택 (DB products 기반, quality/vm 공통) */}
+            {isLoading && (
               <div className="flex items-center justify-center py-16"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
             )}
-            {!qualityOnly && !isLoading && groups.length === 0 && (
+            {!isLoading && groups.length === 0 && (
               <div className="text-center py-16 text-muted-foreground">
                 <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p className="font-medium">등록된 상품 그룹이 없습니다</p>
+                <p className="text-xs mt-1">가이드 관리에서 상품을 먼저 등록해주세요</p>
               </div>
             )}
-            {!qualityOnly && !isLoading && groups.length > 0 && (
+            {!isLoading && groups.length > 0 && (
               <div className="space-y-3">
                 {[...groups].sort((a, b) => {
                   const badgeA = groupBadge(a) > 0 ? 0 : 1;
