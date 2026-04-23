@@ -591,37 +591,31 @@ function AdminQualityScoreInput({
 
       {open && totalItems === 0 && (
         <div className="mt-2 space-y-2">
-          <p className="text-xs text-muted-foreground px-1">항목이 없는 품질 가이드입니다. 사진 확인 후 직접 점수를 입력하세요.</p>
-          <div className="flex gap-2 items-center">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={manualScore}
-              onChange={e => setManualScore(e.target.value)}
-              placeholder="0–100"
-              className="flex-1 px-4 py-3 rounded-xl border-2 border-purple-200 text-base font-bold focus:outline-none focus:border-purple-400 text-center bg-purple-50"
-              data-testid={`input-manual-quality-score-${id}`}
-            />
-            <span className="font-bold text-muted-foreground text-lg">점</span>
-            <button
-              onClick={async () => {
-                const s = Math.min(100, Math.max(0, parseInt(manualScore) || 0));
-                try {
-                  await qualityScoreMutation.mutateAsync({ id, qualityAdminScore: s, qualityAdminItems: {} });
-                  toast({ title: `품질 ${s}점으로 확정` });
-                  setOpen(false);
-                } catch {
-                  toast({ title: "저장 실패", variant: "destructive" });
-                }
-              }}
-              disabled={qualityScoreMutation.isPending || manualScore === ''}
-              className="px-4 py-3 rounded-xl bg-purple-600 text-white font-black text-sm flex items-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
-              data-testid={`btn-manual-quality-score-save-${id}`}
-            >
-              {qualityScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>⭐</span>}
-              확정
-            </button>
+          <p className="text-xs text-muted-foreground px-1">사진 확인 후 등급을 선택하세요.</p>
+          <div className="flex gap-2">
+            {([['A', 90], ['B', 70], ['C', 40]] as const).map(([grade, gradeScore]) => (
+              <button
+                key={grade}
+                onClick={async () => {
+                  try {
+                    await qualityScoreMutation.mutateAsync({ id, qualityAdminScore: gradeScore, qualityAdminItems: {} });
+                    toast({ title: `품질 ${grade}등급(${gradeScore}점) 확정` });
+                    setOpen(false);
+                  } catch {
+                    toast({ title: "저장 실패", variant: "destructive" });
+                  }
+                }}
+                disabled={qualityScoreMutation.isPending}
+                className={`flex-1 py-4 rounded-xl font-black text-xl flex items-center justify-center border-2 active:scale-[0.98] disabled:opacity-50 transition-all ${
+                  grade === 'A' ? 'bg-purple-600 border-purple-700 text-white hover:bg-purple-700' :
+                  grade === 'B' ? 'bg-purple-400 border-purple-500 text-white hover:bg-purple-500' :
+                  'bg-red-500 border-red-600 text-white hover:bg-red-600'
+                }`}
+                data-testid={`btn-quality-grade-${grade}-${id}`}
+              >
+                {qualityScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : grade}
+              </button>
+            ))}
           </div>
         </div>
       )}

@@ -22,6 +22,7 @@ const REGIONS: Record<string, string[]> = {
   '소형점': ['부산대', '인천', '고잔', '중계', '김포', '청주'],
 };
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
+const QUALITY_CATEGORIES = ['농산', '수산', '축산'];
 
 type VMStage = 'category' | 'group' | 'product' | 'items';
 
@@ -329,15 +330,23 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
       {vmStage !== 'category' && (
         <button
           onClick={() => {
-            if (vmStage === 'group') { setVmStage('category'); setSelCategory(''); }
+            if (vmStage === 'group') { setVmStage('category'); setSelCategory(''); setSelGroup(''); }
             else if (vmStage === 'product') { setVmStage('group'); setSelGroup(''); }
-            else if (vmStage === 'items') { setVmStage('product'); setSelProduct(''); }
+            else if (vmStage === 'items') {
+              if (qualityOnly && selCategory !== '농산') {
+                setVmStage('category'); setSelCategory(''); setSelProduct('');
+              } else if (qualityOnly && selCategory === '농산') {
+                setVmStage('group'); setSelGroup(''); setSelProduct('');
+              } else {
+                setVmStage('product'); setSelProduct('');
+              }
+            }
           }}
           className="flex items-center gap-2 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
           data-testid="btn-vm-back"
         >
           <ChevronLeft className="w-4 h-4" />
-          {vmStage === 'group' ? '카테고리 선택으로' : vmStage === 'product' ? '그룹 선택으로' : '상품 선택으로'} 돌아가기
+          {vmStage === 'group' ? '카테고리 선택으로' : vmStage === 'product' ? '그룹 선택으로' : (qualityOnly && selCategory !== '농산') ? '카테고리 선택으로' : qualityOnly ? '구분 선택으로' : '상품 선택으로'} 돌아가기
         </button>
       )}
 
@@ -349,11 +358,20 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
               <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {qualityOnly ? '품질 점검' : '진열(+광고) 점검'}</p>
               <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
             </div>
-            {CATEGORIES.map(cat => {
+            {(qualityOnly ? QUALITY_CATEGORIES : CATEGORIES).map(cat => {
               const badge = catBadge(cat);
               return (
                 <button key={cat}
-                  onClick={() => { setSelCategory(cat); setSelGroup(''); setVmStage('group'); }}
+                  onClick={() => {
+                    setSelCategory(cat);
+                    setSelGroup('');
+                    if (qualityOnly && cat !== '농산') {
+                      setSelProduct(cat);
+                      setVmStage('items');
+                    } else {
+                      setVmStage('group');
+                    }
+                  }}
                   className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
                   data-testid={`btn-new-category-${cat}`}
                 >
@@ -374,51 +392,74 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
         {vmStage === 'group' && (
           <motion.div key="grp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
             <div className="mb-5">
-              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {selCategory}</p>
-              <h2 className="text-2xl font-black text-secondary">상품 그룹 선택</h2>
+              <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · {selCategory} · {qualityOnly ? '품질 점검' : '진열(+광고) 점검'}</p>
+              <h2 className="text-2xl font-black text-secondary">{qualityOnly ? '구분 선택' : '상품 그룹 선택'}</h2>
             </div>
-            {isLoading ? (
+
+            {/* Quality 농산 → 채소/청과 subcategory */}
+            {qualityOnly && selCategory === '농산' && (
+              <div className="space-y-3">
+                {['채소', '청과'].map(sub => (
+                  <button
+                    key={sub}
+                    onClick={() => { setSelGroup(sub); setSelProduct(sub); setVmStage('items'); }}
+                    className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-purple-400/50 shadow-sm active:scale-[0.98] transition-all"
+                    data-testid={`btn-quality-sub-${sub}`}
+                  >
+                    <span className="text-3xl font-bold">{sub}</span>
+                    <ChevronRight className="w-6 h-6 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* VM 상품 그룹 선택 */}
+            {!qualityOnly && isLoading && (
               <div className="flex items-center justify-center py-16"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
-            ) : groups.length === 0 ? (
+            )}
+            {!qualityOnly && !isLoading && groups.length === 0 && (
               <div className="text-center py-16 text-muted-foreground">
                 <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p className="font-medium">등록된 상품 그룹이 없습니다</p>
               </div>
-            ) : (
-              [...groups].sort((a, b) => {
-                const badgeA = groupBadge(a) > 0 ? 0 : 1;
-                const badgeB = groupBadge(b) > 0 ? 0 : 1;
-                if (badgeA !== badgeB) return badgeA - badgeB;
-                const hasGuideA = allGuideProducts.some(g => g.product === `[${a}]` || g.product.startsWith(`[${a}]`)) ? 0 : 1;
-                const hasGuideB = allGuideProducts.some(g => g.product === `[${b}]` || g.product.startsWith(`[${b}]`)) ? 0 : 1;
-                return hasGuideA - hasGuideB;
-              }).map(group => {
-                const cnt = dbProducts.filter(p => p.groupName === group && p.productName).length;
-                const badge = groupBadge(group);
-                return (
-                  <button key={group}
-                    onClick={() => {
-                      const subs = dbProducts.filter(p => p.groupName === group && p.productName);
-                      if (subs.length === 0) {
-                        setSelGroup(group); setSelProduct(`[${group}]`); setVmStage('items');
-                      } else {
-                        setSelGroup(group); setVmStage('product');
-                      }
-                    }}
-                    className="w-full flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/40 active:scale-[0.98] shadow-sm transition-all"
-                    data-testid={`btn-new-group-${group}`}
-                  >
-                    <span className="text-2xl font-bold">{group}</span>
-                    <div className="flex items-center gap-2">
-                      {cnt > 0 && <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg font-medium">{cnt}개</span>}
-                      {badge > 0 && (
-                        <span className="w-7 h-7 rounded-full bg-primary text-white text-sm font-black flex items-center justify-center">{badge}</span>
-                      )}
-                      <ChevronRight className="w-6 h-6 text-muted-foreground" />
-                    </div>
-                  </button>
-                );
-              })
+            )}
+            {!qualityOnly && !isLoading && groups.length > 0 && (
+              <div className="space-y-3">
+                {[...groups].sort((a, b) => {
+                  const badgeA = groupBadge(a) > 0 ? 0 : 1;
+                  const badgeB = groupBadge(b) > 0 ? 0 : 1;
+                  if (badgeA !== badgeB) return badgeA - badgeB;
+                  const hasGuideA = allGuideProducts.some(g => g.product === `[${a}]` || g.product.startsWith(`[${a}]`)) ? 0 : 1;
+                  const hasGuideB = allGuideProducts.some(g => g.product === `[${b}]` || g.product.startsWith(`[${b}]`)) ? 0 : 1;
+                  return hasGuideA - hasGuideB;
+                }).map(group => {
+                  const cnt = dbProducts.filter(p => p.groupName === group && p.productName).length;
+                  const badge = groupBadge(group);
+                  return (
+                    <button key={group}
+                      onClick={() => {
+                        const subs = dbProducts.filter(p => p.groupName === group && p.productName);
+                        if (subs.length === 0) {
+                          setSelGroup(group); setSelProduct(`[${group}]`); setVmStage('items');
+                        } else {
+                          setSelGroup(group); setVmStage('product');
+                        }
+                      }}
+                      className="w-full flex items-center justify-between p-5 min-h-[5rem] rounded-2xl border-2 border-border bg-white text-secondary hover:border-primary/40 active:scale-[0.98] shadow-sm transition-all"
+                      data-testid={`btn-new-group-${group}`}
+                    >
+                      <span className="text-2xl font-bold">{group}</span>
+                      <div className="flex items-center gap-2">
+                        {cnt > 0 && <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg font-medium">{cnt}개</span>}
+                        {badge > 0 && (
+                          <span className="w-7 h-7 rounded-full bg-primary text-white text-sm font-black flex items-center justify-center">{badge}</span>
+                        )}
+                        <ChevronRight className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </motion.div>
         )}
