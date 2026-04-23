@@ -1,0 +1,558 @@
+/* Desktop - 2 */
+
+position: relative;
+width: 1440px;
+height: 1024px;
+
+background: #FFFFFF;
+
+
+/* Rectangle 2 */
+
+position: absolute;
+width: 1440px;
+height: 85px;
+left: 0px;
+top: 0px;
+
+background: #FFFFFF;
+box-shadow: 0px 2px 3px rgba(0, 0, 0, 0.1);
+
+
+/* Frame 1 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: space-between;
+align-items: center;
+padding: 0px 50px;
+gap: 991px;
+
+position: absolute;
+width: 1440px;
+height: 47px;
+left: calc(50% - 1440px/2);
+top: 21px;
+
+
+
+/* image 1 */
+
+margin: 0 auto;
+width: 198px;
+height: 31px;
+
+background: url(image.png);
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Component 1 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: center;
+align-items: center;
+padding: 13px 35px;
+gap: 10px;
+isolation: isolate;
+
+margin: 0 auto;
+width: 149px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Rectangle 1 */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 0%;
+
+background: #000000;
+border-radius: 100px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+z-index: 0;
+
+
+/* 관리자 모드 */
+
+width: 79px;
+height: 21px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 600;
+font-size: 18px;
+line-height: 21px;
+text-align: center;
+letter-spacing: -0.04em;
+
+color: #EAEAEA;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+z-index: 1;
+
+
+/* © 2026, 킴스클럽 VMD, All rights reserved. */
+
+position: absolute;
+width: 215px;
+height: 14px;
+left: calc(50% - 215px/2 + 0.5px);
+top: 966px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 400;
+font-size: 12px;
+line-height: 14px;
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: -0.02em;
+
+color: rgba(0, 0, 0, 0.4);
+
+
+
+/* Frame 7 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 0px;
+gap: 8px;
+
+position: absolute;
+width: 394px;
+height: 97px;
+left: 523px;
+top: 185px;
+
+
+
+/* 매장 점검 체크리스트 */
+
+width: 394px;
+height: 60px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 700;
+font-size: 50px;
+line-height: 60px;
+/* identical to box height */
+text-align: center;
+letter-spacing: -0.04em;
+
+color: #000000;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+align-self: stretch;
+flex-grow: 0;
+
+
+/* 현장 점검 · 진열 · 품질 관리 시스템 */
+
+width: 394px;
+height: 29px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 500;
+font-size: 24px;
+line-height: 29px;
+/* identical to box height */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: -0.04em;
+
+color: rgba(0, 0, 0, 0.4);
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+align-self: stretch;
+flex-grow: 0;
+
+
+/* Frame 5 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: center;
+padding: 0px;
+gap: 15px;
+
+position: absolute;
+width: 455px;
+height: 220px;
+left: calc(50% - 455px/2);
+top: 372px;
+
+
+
+/* Component 3 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+padding: 13px 35px;
+gap: 18px;
+isolation: isolate;
+
+width: 220px;
+height: 220px;
+
+border-radius: 20px;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Rectangle 1 */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 0%;
+
+background: #006341;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+z-index: 0;
+
+
+/* Group */
+
+width: 40px;
+height: 51.43px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+z-index: 1;
+
+
+/* Vector */
+
+position: absolute;
+left: 40.91%;
+right: 40.91%;
+top: 21.27%;
+bottom: 55.36%;
+
+border: 4px solid #FFFFFF;
+
+
+/* Vector */
+
+position: absolute;
+left: 46.1%;
+right: 46.1%;
+top: 21.27%;
+bottom: 61.85%;
+
+border: 4px solid #FFFFFF;
+
+
+/* Frame 2 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 0px;
+gap: 3px;
+
+width: 128px;
+height: 57px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+z-index: 2;
+
+
+/* 새 점검 등록 */
+
+width: 128px;
+height: 33px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 700;
+font-size: 28px;
+line-height: 33px;
+text-align: center;
+letter-spacing: -0.04em;
+
+color: #FFFFFF;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 현장 점검 시작하기 */
+
+width: 127px;
+height: 21px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 500;
+font-size: 18px;
+line-height: 21px;
+text-align: center;
+letter-spacing: -0.04em;
+
+color: #FFFFFF;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Component 4 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+padding: 13px 35px;
+gap: 18px;
+isolation: isolate;
+
+width: 220px;
+height: 220px;
+
+filter: drop-shadow(0px 0px 6px rgba(0, 0, 0, 0.25));
+border-radius: 20px;
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Rectangle 1 */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 0%;
+
+background: #FFFFFF;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+z-index: 0;
+
+
+/* Group */
+
+width: 40px;
+height: 51.43px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+z-index: 1;
+
+
+/* Vector */
+
+position: absolute;
+left: 40.91%;
+right: 40.91%;
+top: 21.27%;
+bottom: 55.36%;
+
+border: 4px solid #006341;
+
+
+/* Vector */
+
+position: absolute;
+left: 46.1%;
+right: 46.1%;
+top: 21.27%;
+bottom: 60.91%;
+
+border: 4px solid #006341;
+
+
+/* Frame 3 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 0px;
+gap: 3px;
+
+width: 174px;
+height: 57px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+flex-grow: 0;
+z-index: 2;
+
+
+/* 점검 월별 피드백 */
+
+width: 174px;
+height: 33px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 700;
+font-size: 28px;
+line-height: 33px;
+text-align: center;
+letter-spacing: -0.04em;
+
+color: #006341;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* 수정 및 삭제 가능 */
+
+width: 116px;
+height: 21px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 500;
+font-size: 18px;
+line-height: 21px;
+text-align: center;
+letter-spacing: -0.04em;
+
+color: #000000;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+
+
+/* Component 3 */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+justify-content: center;
+align-items: center;
+padding: 13px 35px;
+gap: 10px;
+isolation: isolate;
+
+position: absolute;
+width: 455px;
+height: 70px;
+left: calc(50% - 455px/2 + 0.5px);
+top: 622px;
+
+border-radius: 15px;
+
+
+/* Rectangle 1 */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 0%;
+
+background: #EAEAEA;
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+z-index: 0;
+
+
+/* 사용 매뉴얼 보기 */
+
+width: 162px;
+height: 31px;
+
+font-family: 'Pretendard';
+font-style: normal;
+font-weight: 600;
+font-size: 26px;
+line-height: 31px;
+/* identical to box height */
+text-align: center;
+letter-spacing: -0.04em;
+
+color: #000000;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 0;
+z-index: 1;

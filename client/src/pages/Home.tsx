@@ -122,12 +122,32 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
 
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
-        <img src={logoKimsClub} alt="KIM'S CLUB" className="h-6 object-contain" />
+      {/* Top bar — height 85px, shadow, padding 0 50px */}
+      <header
+        className="flex items-center justify-between bg-white"
+        style={{
+          height: '85px',
+          padding: '0 50px',
+          boxShadow: '0px 2px 3px rgba(0,0,0,0.1)',
+        }}
+      >
+        <img src={logoKimsClub} alt="KIM'S CLUB" style={{ width: '198px', height: '31px', objectFit: 'contain' }} />
         <Link href="/admin/login">
           <button
-            className="bg-gray-900 text-white font-bold text-sm px-5 py-2.5 rounded-full active:scale-95 transition-transform tracking-tight"
+            className="active:scale-95 transition-transform"
+            style={{
+              fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+              fontWeight: 600,
+              fontSize: '18px',
+              letterSpacing: '-0.04em',
+              color: '#EAEAEA',
+              background: '#000000',
+              borderRadius: '100px',
+              padding: '13px 35px',
+              border: 'none',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
             data-testid="btn-admin-mode"
           >
             관리자 모드
@@ -136,58 +156,146 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="flex flex-col items-center justify-center flex-1 px-8 py-12">
-        <div className="w-full max-w-[380px] mx-auto flex flex-col items-center gap-10">
+      <main className="flex flex-col items-center justify-center flex-1">
+        <div className="flex flex-col items-center" style={{ gap: '0px' }}>
 
-          {/* Title */}
-          <div className="text-center">
+          {/* Title block — gap 8px between title and subtitle */}
+          <div className="flex flex-col items-center" style={{ gap: '8px', marginBottom: '50px' }}>
             <h1
-              className="text-5xl text-gray-900 leading-tight whitespace-nowrap"
-              style={{ fontFamily: "'Black Han Sans', 'Noto Sans KR', sans-serif" }}
+              className="text-center"
+              style={{
+                fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                fontWeight: 700,
+                fontSize: '50px',
+                lineHeight: '60px',
+                letterSpacing: '-0.04em',
+                color: '#000000',
+                margin: 0,
+              }}
             >
-              매장 점검{' '}
-              <span className="text-green-800">체크리스트</span>
+              매장 점검 <span style={{ color: '#006341' }}>체크리스트</span>
             </h1>
-            <p className="mt-3 text-gray-400 text-sm tracking-wide">
+            <p
+              className="text-center"
+              style={{
+                fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                fontWeight: 500,
+                fontSize: '24px',
+                lineHeight: '29px',
+                letterSpacing: '-0.04em',
+                color: 'rgba(0,0,0,0.4)',
+                margin: 0,
+              }}
+            >
               현장 점검 · 진열 · 품질 관리 시스템
             </p>
           </div>
 
-          {/* Two menu cards */}
-          <div className="grid grid-cols-2 gap-4 w-full">
-            <Link href="/checklist/new" className="block" data-testid="link-new-checklist">
+          {/* Cards row — 455px wide, gap 15px */}
+          <div className="flex flex-row" style={{ gap: '15px', marginBottom: '30px' }}>
+            {/* Green card */}
+            <Link href="/checklist/new" data-testid="link-new-checklist">
               <motion.div
                 whileTap={{ scale: 0.97 }}
-                className="bg-green-800 text-white rounded-2xl flex flex-col items-center justify-center gap-4 aspect-square cursor-pointer"
+                className="flex flex-col items-center justify-center cursor-pointer"
+                style={{
+                  width: '220px',
+                  height: '220px',
+                  background: '#006341',
+                  borderRadius: '20px',
+                  gap: '18px',
+                  padding: '13px 35px',
+                  boxSizing: 'border-box',
+                }}
               >
-                <ClipboardCheck className="w-10 h-10" strokeWidth={1.5} />
-                <div className="text-center">
-                  <p className="font-black text-base leading-tight" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>새 점검 등록</p>
-                  <p className="text-green-300 text-xs mt-1">현장 점검 시작하기</p>
+                <ClipboardCheck style={{ width: '40px', height: '40px', color: '#FFFFFF' }} strokeWidth={2} />
+                <div className="flex flex-col items-center" style={{ gap: '3px' }}>
+                  <p style={{
+                    fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                    fontWeight: 700,
+                    fontSize: '28px',
+                    lineHeight: '33px',
+                    letterSpacing: '-0.04em',
+                    color: '#FFFFFF',
+                    margin: 0,
+                    textAlign: 'center',
+                  }}>새 점검 등록</p>
+                  <p style={{
+                    fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                    fontWeight: 500,
+                    fontSize: '18px',
+                    lineHeight: '21px',
+                    letterSpacing: '-0.04em',
+                    color: '#FFFFFF',
+                    margin: 0,
+                    textAlign: 'center',
+                  }}>현장 점검 시작하기</p>
                 </div>
               </motion.div>
             </Link>
 
-            <Link href="/staff-dashboard" className="block" data-testid="link-staff-dashboard">
+            {/* White card */}
+            <Link href="/staff-dashboard" data-testid="link-staff-dashboard">
               <motion.div
                 whileTap={{ scale: 0.97 }}
-                className="bg-white border border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-4 aspect-square cursor-pointer"
+                className="flex flex-col items-center justify-center cursor-pointer"
+                style={{
+                  width: '220px',
+                  height: '220px',
+                  background: '#FFFFFF',
+                  borderRadius: '20px',
+                  gap: '18px',
+                  padding: '13px 35px',
+                  boxSizing: 'border-box',
+                  filter: 'drop-shadow(0px 0px 6px rgba(0,0,0,0.25))',
+                }}
               >
-                <ClipboardList className="w-10 h-10 text-gray-600" strokeWidth={1.5} />
-                <div className="text-center">
-                  <p className="font-black text-base text-gray-900 leading-tight" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>점검 월별 피드백</p>
-                  <p className="text-gray-400 text-xs mt-1">수정 및 삭제 가능</p>
+                <ClipboardList style={{ width: '40px', height: '40px', color: '#006341' }} strokeWidth={2} />
+                <div className="flex flex-col items-center" style={{ gap: '3px' }}>
+                  <p style={{
+                    fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                    fontWeight: 700,
+                    fontSize: '28px',
+                    lineHeight: '33px',
+                    letterSpacing: '-0.04em',
+                    color: '#006341',
+                    margin: 0,
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                  }}>점검 월별 피드백</p>
+                  <p style={{
+                    fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                    fontWeight: 500,
+                    fontSize: '18px',
+                    lineHeight: '21px',
+                    letterSpacing: '-0.04em',
+                    color: '#000000',
+                    margin: 0,
+                    textAlign: 'center',
+                  }}>수정 및 삭제 가능</p>
                 </div>
               </motion.div>
             </Link>
           </div>
 
-          {/* Manual button */}
+          {/* Manual button — 455×70px, border-radius 15px, bg #EAEAEA */}
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => setManualOpen(true)}
-            className="w-full bg-gray-100 text-gray-800 font-bold py-4 rounded-2xl text-base active:bg-gray-200 transition-colors tracking-tight"
-            style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
+            style={{
+              width: '455px',
+              height: '70px',
+              background: '#EAEAEA',
+              borderRadius: '15px',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+              fontWeight: 600,
+              fontSize: '26px',
+              lineHeight: '31px',
+              letterSpacing: '-0.04em',
+              color: '#000000',
+            }}
             data-testid="btn-open-manual"
           >
             사용 매뉴얼 보기
@@ -196,7 +304,17 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center text-xs text-gray-400 tracking-wide">
+      <footer
+        className="text-center"
+        style={{
+          padding: '20px 0',
+          fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+          fontWeight: 400,
+          fontSize: '12px',
+          letterSpacing: '-0.02em',
+          color: 'rgba(0,0,0,0.4)',
+        }}
+      >
         © 2026, 킴스클럽 VMD. All rights reserved.
       </footer>
 
