@@ -336,11 +336,10 @@ export default function StaffDashboard() {
         <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 pt-4 space-y-0">
           {/* Branch selector + notification bell */}
           <div className="flex items-center gap-2 pb-3">
-            <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
             <select
               value={filterBranch}
               onChange={e => { setFilterBranch(e.target.value); setNotifOpen(false); }}
-              className="flex-1 bg-white border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 text-foreground"
+              className="flex-1 bg-muted border-none rounded-xl px-4 py-3 text-sm focus:outline-none outline-none text-foreground"
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '-0.02em' }}
               data-testid="select-staff-branch"
             >
@@ -411,11 +410,11 @@ export default function StaffDashboard() {
           {(activeTab === 'vm' || activeTab === 'quality') && (
             <div className="space-y-3 pt-3">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 border border-border rounded-lg px-3 py-2 shrink-0">
+                <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 shrink-0">
                   <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <span className="text-sm text-foreground whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{vmFilterYear}년</span>
                 </div>
-                <div className="flex items-center gap-3 border border-border rounded-lg px-3 py-2 flex-1 justify-between">
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
                   <button onClick={prevVmMonth} className="active:scale-95 transition-all" data-testid="btn-staff-prev-month">
                     <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                   </button>
