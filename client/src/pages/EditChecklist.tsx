@@ -58,7 +58,7 @@ export default function EditChecklist() {
   const [adLocalPreviews, setAdLocalPreviews] = useState<string[]>([]);
   const [adUploadingCount, setAdUploadingCount] = useState(0);
   const [adNotes, setAdNotes] = useState('');
-  const [qualityItems, setQualityItems] = useState<Record<string, string>>({});
+  const [qualityItems, setQualityItems] = useState<Record<string, any>>({});
   const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
   const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
   const [qualityUploadingCount, setQualityUploadingCount] = useState(0);
@@ -673,43 +673,96 @@ export default function EditChecklist() {
 
             {qualityGuideItems.length > 0 && (
               <div className="space-y-4">
-                <div className="space-y-1">
-                  <h3 className="text-xl font-bold text-secondary">품질 항목 점검</h3>
-                  <p className="text-sm text-muted-foreground">품질 기준과 일치하면 ○, 다르면 ✗를 선택하세요.</p>
-                </div>
-                {qualityGuideItems.map((item) => {
-                  const isOk = qualityItems[item] === 'ok';
-                  const isNotok = qualityItems[item] === 'notok';
+                {/* 형식 감지: 첫 값이 object면 새 형식 (A/B/C/E), string이면 구 형식 */}
+                {(() => {
+                  const firstVal = Object.values(qualityItems)[0];
+                  const isNewFmt = firstVal !== undefined && typeof firstVal === 'object';
+                  const CRITERIA_EDIT = ['선도', '상해', '규격', '혼입율'] as const;
+                  const GRADE_PTS_EDIT: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
+                  const calcItemScore = (d: any) => Math.max(0, Math.round(((GRADE_PTS_EDIT[d['선도']]||0) + (GRADE_PTS_EDIT[d['상해']]||0)) / 2) - (d.expired||0)*2 - (d.moldy||0)*5);
+                  const overallScore = isNewFmt && Object.keys(qualityItems).length > 0
+                    ? Math.round(Object.values(qualityItems).reduce((s, d) => s + calcItemScore(d), 0) / Object.keys(qualityItems).length)
+                    : null;
                   return (
-                    <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
-                      isOk ? 'border-purple-300 bg-purple-50' : isNotok ? 'border-primary bg-red-50' : 'border-border bg-white'
-                    }`}>
-                      <div className="flex items-center justify-between p-4">
-                        <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
-                        <div className="flex gap-3 shrink-0">
-                          <button
-                            onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'ok' }))}
-                            className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                              isOk ? 'bg-purple-500 border-purple-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
-                            }`}
-                            data-testid={`btn-quality-item-ok-edit-${item}`}
-                          >
-                            <CheckCircle2 className="w-8 h-8" />
-                          </button>
-                          <button
-                            onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'notok' }))}
-                            className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                              isNotok ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
-                            }`}
-                            data-testid={`btn-quality-item-notok-edit-${item}`}
-                          >
-                            <XOctagon className="w-8 h-8" />
-                          </button>
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold text-secondary">품질 항목 점검</h3>
+                          <p className="text-sm text-muted-foreground mt-0.5">{isNewFmt ? '각 항목의 등급을 선택하세요 (A/B/C/E)' : '품질 기준과 일치하면 ○, 다르면 ✗를 선택하세요.'}</p>
                         </div>
+                        {overallScore !== null && (
+                          <div className="text-right">
+                            <div className="text-2xl font-black text-purple-600">{overallScore}점</div>
+                            <div className="text-xs text-muted-foreground">매장 평균</div>
+                          </div>
+                        )}
                       </div>
-                    </div>
+
+                      {qualityGuideItems.map((item) => {
+                        const d = qualityItems[item] || {};
+                        if (isNewFmt) {
+                          const allFilled = d['선도'] && d['상해'] && d['규격'] && d['혼입율'];
+                          const itemScore = allFilled ? calcItemScore(d) : null;
+                          return (
+                            <div key={item} className={`rounded-2xl border-2 p-4 space-y-3 transition-all ${allFilled ? (itemScore !== null && itemScore >= 90 ? 'border-purple-300 bg-purple-50' : 'border-primary/40 bg-red-50') : 'border-border bg-white'}`}>
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-base font-bold text-secondary">{item}</h4>
+                                {allFilled && itemScore !== null && (
+                                  <span className={`text-sm font-black px-2.5 py-1 rounded-full ${itemScore >= 90 ? 'bg-purple-600 text-white' : itemScore >= 75 ? 'bg-purple-400 text-white' : 'bg-red-500 text-white'}`}>{itemScore}점</span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                {CRITERIA_EDIT.map(criterion => (
+                                  <div key={criterion} className="flex flex-col items-center gap-1">
+                                    <span className="text-[10px] font-bold text-muted-foreground">{criterion}</span>
+                                    <div className="flex flex-col gap-1">
+                                      {(['A','B','C','E'] as const).map(grade => (
+                                        <button
+                                          key={grade}
+                                          onClick={() => setQualityItems(prev => ({ ...prev, [item]: { ...d, [criterion]: grade } }))}
+                                          className={`w-10 h-10 rounded-xl border-2 font-black text-sm transition-all active:scale-95 ${d[criterion] === grade ? (grade === 'A' ? 'bg-purple-600 border-purple-700 text-white' : grade === 'B' ? 'bg-purple-400 border-purple-500 text-white' : grade === 'C' ? 'bg-amber-400 border-amber-500 text-white' : 'bg-red-500 border-red-600 text-white') : 'bg-white border-border text-muted-foreground'}`}
+                                          data-testid={`btn-quality-edit-${item}-${criterion}-${grade}`}
+                                        >{grade}</button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex gap-3 pt-1 border-t border-border/50">
+                                <div className="flex-1">
+                                  <label className="text-[11px] font-bold text-muted-foreground block mb-1">진열기한 경과 × -2점</label>
+                                  <input type="number" min={0} value={d.expired ?? ''} onChange={e => setQualityItems(prev => ({ ...prev, [item]: { ...d, expired: Math.max(0, parseInt(e.target.value)||0) } }))} placeholder="0" className="w-full px-3 py-2 rounded-xl border-2 border-border text-sm font-bold text-center focus:outline-none focus:border-purple-400" data-testid={`input-edit-expired-${item}`} />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-[11px] font-bold text-muted-foreground block mb-1">곰팡이 × -5점</label>
+                                  <input type="number" min={0} value={d.moldy ?? ''} onChange={e => setQualityItems(prev => ({ ...prev, [item]: { ...d, moldy: Math.max(0, parseInt(e.target.value)||0) } }))} placeholder="0" className="w-full px-3 py-2 rounded-xl border-2 border-border text-sm font-bold text-center focus:outline-none focus:border-red-400" data-testid={`input-edit-moldy-${item}`} />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          const isOk = qualityItems[item] === 'ok';
+                          const isNotok = qualityItems[item] === 'notok';
+                          return (
+                            <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${isOk ? 'border-purple-300 bg-purple-50' : isNotok ? 'border-primary bg-red-50' : 'border-border bg-white'}`}>
+                              <div className="flex items-center justify-between p-4">
+                                <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                                <div className="flex gap-3 shrink-0">
+                                  <button onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'ok' }))}
+                                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${isOk ? 'bg-purple-500 border-purple-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'}`}
+                                    data-testid={`btn-quality-item-ok-edit-${item}`}><CheckCircle2 className="w-8 h-8" /></button>
+                                  <button onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'notok' }))}
+                                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${isNotok ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'}`}
+                                    data-testid={`btn-quality-item-notok-edit-${item}`}><XOctagon className="w-8 h-8" /></button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                      })}
+                    </>
                   );
-                })}
+                })()}
               </div>
             )}
 

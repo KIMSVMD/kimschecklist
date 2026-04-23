@@ -24,7 +24,7 @@ export const checklists = pgTable("checklists", {
   adNotes: text("ad_notes"),
   adAdminScore: integer("ad_admin_score"),
   adAdminItems: jsonb("ad_admin_items").$type<Record<string, 'ok' | 'notok'>>(),
-  qualityItems: jsonb("quality_items").$type<Record<string, string>>(),
+  qualityItems: jsonb("quality_items").$type<Record<string, any>>(),
   qualityPhotoUrls: text("quality_photo_urls").array(),
   qualityNotes: text("quality_notes"),
   qualityAdminScore: integer("quality_admin_score"),

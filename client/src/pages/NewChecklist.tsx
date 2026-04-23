@@ -24,6 +24,28 @@ const REGIONS: Record<string, string[]> = {
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['농산', '수산', '축산'];
 
+const QUALITY_GRADE_SCORES: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
+const QUALITY_CRITERIA = ['선도', '상해', '규격', '혼입율'] as const;
+type QualityCriteria = typeof QUALITY_CRITERIA[number];
+
+type QualityGradeData = {
+  선도?: string; 상해?: string; 규격?: string; 혼입율?: string;
+  expired?: number; moldy?: number;
+};
+
+function calcQualityItemScore(data: QualityGradeData): number {
+  const 선도 = QUALITY_GRADE_SCORES[data.선도 || ''] ?? 0;
+  const 상해 = QUALITY_GRADE_SCORES[data.상해 || ''] ?? 0;
+  const penalty = (data.expired || 0) * 2 + (data.moldy || 0) * 5;
+  return Math.max(0, Math.round((선도 + 상해) / 2) - penalty);
+}
+
+function calcOverallQualityScore(items: Record<string, QualityGradeData>): number {
+  const vals = Object.values(items);
+  if (vals.length === 0) return 0;
+  return Math.round(vals.reduce((s, d) => s + calcQualityItemScore(d), 0) / vals.length);
+}
+
 type VMStage = 'category' | 'group' | 'product' | 'items';
 
 export default function NewChecklist() {
@@ -567,7 +589,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   const qualityGuide = allQualityGuides[0] ?? null;
   const qualityGuideItems: string[] = (qualityGuide?.items as string[])?.filter(Boolean) || [];
   const qualityGuidePoints: string[] = (qualityGuide?.points as string[]) || [];
-  const [qualityItems, setQualityItems] = useState<Record<string, string>>({});
+  const [qualityItems, setQualityItems] = useState<Record<string, QualityGradeData>>({});
   const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
   const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
   const [qualityUploadingCount, setQualityUploadingCount] = useState(0);
@@ -661,8 +683,9 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
 
   const submitForm = async () => {
     const isQuality = effectiveInspectionType === 'quality';
+    const overallQualityScore = isQuality ? calcOverallQualityScore(qualityItems) : 0;
     const hasNotok = isQuality
-      ? Object.values(qualityItems).includes('notok')
+      ? overallQualityScore < 90
       : Object.values(items).includes('notok') || Object.values(adItems).includes('notok');
     const finalStatus = hasNotok ? 'poor' : 'excellent';
     try {
@@ -720,7 +743,10 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   const qualityGuideAttachFiles: string[] = (qualityGuide as any)?.attachFileUrls ?? [];
   const effectiveInspectionType = qualityOnly ? 'quality' : 'vm';
   const allItemsChecked = effectiveInspectionType === 'quality'
-    ? true
+    ? (qualityGuideItems.length === 0 || qualityGuideItems.every(item => {
+        const d = qualityItems[item];
+        return d && d.선도 && d.상해 && d.규격 && d.혼입율;
+      }))
     : (guideItems.length === 0 || guideItems.every(item => items[item]));
 
   const displayProduct = selProduct?.replace(/\[(.+?)\](.*)/, (_: string, g: string, rest: string) => rest ? `${g} > ${rest}` : g) || selProduct;
@@ -1357,48 +1383,111 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
             <input ref={qualityFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleQualityFile} />
           </div>
 
-          {/* Quality items evaluation */}
+          {/* Quality items evaluation — Excel 방식 */}
           {qualityGuideItems.length > 0 && (
             <div className="space-y-4">
-              <div className="space-y-1">
-                <h3 className="text-xl font-bold text-secondary">항목별 품질 점검</h3>
-                <p className="text-sm text-muted-foreground">품질 기준과 일치하면 ○, 다르면 ✗를 선택하세요.</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-secondary">항목별 품질 점검</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">각 항목의 등급을 선택하세요 (A/B/C/E)</p>
+                </div>
+                {Object.keys(qualityItems).length > 0 && (
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-purple-600">{calcOverallQualityScore(qualityItems)}점</div>
+                    <div className="text-xs text-muted-foreground">매장 평균</div>
+                  </div>
+                )}
               </div>
-              {qualityGuideItems.map((item) => (
-                <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
-                  qualityItems[item] === 'ok' ? 'border-purple-300 bg-purple-50'
-                  : qualityItems[item] === 'notok' ? 'border-primary bg-red-50'
-                  : 'border-border bg-white'
-                }`}>
-                  <div className="flex items-center justify-between p-4">
-                    <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
-                    <div className="flex gap-3 shrink-0">
-                      <button
-                        onClick={() => setQualityItems({ ...qualityItems, [item]: 'ok' })}
-                        className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                          qualityItems[item] === 'ok' ? 'bg-purple-500 border-purple-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
-                        }`}
-                        data-testid={`btn-quality-item-ok-${item}`}
-                      >
-                        <CheckCircle2 className="w-8 h-8" />
-                      </button>
-                      <button
-                        onClick={() => setQualityItems({ ...qualityItems, [item]: 'notok' })}
-                        className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                          qualityItems[item] === 'notok' ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
-                        }`}
-                        data-testid={`btn-quality-item-notok-${item}`}
-                      >
-                        <XCircle className="w-8 h-8" />
-                      </button>
+
+              {/* 기준 헤더 */}
+              <div className="grid grid-cols-[1fr_repeat(4,2.5rem)] gap-1 px-2 text-xs font-bold text-muted-foreground text-center">
+                <div className="text-left">아이템</div>
+                {QUALITY_CRITERIA.map(c => <div key={c}>{c}</div>)}
+              </div>
+
+              {qualityGuideItems.map((item) => {
+                const d = qualityItems[item] || {};
+                const allFilled = d.선도 && d.상해 && d.규격 && d.혼입율;
+                const itemScore = allFilled ? calcQualityItemScore(d as QualityGradeData) : null;
+                return (
+                  <div key={item} className={`rounded-2xl border-2 p-4 space-y-3 transition-all ${
+                    allFilled ? (itemScore !== null && itemScore >= 90 ? 'border-purple-300 bg-purple-50' : 'border-primary/40 bg-red-50') : 'border-border bg-white'
+                  }`}>
+                    {/* 항목명 + 점수 */}
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-base font-bold text-secondary">{item}</h4>
+                      {allFilled && itemScore !== null && (
+                        <span className={`text-sm font-black px-2.5 py-1 rounded-full ${itemScore >= 90 ? 'bg-purple-600 text-white' : itemScore >= 75 ? 'bg-purple-400 text-white' : 'bg-red-500 text-white'}`}>
+                          {itemScore}점
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 4개 기준 — 한 줄에 */}
+                    <div className="grid grid-cols-[1fr_repeat(4,2.5rem)] gap-1 items-center">
+                      <div className="text-xs text-muted-foreground font-medium">등급</div>
+                      {QUALITY_CRITERIA.map(criterion => (
+                        <div key={criterion} className="flex flex-col items-center gap-1">
+                          <span className="text-[10px] font-bold text-muted-foreground">{criterion}</span>
+                          <div className="flex flex-col gap-1">
+                            {(['A','B','C','E'] as const).map(grade => (
+                              <button
+                                key={grade}
+                                onClick={() => setQualityItems({ ...qualityItems, [item]: { ...d, [criterion]: grade } })}
+                                className={`w-10 h-10 rounded-xl border-2 font-black text-sm transition-all active:scale-95 ${
+                                  (d as any)[criterion] === grade
+                                    ? grade === 'A' ? 'bg-purple-600 border-purple-700 text-white'
+                                    : grade === 'B' ? 'bg-purple-400 border-purple-500 text-white'
+                                    : grade === 'C' ? 'bg-amber-400 border-amber-500 text-white'
+                                    : 'bg-red-500 border-red-600 text-white'
+                                    : 'bg-white border-border text-muted-foreground'
+                                }`}
+                                data-testid={`btn-quality-${item}-${criterion}-${grade}`}
+                              >
+                                {grade}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 감점 입력 */}
+                    <div className="flex gap-3 pt-1 border-t border-border/50">
+                      <div className="flex-1">
+                        <label className="text-[11px] font-bold text-muted-foreground block mb-1">진열기한 경과 (개) × -2점</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={(d as QualityGradeData).expired ?? ''}
+                          onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, expired: Math.max(0, parseInt(e.target.value) || 0) } })}
+                          placeholder="0"
+                          className="w-full px-3 py-2 rounded-xl border-2 border-border text-sm font-bold text-center focus:outline-none focus:border-purple-400 bg-white"
+                          data-testid={`input-quality-expired-${item}`}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[11px] font-bold text-muted-foreground block mb-1">곰팡이 (개) × -5점</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={(d as QualityGradeData).moldy ?? ''}
+                          onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, moldy: Math.max(0, parseInt(e.target.value) || 0) } })}
+                          placeholder="0"
+                          className="w-full px-3 py-2 rounded-xl border-2 border-border text-sm font-bold text-center focus:outline-none focus:border-red-400 bg-white"
+                          data-testid={`input-quality-moldy-${item}`}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              <div className="flex justify-between text-sm font-medium text-muted-foreground">
-                <span>{Object.keys(qualityItems).length} / {qualityGuideItems.length} 완료</span>
-                {Object.values(qualityItems).includes('notok') && (
-                  <span className="text-primary font-bold">불일치 {Object.values(qualityItems).filter(v => v === 'notok').length}건</span>
+                );
+              })}
+
+              {/* 전체 진행 현황 */}
+              <div className="flex justify-between text-sm font-medium text-muted-foreground bg-muted/40 rounded-2xl px-4 py-3">
+                <span>{qualityGuideItems.filter(item => {const d=qualityItems[item];return d&&d.선도&&d.상해&&d.규격&&d.혼입율}).length} / {qualityGuideItems.length} 완료</span>
+                {Object.keys(qualityItems).length > 0 && (
+                  <span className="font-bold text-purple-600">평균 {calcOverallQualityScore(qualityItems)}점</span>
                 )}
               </div>
             </div>

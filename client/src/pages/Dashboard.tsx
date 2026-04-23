@@ -470,40 +470,72 @@ function AdminAdScoreInput({
   );
 }
 
+const QUALITY_GRADE_SCORES_DASH: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
+
+function calcQualityItemScoreDash(d: Record<string, any>): number {
+  const s = QUALITY_GRADE_SCORES_DASH[d['선도'] || ''] ?? 0;
+  const dmg = QUALITY_GRADE_SCORES_DASH[d['상해'] || ''] ?? 0;
+  const penalty = (d.expired || 0) * 2 + (d.moldy || 0) * 5;
+  return Math.max(0, Math.round((s + dmg) / 2) - penalty);
+}
+
+function calcOverallQualityScoreDash(items: Record<string, any>): number {
+  const vals = Object.values(items).filter(v => typeof v === 'object' && v !== null);
+  if (vals.length === 0) return 0;
+  return Math.round(vals.reduce((sum, d) => sum + calcQualityItemScoreDash(d), 0) / vals.length);
+}
+
 function AdminQualityScoreInput({
   id, existingScore, staffQualityItems, existingAdminItems
 }: {
   id: number;
   existingScore?: number | null;
-  staffQualityItems: Record<string, string>;
-  existingAdminItems?: Record<string, 'ok' | 'notok'> | null;
+  staffQualityItems: Record<string, any>;
+  existingAdminItems?: Record<string, any> | null;
 }) {
   const { toast } = useToast();
   const qualityScoreMutation = useUpdateChecklistQualityScore();
   const [open, setOpen] = useState(existingScore == null);
-  const [manualScore, setManualScore] = useState<string>(existingScore != null ? String(existingScore) : '');
+  const [overrideScore, setOverrideScore] = useState<string>(existingScore != null ? String(existingScore) : '');
   const itemKeys = Object.keys(staffQualityItems);
   const totalItems = itemKeys.length;
 
+  // Detect format: new (object values) vs old (string values)
+  const firstVal = totalItems > 0 ? Object.values(staffQualityItems)[0] : null;
+  const isNewFormat = firstVal !== null && typeof firstVal === 'object';
+
+  // Auto-calculated score for new format
+  const autoScore = isNewFormat ? calcOverallQualityScoreDash(staffQualityItems) : 0;
+
+  // Old format helpers
   const initSel = () => Object.fromEntries(
     itemKeys.map(k => {
-      if (existingAdminItems?.[k]) return [k, existingAdminItems[k]];
+      if (existingAdminItems?.[k] && typeof existingAdminItems[k] === 'string') return [k, existingAdminItems[k]];
       const sv = staffQualityItems[k];
       return [k, (sv === 'ok' || sv === 'excellent') ? 'ok' : 'notok'];
     })
   );
-
   const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok'>>(initSel);
   const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
-  const calcScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
+  const calcOldScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
 
   const scoreColorClass = (s: number) =>
     s >= 90 ? 'text-purple-700 bg-purple-50 border-purple-300' :
     s >= 70 ? 'text-purple-600 bg-purple-50 border-purple-200' :
     'text-primary bg-red-50 border-red-300';
 
-  const handleSave = async () => {
-    const score = calcScore();
+  const handleSaveNew = async (scoreToSave: number) => {
+    try {
+      await qualityScoreMutation.mutateAsync({ id, qualityAdminScore: scoreToSave, qualityAdminItems: {} });
+      toast({ title: `품질 ${scoreToSave}점 확정` });
+      setOpen(false);
+    } catch {
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  const handleSaveOld = async () => {
+    const score = calcOldScore();
     try {
       await qualityScoreMutation.mutateAsync({ id, qualityAdminScore: score, qualityAdminItems: adminSel });
       toast({ title: `품질 ○ ${okCount}/${totalItems} → ${score}점 확정` });
@@ -514,12 +546,11 @@ function AdminQualityScoreInput({
   };
 
   const score = existingScore != null ? existingScore : null;
-  const confirmedOk = existingAdminItems ? Object.values(existingAdminItems).filter(v => v === 'ok').length : null;
 
   return (
     <div className="mt-3 border-t border-purple-200/60 pt-3">
       <button
-        onClick={() => { if (!open) setAdminSel(initSel()); setOpen(o => !o); }}
+        onClick={() => { if (!open && !isNewFormat) setAdminSel(initSel()); setOpen(o => !o); }}
         className={`w-full flex items-center justify-between py-2 px-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
           score != null ? `${scoreColorClass(score)} border` : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
         }`}
@@ -528,17 +559,67 @@ function AdminQualityScoreInput({
         <div className="flex items-center gap-2">
           <span className="text-sm">⭐</span>
           {score != null
-            ? <span>품질 ○ {confirmedOk}/{totalItems} → {score}점 {open ? '(수정 중)' : '(확정)'}</span>
-            : <span>품질 평가 (항목 확인 후 확정)</span>}
+            ? <span>품질 {score}점 {open ? '(수정 중)' : '(확정)'}</span>
+            : <span>품질 평가 확정 필요</span>}
         </div>
         <span className="text-[11px] opacity-50">{open ? '▲' : '▼'}</span>
       </button>
 
-      {open && totalItems > 0 && (
+      {/* ── 새 형식: 자동 계산 점수 표시 + 확정 ── */}
+      {open && isNewFormat && (
+        <div className="mt-2 space-y-3">
+          <div className={`flex items-center justify-between px-4 py-3 rounded-xl border font-bold ${scoreColorClass(autoScore)}`}>
+            <span className="text-sm">자동 계산 점수 ({totalItems}개 항목)</span>
+            <span className="text-2xl font-black">{autoScore}점</span>
+          </div>
+          {/* 항목별 결과 요약 */}
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            {itemKeys.map(key => {
+              const d = staffQualityItems[key] as Record<string, any>;
+              const s = calcQualityItemScoreDash(d);
+              return (
+                <div key={key} className="flex items-center justify-between px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs">
+                  <span className="font-bold text-secondary">{key}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">선도:{d['선도']||'-'} 상해:{d['상해']||'-'} 규격:{d['규격']||'-'} 혼입:{d['혼입율']||'-'}</span>
+                    <span className={`font-black px-2 py-0.5 rounded-full text-xs ${s >= 90 ? 'bg-purple-600 text-white' : s >= 75 ? 'bg-purple-400 text-white' : 'bg-red-500 text-white'}`}>{s}점</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* 확정 or 재정의 */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleSaveNew(autoScore)}
+              disabled={qualityScoreMutation.isPending}
+              className="flex-1 py-3 rounded-xl bg-purple-600 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-quality-score-confirm-${id}`}
+            >
+              {qualityScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>⭐</span>}
+              {autoScore}점으로 확정
+            </button>
+            <button onClick={() => setOpen(false)} className="px-3 py-3 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">취소</button>
+          </div>
+          {/* 점수 재정의 */}
+          <div className="flex gap-2 items-center">
+            <input type="number" min={0} max={100} value={overrideScore} onChange={e => setOverrideScore(e.target.value)}
+              placeholder="직접 입력" className="flex-1 px-3 py-2.5 rounded-xl border-2 border-border text-sm font-bold text-center focus:outline-none focus:border-purple-400" />
+            <button
+              onClick={() => { const s = Math.min(100, Math.max(0, parseInt(overrideScore) || 0)); handleSaveNew(s); }}
+              disabled={qualityScoreMutation.isPending || !overrideScore}
+              className="px-4 py-2.5 rounded-xl bg-muted text-secondary font-bold text-sm active:scale-[0.98] disabled:opacity-50 border border-border"
+            >점수 재정의</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 구 형식: ok/notok 항목 표시 ── */}
+      {open && !isNewFormat && totalItems > 0 && (
         <div className="mt-2 space-y-1">
-          <div className={`flex items-center justify-between px-3 py-2 rounded-xl border font-bold text-sm mb-2 ${scoreColorClass(calcScore())}`}>
+          <div className={`flex items-center justify-between px-3 py-2 rounded-xl border font-bold text-sm mb-2 ${scoreColorClass(calcOldScore())}`}>
             <span>○ {okCount}개 / {totalItems}개</span>
-            <span className="text-lg font-black">{calcScore()}점</span>
+            <span className="text-lg font-black">{calcOldScore()}점</span>
           </div>
           {itemKeys.map(key => {
             const staffVal = staffQualityItems[key];
@@ -546,45 +627,29 @@ function AdminQualityScoreInput({
             const adminVal = adminSel[key];
             return (
               <div key={key} className="flex items-center gap-2 py-1.5 px-2 rounded-xl bg-purple-50/40 border border-purple-200/40">
-                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border ${
-                  isStaffOk ? 'bg-purple-50 border-purple-200 text-purple-600' : 'bg-red-50 border-red-200 text-primary'
-                }`}>
+                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border ${isStaffOk ? 'bg-purple-50 border-purple-200 text-purple-600' : 'bg-red-50 border-red-200 text-primary'}`}>
                   {isStaffOk ? '○' : '✗'}
                 </span>
                 <span className="flex-1 text-xs font-medium text-secondary leading-snug min-w-0">{key}</span>
                 <div className="flex gap-1 shrink-0">
-                  <button
-                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
-                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
-                      adminVal === 'ok' ? 'bg-purple-600 border-purple-700 text-white' : 'bg-white border-border text-muted-foreground hover:border-purple-300 hover:text-purple-600'
-                    }`}
-                    data-testid={`btn-admin-quality-ok-${id}-${key}`}
-                  >○</button>
-                  <button
-                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
-                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
-                      adminVal === 'notok' ? 'bg-primary border-red-700 text-white' : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
-                    }`}
-                    data-testid={`btn-admin-quality-notok-${id}-${key}`}
-                  >✗</button>
+                  <button onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${adminVal === 'ok' ? 'bg-purple-600 border-purple-700 text-white' : 'bg-white border-border text-muted-foreground'}`}
+                    data-testid={`btn-admin-quality-ok-${id}-${key}`}>○</button>
+                  <button onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${adminVal === 'notok' ? 'bg-primary border-red-700 text-white' : 'bg-white border-border text-muted-foreground'}`}
+                    data-testid={`btn-admin-quality-notok-${id}-${key}`}>✗</button>
                 </div>
               </div>
             );
           })}
           <div className="flex gap-2 pt-1">
-            <button
-              onClick={handleSave}
-              disabled={qualityScoreMutation.isPending}
+            <button onClick={handleSaveOld} disabled={qualityScoreMutation.isPending}
               className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
-              data-testid={`btn-quality-score-save-${id}`}
-            >
+              data-testid={`btn-quality-score-save-${id}`}>
               {qualityScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>⭐</span>}
-              품질 {calcScore()}점으로 확정
+              품질 {calcOldScore()}점으로 확정
             </button>
-            <button onClick={() => setOpen(false)}
-              className="px-3 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
-              취소
-            </button>
+            <button onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">취소</button>
           </div>
         </div>
       )}
@@ -1229,43 +1294,53 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                   })()}
 
                   {(() => {
-                    const qualityItems = (item as any).qualityItems as Record<string, string> | null;
+                    const qualityItems = (item as any).qualityItems as Record<string, any> | null;
                     const qualityPhotoUrls = (item as any).qualityPhotoUrls as string[] | null;
                     const qualityNotes = (item as any).qualityNotes as string | null;
                     const hasQualityItemsInner = qualityItems && Object.keys(qualityItems).length > 0;
                     const hasQualityPhotos = qualityPhotoUrls && qualityPhotoUrls.length > 0;
                     const hasQualityData = hasQualityItemsInner || hasQualityPhotos || qualityNotes;
                     if (!hasQualityData || viewFilter === 'vm' || (item as any).checklistType === 'ad') return null;
-                    const qualityAdminItems = (item as any).qualityAdminItems as Record<string, 'ok' | 'notok'> | null;
+                    const qualityAdminItems = (item as any).qualityAdminItems as Record<string, any> | null;
+                    const firstQVal = hasQualityItemsInner ? Object.values(qualityItems!)[0] : null;
+                    const isNewQFormat = firstQVal !== null && typeof firstQVal === 'object';
                     return (
                       <>
                         {hasQualityItemsInner && (
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질</span>
-                            {Object.entries(qualityItems!).map(([name, status]) => {
-                              const adminVal = qualityAdminItems?.[name];
-                              const staffIsOk = status === 'ok';
-                              const adminIsOk = adminVal === 'ok';
-                              const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
-                              return (
-                                <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                  wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
-                                  : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                  : 'bg-red-50 border-red-200 text-red-600'
-                                }`}>
-                                  {name}:&nbsp;
-                                  {wasChanged ? (
-                                    <>
-                                      <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
-                                      <span>→ {adminIsOk ? '○' : '✗'}</span>
-                                      <span className="text-[9px] bg-purple-200 text-purple-800 px-1 rounded-full ml-0.5">수정</span>
-                                    </>
-                                  ) : (
-                                    <span>{staffIsOk ? '○' : '✗'}</span>
-                                  )}
-                                </span>
-                              );
-                            })}
+                            {isNewQFormat ? (
+                              /* 새 형식: 항목명 + 매장점수 태그 */
+                              Object.entries(qualityItems!).map(([name, d]: [string, any]) => {
+                                const s = calcQualityItemScoreDash(d);
+                                return (
+                                  <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                    s >= 90 ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                    : s >= 75 ? 'bg-purple-50 border-purple-200 text-purple-500'
+                                    : 'bg-red-50 border-red-200 text-red-600'
+                                  }`}>
+                                    {name}: {d['선도']||'-'}/{d['상해']||'-'} → {s}점
+                                  </span>
+                                );
+                              })
+                            ) : (
+                              /* 구 형식: ok/notok 태그 */
+                              Object.entries(qualityItems!).map(([name, status]: [string, any]) => {
+                                const adminVal = qualityAdminItems?.[name];
+                                const staffIsOk = status === 'ok';
+                                const adminIsOk = adminVal === 'ok';
+                                const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                return (
+                                  <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                    wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
+                                    : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                    : 'bg-red-50 border-red-200 text-red-600'
+                                  }`}>
+                                    {name}: {wasChanged ? <>{staffIsOk ? '○' : '✗'} → {adminIsOk ? '○' : '✗'}</> : (staffIsOk ? '○' : '✗')}
+                                  </span>
+                                );
+                              })
+                            )}
                           </div>
                         )}
                         {qualityNotes && (
