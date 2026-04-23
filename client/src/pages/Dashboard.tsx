@@ -485,6 +485,24 @@ function calcOverallQualityScoreDash(items: Record<string, any>): number {
   return Math.round(vals.reduce((sum, d) => sum + calcQualityItemScoreDash(d), 0) / vals.length);
 }
 
+function getQualityGradeDash(score: number): string {
+  if (score >= 100) return 'A';
+  if (score >= 85)  return 'B';
+  if (score >= 70)  return 'C';
+  if (score > 55)   return 'D';
+  if (score >= 40)  return 'E';
+  return '0';
+}
+
+function gradeColorDash(grade: string): string {
+  if (grade === 'A') return 'bg-purple-600 text-white';
+  if (grade === 'B') return 'bg-purple-400 text-white';
+  if (grade === 'C') return 'bg-amber-400 text-white';
+  if (grade === 'D') return 'bg-orange-500 text-white';
+  if (grade === 'E') return 'bg-red-500 text-white';
+  return 'bg-gray-400 text-white';
+}
+
 function AdminQualityScoreInput({
   id, existingScore, staffQualityItems, existingAdminItems
 }: {
@@ -559,7 +577,7 @@ function AdminQualityScoreInput({
         <div className="flex items-center gap-2">
           <span className="text-sm">⭐</span>
           {score != null
-            ? <span>품질 {score}점 {open ? '(수정 중)' : '(확정)'}</span>
+            ? <span>품질 {score}점 ({getQualityGradeDash(score)}등급) {open ? '(수정 중)' : '(확정)'}</span>
             : <span>품질 평가 확정 필요</span>}
         </div>
         <span className="text-[11px] opacity-50">{open ? '▲' : '▼'}</span>
@@ -569,20 +587,25 @@ function AdminQualityScoreInput({
       {open && isNewFormat && (
         <div className="mt-2 space-y-3">
           <div className={`flex items-center justify-between px-4 py-3 rounded-xl border font-bold ${scoreColorClass(autoScore)}`}>
-            <span className="text-sm">자동 계산 점수 ({totalItems}개 항목)</span>
-            <span className="text-2xl font-black">{autoScore}점</span>
+            <span className="text-sm">자동 계산 ({totalItems}개 항목)</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColorDash(getQualityGradeDash(autoScore))}`}>{getQualityGradeDash(autoScore)}등급</span>
+              <span className="text-2xl font-black">{autoScore}점</span>
+            </div>
           </div>
           {/* 항목별 결과 요약 */}
           <div className="space-y-1 max-h-60 overflow-y-auto">
             {itemKeys.map(key => {
               const d = staffQualityItems[key] as Record<string, any>;
               const s = calcQualityItemScoreDash(d);
+              const g = getQualityGradeDash(s);
               return (
                 <div key={key} className="flex items-center justify-between px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs">
                   <span className="font-bold text-secondary">{key}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">선도:{d['선도']||'-'} 상해:{d['상해']||'-'} 규격:{d['규격']||'-'} 혼입:{d['혼입율']||'-'}</span>
-                    <span className={`font-black px-2 py-0.5 rounded-full text-xs ${s >= 90 ? 'bg-purple-600 text-white' : s >= 75 ? 'bg-purple-400 text-white' : 'bg-red-500 text-white'}`}>{s}점</span>
+                    <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{g}</span>
+                    <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{s}점</span>
                   </div>
                 </div>
               );
@@ -1310,16 +1333,17 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질</span>
                             {isNewQFormat ? (
-                              /* 새 형식: 항목명 + 매장점수 태그 */
+                              /* 새 형식: 항목명 + 매장점수 + 출력 등급 태그 */
                               Object.entries(qualityItems!).map(([name, d]: [string, any]) => {
                                 const s = calcQualityItemScoreDash(d);
+                                const g = getQualityGradeDash(s);
                                 return (
                                   <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
                                     s >= 90 ? 'bg-purple-50 border-purple-200 text-purple-600'
                                     : s >= 75 ? 'bg-purple-50 border-purple-200 text-purple-500'
                                     : 'bg-red-50 border-red-200 text-red-600'
                                   }`}>
-                                    {name}: {d['선도']||'-'}/{d['상해']||'-'} → {s}점
+                                    {name}: {d['선도']||'-'}/{d['상해']||'-'} → {s}점({g})
                                   </span>
                                 );
                               })

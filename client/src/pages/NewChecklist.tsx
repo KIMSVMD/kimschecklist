@@ -46,6 +46,24 @@ function calcOverallQualityScore(items: Record<string, QualityGradeData>): numbe
   return Math.round(vals.reduce((s, d) => s + calcQualityItemScore(d), 0) / vals.length);
 }
 
+function getQualityGrade(score: number): string {
+  if (score >= 100) return 'A';
+  if (score >= 85)  return 'B';
+  if (score >= 70)  return 'C';
+  if (score > 55)   return 'D';
+  if (score >= 40)  return 'E';
+  return '0';
+}
+
+function gradeColor(grade: string): string {
+  if (grade === 'A') return 'bg-purple-600 text-white';
+  if (grade === 'B') return 'bg-purple-400 text-white';
+  if (grade === 'C') return 'bg-amber-400 text-white';
+  if (grade === 'D') return 'bg-orange-500 text-white';
+  if (grade === 'E') return 'bg-red-500 text-white';
+  return 'bg-gray-400 text-white';
+}
+
 type VMStage = 'category' | 'group' | 'product' | 'items';
 
 export default function NewChecklist() {
@@ -1391,12 +1409,19 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                   <h3 className="text-xl font-bold text-secondary">항목별 품질 점검</h3>
                   <p className="text-sm text-muted-foreground mt-0.5">각 항목의 등급을 선택하세요 (A/B/C/E)</p>
                 </div>
-                {Object.keys(qualityItems).length > 0 && (
-                  <div className="text-right">
-                    <div className="text-2xl font-black text-purple-600">{calcOverallQualityScore(qualityItems)}점</div>
-                    <div className="text-xs text-muted-foreground">매장 평균</div>
-                  </div>
-                )}
+                {Object.keys(qualityItems).length > 0 && (() => {
+                  const avg = calcOverallQualityScore(qualityItems);
+                  const g = getQualityGrade(avg);
+                  return (
+                    <div className="text-right flex items-center gap-2">
+                      <span className={`text-xl font-black px-3 py-1 rounded-full ${gradeColor(g)}`}>{g}등급</span>
+                      <div>
+                        <div className="text-2xl font-black text-purple-600">{avg}점</div>
+                        <div className="text-xs text-muted-foreground">매장 평균</div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* 기준 헤더 */}
@@ -1413,14 +1438,18 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                   <div key={item} className={`rounded-2xl border-2 p-4 space-y-3 transition-all ${
                     allFilled ? (itemScore !== null && itemScore >= 90 ? 'border-purple-300 bg-purple-50' : 'border-primary/40 bg-red-50') : 'border-border bg-white'
                   }`}>
-                    {/* 항목명 + 점수 */}
+                    {/* 항목명 + 점수 + 출력 등급 */}
                     <div className="flex items-center justify-between">
                       <h4 className="text-base font-bold text-secondary">{item}</h4>
-                      {allFilled && itemScore !== null && (
-                        <span className={`text-sm font-black px-2.5 py-1 rounded-full ${itemScore >= 90 ? 'bg-purple-600 text-white' : itemScore >= 75 ? 'bg-purple-400 text-white' : 'bg-red-500 text-white'}`}>
-                          {itemScore}점
-                        </span>
-                      )}
+                      {allFilled && itemScore !== null && (() => {
+                        const g = getQualityGrade(itemScore);
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-xs font-black px-2 py-0.5 rounded-full ${gradeColor(g)}`}>{g}</span>
+                            <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColor(g)}`}>{itemScore}점</span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* 4개 기준 — 한 줄에 */}
@@ -1486,9 +1515,11 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               {/* 전체 진행 현황 */}
               <div className="flex justify-between text-sm font-medium text-muted-foreground bg-muted/40 rounded-2xl px-4 py-3">
                 <span>{qualityGuideItems.filter(item => {const d=qualityItems[item];return d&&d.선도&&d.상해&&d.규격&&d.혼입율}).length} / {qualityGuideItems.length} 완료</span>
-                {Object.keys(qualityItems).length > 0 && (
-                  <span className="font-bold text-purple-600">평균 {calcOverallQualityScore(qualityItems)}점</span>
-                )}
+                {Object.keys(qualityItems).length > 0 && (() => {
+                  const avg = calcOverallQualityScore(qualityItems);
+                  const g = getQualityGrade(avg);
+                  return <span className="font-bold text-purple-600">평균 {avg}점 ({g}등급)</span>;
+                })()}
               </div>
             </div>
           )}
