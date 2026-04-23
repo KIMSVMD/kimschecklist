@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import logoKimsClub from "@assets/logo-kims-club_1776986357155.png";
 import {
   ClipboardCheck, ClipboardList,
   BookOpen, X, ChevronDown, ChevronUp,
@@ -123,12 +124,7 @@ export default function Home() {
 
       {/* Top bar */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-        <span
-          className="font-black text-xl text-gray-900 tracking-tight"
-          style={{ fontFamily: 'Outfit, sans-serif' }}
-        >
-          KIM'S CLUB
-        </span>
+        <img src={logoKimsClub} alt="KIM'S CLUB" className="h-7 object-contain" />
         <Link href="/admin/login">
           <button
             className="bg-gray-900 text-white font-bold text-sm px-5 py-2 rounded-full active:scale-95 transition-transform"
