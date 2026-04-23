@@ -174,12 +174,12 @@ export default function NewChecklist() {
           {/* Row 1: Branch selector + Tab switcher */}
           <div className="flex items-center gap-2">
             {/* Branch selector */}
-            <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 shrink-0">
               <MapPin className="w-4 h-4 text-primary shrink-0" />
               <select
                 value={branch}
                 onChange={e => { setBranch(e.target.value); resetVm(); }}
-                className="bg-transparent border-none font-bold text-sm focus:outline-none text-secondary min-w-0 flex-1 appearance-none cursor-pointer"
+                className="bg-transparent border-none font-bold text-sm focus:outline-none text-secondary appearance-none cursor-pointer max-w-[80px]"
                 data-testid="select-new-branch"
               >
                 <option value="">지점 선택</option>
@@ -196,10 +196,10 @@ export default function NewChecklist() {
             </div>
 
             {/* Tab switcher */}
-            <div className="flex gap-0.5 bg-muted p-0.5 rounded-xl shrink-0">
+            <div className="flex gap-0.5 bg-muted p-0.5 rounded-xl flex-1">
               <button
                 onClick={() => handleTabChange('vm')}
-                className={`relative flex items-center justify-center px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                className={`relative flex-1 flex items-center justify-center px-2 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
                   activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
                 }`}
                 data-testid="tab-new-vm"
@@ -213,7 +213,7 @@ export default function NewChecklist() {
               </button>
               <button
                 onClick={() => handleTabChange('quality')}
-                className={`relative flex items-center justify-center px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                className={`relative flex-1 flex items-center justify-center px-2 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
                   activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
                 }`}
                 data-testid="tab-new-quality"
@@ -227,7 +227,7 @@ export default function NewChecklist() {
               </button>
               <button
                 onClick={() => handleTabChange('cleaning')}
-                className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
                   activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
                 }`}
                 data-testid="tab-new-cleaning"
