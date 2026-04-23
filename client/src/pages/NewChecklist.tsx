@@ -169,79 +169,82 @@ export default function NewChecklist() {
       <div className="flex flex-col h-full bg-background">
 
         {/* ── Sticky filter header ── */}
-        <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
+        <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-border/40 px-3 py-2.5 space-y-2 shadow-sm">
 
-          {/* Branch selector */}
+          {/* Row 1: Branch selector + Tab switcher */}
           <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-primary shrink-0" />
-            <select
-              value={branch}
-              onChange={e => { setBranch(e.target.value); resetVm(); }}
-              className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-bold text-lg focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
-              data-testid="select-new-branch"
-            >
-              <option value="">지점 선택</option>
-              <optgroup label="대형점">
-                {REGIONS['대형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-              <optgroup label="중형점">
-                {REGIONS['중형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-              <optgroup label="소형점">
-                {REGIONS['소형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-            </select>
+            {/* Branch selector */}
+            <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 min-w-0 flex-1">
+              <MapPin className="w-4 h-4 text-primary shrink-0" />
+              <select
+                value={branch}
+                onChange={e => { setBranch(e.target.value); resetVm(); }}
+                className="bg-transparent border-none font-bold text-sm focus:outline-none text-secondary min-w-0 flex-1 appearance-none cursor-pointer"
+                data-testid="select-new-branch"
+              >
+                <option value="">지점 선택</option>
+                <optgroup label="대형점">
+                  {REGIONS['대형점'].map(b => <option key={b} value={b}>{b}점</option>)}
+                </optgroup>
+                <optgroup label="중형점">
+                  {REGIONS['중형점'].map(b => <option key={b} value={b}>{b}점</option>)}
+                </optgroup>
+                <optgroup label="소형점">
+                  {REGIONS['소형점'].map(b => <option key={b} value={b}>{b}점</option>)}
+                </optgroup>
+              </select>
+            </div>
+
+            {/* Tab switcher */}
+            <div className="flex gap-0.5 bg-muted p-0.5 rounded-xl shrink-0">
+              <button
+                onClick={() => handleTabChange('vm')}
+                className={`relative flex items-center justify-center px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                  activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+                }`}
+                data-testid="tab-new-vm"
+              >
+                진열
+                {pendingGuideNotifs.length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
+                    {pendingGuideNotifs.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => handleTabChange('quality')}
+                className={`relative flex items-center justify-center px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                  activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
+                }`}
+                data-testid="tab-new-quality"
+              >
+                품질
+                {pendingQualityGuideNotifs.length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
+                    {pendingQualityGuideNotifs.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => handleTabChange('cleaning')}
+                className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                  activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
+                }`}
+                data-testid="tab-new-cleaning"
+              >
+                <Droplets className="w-3.5 h-3.5" /> 청소
+              </button>
+            </div>
           </div>
 
-          {/* Tab switcher */}
-          <div className="flex gap-1 bg-muted p-1 rounded-2xl">
-            <button
-              onClick={() => handleTabChange('vm')}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
-              }`}
-              data-testid="tab-new-vm"
-            >
-              진열(+광고)
-              {pendingGuideNotifs.length > 0 && (
-                <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
-                  {pendingGuideNotifs.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => handleTabChange('quality')}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
-              }`}
-              data-testid="tab-new-quality"
-            >
-              품질
-              {pendingQualityGuideNotifs.length > 0 && (
-                <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center leading-none">
-                  {pendingQualityGuideNotifs.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => handleTabChange('cleaning')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
-              }`}
-              data-testid="tab-new-cleaning"
-            >
-              <Droplets className="w-4 h-4" /> 청소
-            </button>
-          </div>
-
-          {/* Year/Month filter — VM / Quality tabs */}
+          {/* Row 2: Year/Month filter — VM / Quality tabs only */}
           {(activeTab === 'vm' || activeTab === 'quality') && (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
-                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2">
+                <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="font-bold text-sm text-secondary whitespace-nowrap">{selYear}년</span>
               </div>
-              <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5 flex-1 justify-between">
+              <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
                 <button onClick={prevMonth} className="active:scale-95 transition-all" data-testid="btn-new-prev-month">
                   <ChevronLeft className="w-4 h-4 text-secondary" />
                 </button>
