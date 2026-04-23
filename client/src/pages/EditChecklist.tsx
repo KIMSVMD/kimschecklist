@@ -682,9 +682,9 @@ export default function EditChecklist() {
             {qualityGuideItems.length > 0 && (
               <div className="space-y-4">
                 {(() => {
-                  const GRADE_PTS: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
-                  const CRIT_PFXS = ['선도', '형상', '규격', '혼입율', '상해'];
-                  const CRIT_ORDER = ['선도', '형상', '규격', '혼입율', '상해'];
+                  const GRADE_PTS: Record<string, number> = { A: 100, B: 85, C: 70, E: 0 };
+                  const CRIT_PFXS = ['선도', '상해', '규격', '혼입율', '형상'];
+                  const CRIT_ORDER = ['선도', '상해', '규격', '혼입율', '형상'];
                   const parseCrit = (t: string) => CRIT_PFXS.find(c => t === c || t.startsWith(c + ':') || t.startsWith(c + ' ')) ?? null;
                   const sortedItems = [...qualityGuideItems].sort((a, b) => {
                     const ai = CRIT_ORDER.findIndex(c => a === c || a.startsWith(c + ':') || a.startsWith(c + ' '));
@@ -700,21 +700,11 @@ export default function EditChecklist() {
                   const isNewFmt = firstVal !== undefined && typeof firstVal === 'object' && ('grade' in (firstVal as object) || 'note' in (firstVal as object));
                   const isOldCritFmt = firstVal !== undefined && typeof firstVal === 'object' && '선도' in (firstVal as object);
 
-                  /* Overall score for new format */
-                  const gradedItems = qualityGuideItems.filter(i => (qualityItems[i] as any)?.grade);
-                  const 선도Is = gradedItems.filter(i => parseCrit(i) === '선도');
-                  const 상해Is = gradedItems.filter(i => parseCrit(i) === '상해');
-                  let base = 0;
-                  if (선도Is.length > 0 && 상해Is.length > 0) {
-                    base = (선도Is.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / 선도Is.length
-                           + 상해Is.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / 상해Is.length) / 2;
-                  } else if (선도Is.length > 0) {
-                    base = 선도Is.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / 선도Is.length;
-                  } else if (gradedItems.length > 0) {
-                    base = gradedItems.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / gradedItems.length;
-                  }
+                  /* Overall score for new format — simple average of all graded criteria */
+                  const gradedItems = qualityGuideItems.filter(i => (qualityItems[i] as any)?.grade && (qualityItems[i] as any)?.grade !== '');
+                  const base = gradedItems.length > 0 ? gradedItems.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / gradedItems.length : 0;
                   const overallScore = gradedItems.length > 0 ? Math.max(0, Math.round(base) - qualityExpired * 2 - qualityMoldy * 5) : null;
-                  const getGrade = (s: number) => s >= 100 ? 'A' : s >= 85 ? 'B' : s >= 70 ? 'C' : s > 55 ? 'D' : s >= 40 ? 'E' : '0';
+                  const getGrade = (s: number) => s >= 90 ? 'A' : s >= 70 ? 'B' : s >= 50 ? 'C' : 'E';
 
                   return (
                     <>

@@ -24,9 +24,9 @@ const REGIONS: Record<string, string[]> = {
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['농산', '수산', '축산'];
 
-const QUALITY_GRADE_SCORES: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
-const QUALITY_CRITERIA_PREFIXES = ['선도', '형상', '규격', '혼입율', '상해'];
-const CRITERION_DISPLAY_ORDER = ['선도', '형상', '규격', '혼입율', '상해'];
+const QUALITY_GRADE_SCORES: Record<string, number> = { A: 100, B: 85, C: 70, E: 0 };
+const QUALITY_CRITERIA_PREFIXES = ['선도', '상해', '규격', '혼입율', '형상'];
+const CRITERION_DISPLAY_ORDER = ['선도', '상해', '규격', '혼입율', '형상'];
 
 type QualityItemData = { grade?: string; note?: string; };
 
@@ -57,30 +57,17 @@ function calcOverallQualityScore(
   expired: number,
   moldy: number
 ): number {
-  const gradedItems = guideItems.filter(i => items[i]?.grade);
+  const gradedItems = guideItems.filter(i => items[i]?.grade && items[i]?.grade !== '');
   if (gradedItems.length === 0) return 0;
-  const 선도Items = gradedItems.filter(i => parseCriterionType(i) === '선도');
-  const 상해Items = gradedItems.filter(i => parseCriterionType(i) === '상해');
-  let base: number;
-  if (선도Items.length > 0 && 상해Items.length > 0) {
-    const a = 선도Items.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / 선도Items.length;
-    const b = 상해Items.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / 상해Items.length;
-    base = (a + b) / 2;
-  } else if (선도Items.length > 0) {
-    base = 선도Items.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / 선도Items.length;
-  } else {
-    base = gradedItems.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / gradedItems.length;
-  }
+  const base = gradedItems.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / gradedItems.length;
   return Math.max(0, Math.round(base) - expired * 2 - moldy * 5);
 }
 
 function getQualityGrade(score: number): string {
-  if (score >= 100) return 'A';
-  if (score >= 85)  return 'B';
-  if (score >= 70)  return 'C';
-  if (score > 55)   return 'D';
-  if (score >= 40)  return 'E';
-  return '0';
+  if (score >= 90) return 'A';
+  if (score >= 70) return 'B';
+  if (score >= 50) return 'C';
+  return 'E';
 }
 
 function gradeColor(grade: string): string {

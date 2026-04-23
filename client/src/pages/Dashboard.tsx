@@ -470,8 +470,8 @@ function AdminAdScoreInput({
   );
 }
 
-const QUALITY_GRADE_SCORES_DASH: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
-const CRIT_PFXS_DASH = ['선도', '상해', '규격', '혼입율'];
+const QUALITY_GRADE_SCORES_DASH: Record<string, number> = { A: 100, B: 85, C: 70, E: 0 };
+const CRIT_PFXS_DASH = ['선도', '상해', '규격', '혼입율', '형상'];
 
 function parseCritDash(t: string): string | null {
   return CRIT_PFXS_DASH.find(c => t === c || t.startsWith(c + ':') || t.startsWith(c + ' ')) ?? null;
@@ -494,19 +494,9 @@ function calcOverallQualityScoreDash(items: Record<string, any>): number {
   const isOldCritFmt = vals.some(v => typeof v === 'object' && v !== null && '선도' in v);
 
   if (isNewFmt) {
-    const gradedItems = guideItems.filter(k => items[k]?.grade);
+    const gradedItems = guideItems.filter(k => items[k]?.grade && items[k]?.grade !== '');
     if (gradedItems.length === 0) return 0;
-    const 선도Is = gradedItems.filter(k => parseCritDash(k) === '선도');
-    const 상해Is = gradedItems.filter(k => parseCritDash(k) === '상해');
-    let base = 0;
-    if (선도Is.length > 0 && 상해Is.length > 0) {
-      base = (선도Is.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / 선도Is.length
-             + 상해Is.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / 상해Is.length) / 2;
-    } else if (선도Is.length > 0) {
-      base = 선도Is.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / 선도Is.length;
-    } else {
-      base = gradedItems.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / gradedItems.length;
-    }
+    const base = gradedItems.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / gradedItems.length;
     return Math.max(0, Math.round(base) - expired * 2 - moldy * 5);
   }
 
@@ -525,12 +515,10 @@ function calcOverallQualityScoreDash(items: Record<string, any>): number {
 }
 
 function getQualityGradeDash(score: number): string {
-  if (score >= 100) return 'A';
-  if (score >= 85)  return 'B';
-  if (score >= 70)  return 'C';
-  if (score > 55)   return 'D';
-  if (score >= 40)  return 'E';
-  return '0';
+  if (score >= 90) return 'A';
+  if (score >= 70) return 'B';
+  if (score >= 50) return 'C';
+  return 'E';
 }
 
 function gradeColorDash(grade: string): string {
@@ -818,7 +806,7 @@ function AdminQualityScoreInput({
         <div className="mt-2 space-y-2">
           <p className="text-xs text-muted-foreground px-1">사진 확인 후 등급을 선택하세요.</p>
           <div className="flex gap-2">
-            {([['A', 90], ['B', 70], ['C', 40]] as const).map(([grade, gradeScore]) => (
+            {([['A', 90], ['B', 70], ['C', 50]] as const).map(([grade, gradeScore]) => (
               <button
                 key={grade}
                 onClick={async () => {
