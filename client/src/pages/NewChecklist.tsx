@@ -29,8 +29,12 @@ const QUALITY_CRITERIA = ['선도', '상해', '규격', '혼입율'] as const;
 type QualityCriteria = typeof QUALITY_CRITERIA[number];
 
 type QualityGradeData = {
-  선도?: string; 상해?: string; 규격?: string; 혼입율?: string;
-  expired?: number; moldy?: number;
+  선도?: string; 선도_note?: string;
+  상해?: string; 상해_note?: string;
+  규격?: string; 규격_note?: string;
+  혼입율?: string; 혼입율_note?: string;
+  expired?: number;
+  moldy?: number;
 };
 
 function calcQualityItemScore(data: QualityGradeData): number {
@@ -1466,11 +1470,6 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                 })()}
               </div>
 
-              {/* 기준 헤더 */}
-              <div className="grid grid-cols-[1fr_repeat(4,2.5rem)] gap-1 px-2 text-xs font-bold text-muted-foreground text-center">
-                <div className="text-left">아이템</div>
-                {QUALITY_CRITERIA.map(c => <div key={c}>{c}</div>)}
-              </div>
 
               {qualityGuideItems.map((item) => {
                 const d = qualityItems[item] || {};
@@ -1506,58 +1505,84 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                       })()}
                     </div>
 
-                    {/* 4개 기준 — 한 줄에 */}
-                    <div className="grid grid-cols-[1fr_repeat(4,2.5rem)] gap-1 items-center">
-                      <div className="text-xs text-muted-foreground font-medium">등급</div>
-                      {QUALITY_CRITERIA.map(criterion => (
-                        <div key={criterion} className="flex flex-col items-center gap-1">
-                          <span className="text-[10px] font-bold text-muted-foreground">{criterion}</span>
-                          <div className="flex flex-col gap-1">
-                            {(['A','B','C','E'] as const).map(grade => (
-                              <button
-                                key={grade}
-                                onClick={() => setQualityItems({ ...qualityItems, [item]: { ...d, [criterion]: grade } })}
-                                className={`w-10 h-10 rounded-xl border-2 font-black text-sm transition-all active:scale-95 ${
-                                  (d as any)[criterion] === grade
-                                    ? grade === 'A' ? 'bg-purple-600 border-purple-700 text-white'
-                                    : grade === 'B' ? 'bg-purple-400 border-purple-500 text-white'
-                                    : grade === 'C' ? 'bg-amber-400 border-amber-500 text-white'
-                                    : 'bg-red-500 border-red-600 text-white'
-                                    : 'bg-white border-border text-muted-foreground'
-                                }`}
-                                data-testid={`btn-quality-${item}-${criterion}-${grade}`}
-                              >
-                                {grade}
-                              </button>
-                            ))}
+                    {/* 4개 기준 — 각각 세로 배치 */}
+                    <div className="space-y-3">
+                      {QUALITY_CRITERIA.map(criterion => {
+                        const noteKey = `${criterion}_note` as keyof QualityGradeData;
+                        const selectedGrade = (d as any)[criterion] as string | undefined;
+                        const noteVal = (d as any)[noteKey] as string | undefined;
+                        return (
+                          <div key={criterion} className="rounded-xl border border-border/60 bg-white p-3 space-y-2">
+                            {/* 기준명 + 선택 등급 */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-white bg-secondary px-2.5 py-0.5 rounded-full">{criterion}</span>
+                              {selectedGrade && (
+                                <span className={`text-xs font-black px-2 py-0.5 rounded-full ${gradeColor(selectedGrade)}`}>{selectedGrade}등급</span>
+                              )}
+                            </div>
+                            {/* 내용 입력 */}
+                            <textarea
+                              rows={2}
+                              placeholder={`${criterion} 상태를 입력하세요`}
+                              value={noteVal || ''}
+                              onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, [noteKey]: e.target.value } })}
+                              className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:outline-none focus:border-purple-400 bg-gray-50 resize-none"
+                              data-testid={`input-quality-${item}-${criterion}-note`}
+                            />
+                            {/* 등급 버튼 */}
+                            <div className="flex gap-2">
+                              {(['A','B','C','E'] as const).map(grade => (
+                                <button
+                                  key={grade}
+                                  onClick={() => setQualityItems({ ...qualityItems, [item]: { ...d, [criterion]: selectedGrade === grade ? undefined : grade } })}
+                                  className={`flex-1 h-11 rounded-xl border-2 font-black text-base transition-all active:scale-95 ${
+                                    selectedGrade === grade
+                                      ? grade === 'A' ? 'bg-purple-600 border-purple-700 text-white'
+                                      : grade === 'B' ? 'bg-purple-400 border-purple-500 text-white'
+                                      : grade === 'C' ? 'bg-amber-400 border-amber-500 text-white'
+                                      : 'bg-red-500 border-red-600 text-white'
+                                      : 'bg-white border-border text-muted-foreground hover:border-primary/40'
+                                  }`}
+                                  data-testid={`btn-quality-${item}-${criterion}-${grade}`}
+                                >
+                                  {grade}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
-                    {/* 감점 입력 */}
-                    <div className="flex gap-3 pt-1 border-t border-border/50">
-                      <div className="flex-1">
-                        <label className="text-[11px] font-bold text-muted-foreground block mb-1">진열기한 경과 (개) × -2점</label>
+                    {/* 감점 입력 — 각각 세로 배치 */}
+                    <div className="space-y-2 pt-1 border-t border-border/50">
+                      <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-white bg-orange-500 px-2.5 py-0.5 rounded-full">진열기한 경과</span>
+                          <span className="text-[10px] text-orange-600 font-bold">× -2점/개</span>
+                        </div>
                         <input
                           type="number"
                           min={0}
                           value={(d as QualityGradeData).expired ?? ''}
                           onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, expired: Math.max(0, parseInt(e.target.value) || 0) } })}
-                          placeholder="0"
-                          className="w-full px-3 py-2 rounded-xl border-2 border-border text-sm font-bold text-center focus:outline-none focus:border-purple-400 bg-white"
+                          placeholder="0개"
+                          className="w-full px-3 py-2 rounded-xl border border-orange-200 text-sm font-bold text-center focus:outline-none focus:border-orange-400 bg-white"
                           data-testid={`input-quality-expired-${item}`}
                         />
                       </div>
-                      <div className="flex-1">
-                        <label className="text-[11px] font-bold text-muted-foreground block mb-1">곰팡이 (개) × -5점</label>
+                      <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-white bg-red-500 px-2.5 py-0.5 rounded-full">곰팡이</span>
+                          <span className="text-[10px] text-red-600 font-bold">× -5점/개</span>
+                        </div>
                         <input
                           type="number"
                           min={0}
                           value={(d as QualityGradeData).moldy ?? ''}
                           onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, moldy: Math.max(0, parseInt(e.target.value) || 0) } })}
-                          placeholder="0"
-                          className="w-full px-3 py-2 rounded-xl border-2 border-border text-sm font-bold text-center focus:outline-none focus:border-red-400 bg-white"
+                          placeholder="0개"
+                          className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-bold text-center focus:outline-none focus:border-red-400 bg-white"
                           data-testid={`input-quality-moldy-${item}`}
                         />
                       </div>

@@ -606,13 +606,32 @@ function AdminQualityScoreInput({
               const s = calcQualityItemScoreDash(d);
               const g = getQualityGradeDash(s);
               return (
-                <div key={key} className="flex items-center justify-between px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs">
-                  <span className="font-bold text-secondary">{key}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">선도:{d['선도']||'-'} 상해:{d['상해']||'-'} 규격:{d['규격']||'-'} 혼입:{d['혼입율']||'-'}</span>
-                    <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{g}</span>
-                    <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{s}점</span>
+                <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-secondary">{key}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{g}</span>
+                      <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{s}점</span>
+                    </div>
                   </div>
+                  {(['선도','상해','규격','혼입율'] as const).map(c => {
+                    const grade = d[c];
+                    const note = d[`${c}_note`];
+                    if (!grade && !note) return null;
+                    return (
+                      <div key={c} className="flex gap-1.5 items-start">
+                        <span className="shrink-0 font-black text-secondary/70 bg-secondary/10 px-1.5 py-0.5 rounded-md">{c}</span>
+                        {grade && <span className={`shrink-0 font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(grade)}`}>{grade}</span>}
+                        {note && <span className="text-muted-foreground leading-relaxed">{note}</span>}
+                      </div>
+                    );
+                  })}
+                  {(d['expired'] > 0 || d['moldy'] > 0) && (
+                    <div className="flex gap-2 pt-0.5">
+                      {d['expired'] > 0 && <span className="text-orange-600 font-bold">진열기한 경과 {d['expired']}개</span>}
+                      {d['moldy'] > 0 && <span className="text-red-600 font-bold">곰팡이 {d['moldy']}개</span>}
+                    </div>
+                  )}
                 </div>
               );
             })}
