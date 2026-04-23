@@ -63,14 +63,14 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
                   <Link key={href} href={href} onClick={onClose}>
                     <div
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer",
                         isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                          ? "bg-black text-white"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                       )}
                       style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: isActive ? 700 : 500, fontSize: '14px', letterSpacing: '-0.02em' }}
                     >
-                      <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                      <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "text-muted-foreground")} />
                       {label}
                     </div>
                   </Link>
@@ -224,20 +224,24 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
         </header>
 
         {/* Desktop header bar */}
-        <header className="hidden md:flex sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-border/50 px-8 h-14 items-center gap-3 shrink-0">
+        <header className="hidden md:flex sticky top-0 z-30 bg-white border-b border-border/60 px-8 h-14 items-center gap-3 shrink-0">
           {canGoBack && (
             <button
               onClick={handleBack}
-              className="p-1.5 rounded-lg hover:bg-muted active:scale-95 transition-all text-secondary flex items-center gap-1 text-sm font-semibold"
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 500, letterSpacing: '-0.02em' }}
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4" />
               뒤로
             </button>
           )}
           {title === "KIMS CLUB" ? (
             <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-5 w-auto object-contain" />
           ) : (
-            <h1 className="text-base font-bold text-foreground font-display tracking-wide">
+            <h1
+              className="text-sm text-foreground"
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '-0.03em' }}
+            >
               {title}
             </h1>
           )}

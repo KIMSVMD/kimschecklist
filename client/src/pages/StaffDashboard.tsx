@@ -330,17 +330,18 @@ export default function StaffDashboard() {
 
   return (
     <Layout title="점검 월별 피드백" showBack={true}>
-      <div className="flex flex-col h-full bg-background">
+      <div className="flex flex-col h-full bg-white">
 
         {/* Filter header */}
-        <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm">
+        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 pt-4 space-y-0">
           {/* Branch selector + notification bell */}
-          <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-primary shrink-0" />
+          <div className="flex items-center gap-2 pb-3">
+            <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
             <select
               value={filterBranch}
               onChange={e => { setFilterBranch(e.target.value); setNotifOpen(false); }}
-              className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-bold text-lg focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
+              className="flex-1 bg-white border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 text-foreground"
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '-0.02em' }}
               data-testid="select-staff-branch"
             >
               <option value="">지점 선택</option>
@@ -370,67 +371,73 @@ export default function StaffDashboard() {
             )}
           </div>
 
-          {/* Tab switcher */}
-          <div className="flex gap-1 bg-muted p-1 rounded-2xl">
+          {/* Tab switcher — underline style */}
+          <div className="flex -mx-4 px-4 border-b border-border">
             <button
               onClick={() => { setActiveTab('vm'); setFilterCategory('전체'); }}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+              className={`relative flex-1 flex items-center justify-center gap-1.5 pb-3 pt-1 text-sm transition-all border-b-2 -mb-px ${
+                activeTab === 'vm' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'vm' ? 700 : 500 }}
               data-testid="tab-staff-vm"
             >
               진열(+광고)
-              {vmGuideNotifCount > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
+              {vmGuideNotifCount > 0 && <span className="absolute top-0.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
             </button>
             <button
               onClick={() => { setActiveTab('quality'); setFilterCategory('전체'); }}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
+              className={`relative flex-1 flex items-center justify-center gap-1.5 pb-3 pt-1 text-sm transition-all border-b-2 -mb-px ${
+                activeTab === 'quality' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'quality' ? 700 : 500 }}
               data-testid="tab-staff-quality"
             >
               품질
-              {qualityGuideNotifCount > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
+              {qualityGuideNotifCount > 0 && <span className="absolute top-0.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
             </button>
             <button
               onClick={() => { setActiveTab('cleaning'); setFilterCategory('전체'); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
+              className={`flex-1 flex items-center justify-center gap-1.5 pb-3 pt-1 text-sm transition-all border-b-2 -mb-px ${
+                activeTab === 'cleaning' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'cleaning' ? 700 : 500 }}
               data-testid="tab-staff-cleaning"
             >
-              <Droplets className="w-4 h-4" /> 청소
+              <Droplets className="w-3.5 h-3.5" /> 청소
             </button>
           </div>
 
           {/* Year/Month filter — VM / Quality tabs */}
           {(activeTab === 'vm' || activeTab === 'quality') && (
-            <div className="space-y-0">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
-                  <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span className="font-bold text-sm text-secondary whitespace-nowrap">{vmFilterYear}년</span>
+            <div className="space-y-3 pt-3">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 border border-border rounded-lg px-3 py-2 shrink-0">
+                  <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-foreground whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{vmFilterYear}년</span>
                 </div>
-                <div className="flex items-center gap-3 bg-muted rounded-xl px-4 py-2.5 flex-1 justify-between">
+                <div className="flex items-center gap-3 border border-border rounded-lg px-3 py-2 flex-1 justify-between">
                   <button onClick={prevVmMonth} className="active:scale-95 transition-all" data-testid="btn-staff-prev-month">
-                    <ChevronLeft className="w-4 h-4 text-secondary" />
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                   </button>
-                  <span className="font-bold text-sm text-secondary">{vmFilterMonth}월</span>
+                  <span className="text-sm text-foreground" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{vmFilterMonth}월</span>
                   <button onClick={nextVmMonth} className="active:scale-95 transition-all" data-testid="btn-staff-next-month">
-                    <ChevronRight className="w-4 h-4 text-secondary" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </button>
                 </div>
               </div>
-              {/* pt-3 reserves space for the -top-1.5 badge overflow above each button */}
-              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pt-3 pb-1 touch-pan-x">
+              {/* category chips — black filled active, white bordered inactive */}
+              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
                 {CATEGORIES.map(cat => {
                   const badge = catBadge(cat);
                   return (
                     <button key={cat}
                       onClick={() => { setFilterCategory(cat); dismissCategoryNotifs(cat); }}
-                      className={`relative shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                        filterCategory === cat ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-secondary'
+                      className={`relative shrink-0 px-4 py-1.5 rounded-full text-sm transition-all active:scale-95 ${
+                        filterCategory === cat
+                          ? 'bg-black text-white'
+                          : 'bg-white border border-border text-secondary hover:border-black/40'
                       }`}
+                      style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: filterCategory === cat ? 700 : 500 }}
                       data-testid={`btn-staff-cat-${cat}`}>
                       {cat}
                       {badge > 0 && (

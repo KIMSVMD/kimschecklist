@@ -166,20 +166,20 @@ export default function NewChecklist() {
 
   return (
     <Layout title="새 점검 등록" showBack={true} onBack={handleBack}>
-      <div className="flex flex-col h-full bg-background">
+      <div className="flex flex-col h-full bg-white">
 
         {/* ── Sticky filter header ── */}
-        <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-border/40 px-3 py-2.5 space-y-2 shadow-sm">
+        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 pt-3 space-y-0">
 
-          {/* Row 1: Branch selector + Tab switcher */}
-          <div className="flex items-center gap-2">
-            {/* Branch selector */}
-            <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 shrink-0 w-28">
-              <MapPin className="w-4 h-4 text-primary shrink-0" />
+          {/* Row 1: Branch selector */}
+          <div className="flex items-center gap-3 pb-3">
+            <div className="flex items-center gap-1.5 border border-border rounded-lg px-3 py-2 shrink-0 w-28 bg-white">
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <select
                 value={branch}
                 onChange={e => { setBranch(e.target.value); resetVm(); }}
-                className="bg-transparent border-none font-bold text-sm focus:outline-none text-secondary appearance-none cursor-pointer w-full min-w-0"
+                className="bg-transparent border-none text-sm focus:outline-none text-foreground appearance-none cursor-pointer w-full min-w-0"
+                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '-0.02em' }}
                 data-testid="select-new-branch"
               >
                 <option value="">지점 선택</option>
@@ -194,68 +194,71 @@ export default function NewChecklist() {
                 </optgroup>
               </select>
             </div>
+          </div>
 
-            {/* Tab switcher */}
-            <div className="flex gap-0.5 bg-muted p-0.5 rounded-xl flex-1">
-              <button
-                onClick={() => handleTabChange('vm')}
-                className={`relative flex-1 flex items-center justify-center px-2 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
-                }`}
-                data-testid="tab-new-vm"
-              >
-                진열
-                {pendingGuideNotifs.length > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
-                    {pendingGuideNotifs.length}
-                  </span>
-                )}
+          {/* Tab switcher — underline style */}
+          <div className="flex border-b border-border -mx-4 px-4">
+            <button
+              onClick={() => handleTabChange('vm')}
+              className={`relative flex-1 flex items-center justify-center px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                activeTab === 'vm' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
+              }`}
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'vm' ? 700 : 500 }}
+              data-testid="tab-new-vm"
+            >
+              진열(+광고)
+              {pendingGuideNotifs.length > 0 && (
+                <span className="absolute top-0 right-2 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
+                  {pendingGuideNotifs.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => handleTabChange('quality')}
+              className={`relative flex-1 flex items-center justify-center px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                activeTab === 'quality' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
+              }`}
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'quality' ? 700 : 500 }}
+              data-testid="tab-new-quality"
+            >
+              품질
+              {pendingQualityGuideNotifs.length > 0 && (
+                <span className="absolute top-0 right-2 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
+                  {pendingQualityGuideNotifs.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => handleTabChange('cleaning')}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                activeTab === 'cleaning' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
+              }`}
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'cleaning' ? 700 : 500 }}
+              data-testid="tab-new-cleaning"
+            >
+              <Droplets className="w-3.5 h-3.5" /> 청소
+            </button>
+          </div>
+        </div>
+
+        {/* ── Sub-filter (year/month) ── */}
+        {(activeTab === 'vm' || activeTab === 'quality') && (
+          <div className="bg-white px-4 pt-3 pb-3 border-b border-border/40 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 border border-border rounded-lg px-3 py-2 w-28 shrink-0">
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="text-sm text-foreground whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{selYear}년</span>
+            </div>
+            <div className="flex items-center gap-3 border border-border rounded-lg px-3 py-2 flex-1 justify-between">
+              <button onClick={prevMonth} className="active:scale-95 transition-all" data-testid="btn-new-prev-month">
+                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
               </button>
-              <button
-                onClick={() => handleTabChange('quality')}
-                className={`relative flex-1 flex items-center justify-center px-2 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
-                }`}
-                data-testid="tab-new-quality"
-              >
-                품질
-                {pendingQualityGuideNotifs.length > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
-                    {pendingQualityGuideNotifs.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => handleTabChange('cleaning')}
-                className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
-                }`}
-                data-testid="tab-new-cleaning"
-              >
-                <Droplets className="w-3.5 h-3.5" /> 청소
+              <span className="text-sm text-foreground" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{selMonth}월</span>
+              <button onClick={nextMonth} className="active:scale-95 transition-all" data-testid="btn-new-next-month">
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
           </div>
-
-          {/* Row 2: Year/Month filter — VM / Quality tabs only */}
-          {(activeTab === 'vm' || activeTab === 'quality') && (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 w-28 shrink-0">
-                <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span className="font-bold text-sm text-secondary whitespace-nowrap">{selYear}년</span>
-              </div>
-              <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
-                <button onClick={prevMonth} className="active:scale-95 transition-all" data-testid="btn-new-prev-month">
-                  <ChevronLeft className="w-4 h-4 text-secondary" />
-                </button>
-                <span className="font-bold text-sm text-secondary">{selMonth}월</span>
-                <button onClick={nextMonth} className="active:scale-95 transition-all" data-testid="btn-new-next-month">
-                  <ChevronRight className="w-4 h-4 text-secondary" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* ── Content area ── */}
         <div className="flex-1 overflow-y-auto">
