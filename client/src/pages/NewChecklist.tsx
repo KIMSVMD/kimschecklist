@@ -199,7 +199,7 @@ export default function NewChecklist() {
             <div className="flex gap-0.5 bg-muted p-0.5 rounded-xl flex-1">
               <button
                 onClick={() => handleTabChange('vm')}
-                className={`relative flex-1 flex items-center justify-center px-2 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                className={`relative flex-1 flex items-center justify-center px-2 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
                   activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
                 }`}
                 data-testid="tab-new-vm"
@@ -213,7 +213,7 @@ export default function NewChecklist() {
               </button>
               <button
                 onClick={() => handleTabChange('quality')}
-                className={`relative flex-1 flex items-center justify-center px-2 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                className={`relative flex-1 flex items-center justify-center px-2 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
                   activeTab === 'quality' ? 'bg-white text-purple-600 shadow-sm' : 'text-muted-foreground'
                 }`}
                 data-testid="tab-new-quality"
@@ -227,7 +227,7 @@ export default function NewChecklist() {
               </button>
               <button
                 onClick={() => handleTabChange('cleaning')}
-                className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
                   activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
                 }`}
                 data-testid="tab-new-cleaning"
