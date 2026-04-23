@@ -123,11 +123,11 @@ export default function Home() {
     <div className="min-h-screen bg-white flex flex-col">
 
       {/* Top bar */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-        <img src={logoKimsClub} alt="KIM'S CLUB" className="h-8 object-contain" />
+      <header className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
+        <img src={logoKimsClub} alt="KIM'S CLUB" className="h-6 object-contain" />
         <Link href="/admin/login">
           <button
-            className="bg-gray-900 text-white font-bold text-sm px-5 py-2 rounded-full active:scale-95 transition-transform"
+            className="bg-gray-900 text-white font-bold text-sm px-5 py-2.5 rounded-full active:scale-95 transition-transform tracking-tight"
             data-testid="btn-admin-mode"
           >
             관리자 모드
@@ -136,17 +136,20 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="flex flex-col items-center justify-center flex-1 px-6 py-10">
-        <div className="w-full max-w-sm mx-auto flex flex-col items-center gap-8">
+      <main className="flex flex-col items-center justify-center flex-1 px-8 py-12">
+        <div className="w-full max-w-[380px] mx-auto flex flex-col items-center gap-10">
 
           {/* Title */}
           <div className="text-center">
-            <h1 className="text-4xl font-black text-gray-900 leading-tight">
+            <h1
+              className="text-5xl text-gray-900 leading-tight whitespace-nowrap"
+              style={{ fontFamily: "'Black Han Sans', 'Noto Sans KR', sans-serif" }}
+            >
               매장 점검{' '}
               <span className="text-green-800">체크리스트</span>
             </h1>
-            <p className="mt-3 text-gray-400 text-sm">
-              현장 점검·진열·품질 관리 시스템
+            <p className="mt-3 text-gray-400 text-sm tracking-wide">
+              현장 점검 · 진열 · 품질 관리 시스템
             </p>
           </div>
 
@@ -155,11 +158,11 @@ export default function Home() {
             <Link href="/checklist/new" className="block" data-testid="link-new-checklist">
               <motion.div
                 whileTap={{ scale: 0.97 }}
-                className="bg-green-800 text-white rounded-2xl p-6 flex flex-col items-center justify-center gap-4 aspect-square cursor-pointer"
+                className="bg-green-800 text-white rounded-2xl flex flex-col items-center justify-center gap-4 aspect-square cursor-pointer"
               >
-                <ClipboardCheck className="w-10 h-10" />
+                <ClipboardCheck className="w-10 h-10" strokeWidth={1.5} />
                 <div className="text-center">
-                  <p className="font-bold text-base leading-tight">새 점검 등록</p>
+                  <p className="font-black text-base leading-tight" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>새 점검 등록</p>
                   <p className="text-green-300 text-xs mt-1">현장 점검 시작하기</p>
                 </div>
               </motion.div>
@@ -168,11 +171,11 @@ export default function Home() {
             <Link href="/staff-dashboard" className="block" data-testid="link-staff-dashboard">
               <motion.div
                 whileTap={{ scale: 0.97 }}
-                className="bg-white border-2 border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 aspect-square cursor-pointer"
+                className="bg-white border border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-4 aspect-square cursor-pointer"
               >
-                <ClipboardList className="w-10 h-10 text-gray-700" />
+                <ClipboardList className="w-10 h-10 text-gray-600" strokeWidth={1.5} />
                 <div className="text-center">
-                  <p className="font-bold text-base text-gray-900 leading-tight">점검 월별 피드백</p>
+                  <p className="font-black text-base text-gray-900 leading-tight" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>점검 월별 피드백</p>
                   <p className="text-gray-400 text-xs mt-1">수정 및 삭제 가능</p>
                 </div>
               </motion.div>
@@ -183,7 +186,8 @@ export default function Home() {
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => setManualOpen(true)}
-            className="w-full bg-gray-100 text-gray-800 font-bold py-4 rounded-2xl text-base active:bg-gray-200 transition-colors"
+            className="w-full bg-gray-100 text-gray-800 font-bold py-4 rounded-2xl text-base active:bg-gray-200 transition-colors tracking-tight"
+            style={{ fontFamily: "'Noto Sans KR', sans-serif" }}
             data-testid="btn-open-manual"
           >
             사용 매뉴얼 보기
@@ -192,7 +196,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center text-xs text-gray-400">
+      <footer className="py-6 text-center text-xs text-gray-400 tracking-wide">
         © 2026, 킴스클럽 VMD. All rights reserved.
       </footer>
 
