@@ -370,13 +370,14 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
       {vmStage !== 'category' && (
         <button
           onClick={() => {
+            const hasSubcategory = qualityOnly && allGuideProducts.filter(g => g.category === selCategory).length > 1;
             if (vmStage === 'group') { setVmStage('category'); setSelCategory(''); setSelGroup(''); }
             else if (vmStage === 'product') { setVmStage('group'); setSelGroup(''); }
             else if (vmStage === 'items') {
-              if (qualityOnly && selCategory !== '농산') {
-                setVmStage('category'); setSelCategory(''); setSelProduct('');
-              } else if (qualityOnly && selCategory === '농산') {
+              if (qualityOnly && hasSubcategory) {
                 setVmStage('group'); setSelGroup(''); setSelProduct('');
+              } else if (qualityOnly) {
+                setVmStage('category'); setSelCategory(''); setSelProduct('');
               } else {
                 setVmStage('product'); setSelProduct('');
               }
@@ -386,7 +387,7 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
           data-testid="btn-vm-back"
         >
           <ChevronLeft className="w-4 h-4" />
-          {vmStage === 'group' ? '카테고리 선택으로' : vmStage === 'product' ? '그룹 선택으로' : (qualityOnly && selCategory !== '농산') ? '카테고리 선택으로' : qualityOnly ? '구분 선택으로' : '상품 선택으로'} 돌아가기
+          {vmStage === 'group' ? '카테고리 선택으로' : vmStage === 'product' ? '그룹 선택으로' : (qualityOnly && allGuideProducts.filter(g => g.category === selCategory).length > 1) ? '구분 선택으로' : qualityOnly ? '카테고리 선택으로' : '상품 선택으로'} 돌아가기
         </button>
       )}
 
@@ -405,9 +406,14 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
                   onClick={() => {
                     setSelCategory(cat);
                     setSelGroup('');
-                    if (qualityOnly && cat !== '농산') {
-                      setSelProduct(cat);
-                      setVmStage('items');
+                    if (qualityOnly) {
+                      const catProducts = allGuideProducts.filter(g => g.category === cat);
+                      if (catProducts.length <= 1) {
+                        setSelProduct(catProducts[0]?.product ?? cat);
+                        setVmStage('items');
+                      } else {
+                        setVmStage('group');
+                      }
                     } else {
                       setVmStage('group');
                     }
@@ -436,22 +442,34 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
               <h2 className="text-2xl font-black text-secondary">{qualityOnly ? '구분 선택' : '상품 그룹 선택'}</h2>
             </div>
 
-            {/* Quality 농산 → 채소/청과 subcategory */}
-            {qualityOnly && selCategory === '농산' && (
-              <div className="space-y-3">
-                {['채소', '청과'].map(sub => (
-                  <button
-                    key={sub}
-                    onClick={() => { setSelGroup(sub); setSelProduct(sub); setVmStage('items'); }}
-                    className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-purple-400/50 shadow-sm active:scale-[0.98] transition-all"
-                    data-testid={`btn-quality-sub-${sub}`}
-                  >
-                    <span className="text-3xl font-bold">{sub}</span>
-                    <ChevronRight className="w-6 h-6 text-muted-foreground" />
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Quality → 가이드에서 등록된 상품 목록 동적 표시 */}
+            {qualityOnly && (() => {
+              const catProducts = allGuideProducts.filter(g => g.category === selCategory);
+              if (catProducts.length === 0) {
+                return (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">등록된 품질 가이드가 없습니다</p>
+                    <p className="text-xs mt-1">가이드 관리에서 품질 가이드를 먼저 등록해주세요</p>
+                  </div>
+                );
+              }
+              return (
+                <div className="space-y-3">
+                  {catProducts.map(g => (
+                    <button
+                      key={g.product}
+                      onClick={() => { setSelGroup(g.product); setSelProduct(g.product); setVmStage('items'); }}
+                      className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-purple-400/50 shadow-sm active:scale-[0.98] transition-all"
+                      data-testid={`btn-quality-sub-${g.product}`}
+                    >
+                      <span className="text-3xl font-bold">{g.product}</span>
+                      <ChevronRight className="w-6 h-6 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* VM 상품 그룹 선택 */}
             {!qualityOnly && isLoading && (
