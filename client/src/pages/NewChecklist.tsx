@@ -1024,7 +1024,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
           {guideItems.map((item) => (
             <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
               items[item] === 'ok' ? 'border-blue-300 bg-blue-50'
-              : items[item] === 'notok' ? 'border-primary bg-red-50'
+              : items[item] === 'notok' ? 'border-red-400 bg-red-50'
               : 'border-border bg-white'
             }`}>
               <div className="flex items-center justify-between p-4">
@@ -1042,7 +1042,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                   <button
                     onClick={() => setItems({ ...items, [item]: 'notok' })}
                     className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                      items[item] === 'notok' ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                      items[item] === 'notok' ? 'bg-red-500 border-red-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
                     }`}
                     data-testid={`btn-item-notok-${item}`}
                   >
@@ -1055,7 +1055,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
           <div className="flex justify-between text-sm font-medium text-muted-foreground">
             <span>{Object.keys(items).length} / {guideItems.length} 완료</span>
             {Object.values(items).includes('notok') && (
-              <span className="text-primary font-bold">불일치 {Object.values(items).filter(v => v === 'notok').length}건</span>
+              <span className="text-red-500 font-bold">불일치 {Object.values(items).filter(v => v === 'notok').length}건</span>
             )}
           </div>
         </div>
@@ -1202,7 +1202,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               {adGuideItems.map((item) => (
                 <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${
                   adItems[item] === 'ok' ? 'border-blue-300 bg-blue-50'
-                  : adItems[item] === 'notok' ? 'border-primary bg-red-50'
+                  : adItems[item] === 'notok' ? 'border-red-400 bg-red-50'
                   : 'border-border bg-white'
                 }`}>
                   <div className="flex items-center justify-between p-4">
@@ -1220,7 +1220,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                       <button
                         onClick={() => setAdItems({ ...adItems, [item]: 'notok' })}
                         className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                          adItems[item] === 'notok' ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
+                          adItems[item] === 'notok' ? 'bg-red-500 border-red-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'
                         }`}
                         data-testid={`btn-ad-item-notok-${item}`}
                       >
@@ -1233,7 +1233,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               <div className="flex justify-between text-sm font-medium text-muted-foreground">
                 <span>{Object.keys(adItems).length} / {adGuideItems.length} 완료</span>
                 {Object.values(adItems).includes('notok') && (
-                  <span className="text-primary font-bold">불일치 {Object.values(adItems).filter(v => v === 'notok').length}건</span>
+                  <span className="text-red-500 font-bold">불일치 {Object.values(adItems).filter(v => v === 'notok').length}건</span>
                 )}
               </div>
             </div>

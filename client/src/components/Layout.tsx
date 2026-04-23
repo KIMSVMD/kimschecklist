@@ -38,12 +38,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      <div className="h-14 px-5 border-b border-border/40 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div>
-            <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-6 w-auto object-contain" />
-          </div>
-        </div>
+      <div className="px-5 border-b border-border/40 flex items-center justify-between shrink-0" style={{ height: '70px' }}>
+        <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-5 w-auto object-contain" />
         {onClose && (
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors md:hidden">
             <X className="w-5 h-5 text-muted-foreground" />
@@ -51,10 +47,13 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-5 overflow-y-auto">
         {NAV_SECTIONS.map((section) => (
           <div key={section.label}>
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-2 mb-2">
+            <p
+              className="text-[11px] text-muted-foreground px-2 mb-1.5"
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '0.06em' }}
+            >
               {section.label}
             </p>
             <div className="space-y-0.5">
@@ -64,11 +63,12 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
                   <Link key={href} href={href} onClick={onClose}>
                     <div
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer",
                         isActive
                           ? "bg-primary/10 text-primary"
-                          : "text-secondary hover:bg-muted/70 hover:text-foreground"
+                          : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                       )}
+                      style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: isActive ? 700 : 500, fontSize: '14px', letterSpacing: '-0.02em' }}
                     >
                       <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
                       {label}
@@ -82,8 +82,12 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       </nav>
 
       <div className="p-4 border-t border-border/40 flex flex-col items-center gap-1">
-        <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-4 w-auto object-contain opacity-50" />
-        <p className="text-[10px] text-muted-foreground text-center">VMD v1.0</p>
+        <p
+          className="text-muted-foreground text-center"
+          style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '11px', letterSpacing: '-0.02em' }}
+        >
+          © 2026, 킴스클럽 VMD
+        </p>
       </div>
     </div>
   );

@@ -242,7 +242,7 @@ function AdminScoreInput({
                     onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
                     className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
                       adminVal === 'notok'
-                        ? 'bg-primary border-red-700 text-white'
+                        ? 'bg-red-500 border-red-600 text-white'
                         : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
                     }`}
                     data-testid={`btn-admin-notok-${id}-${key}`}
@@ -404,7 +404,7 @@ function AdminAdScoreInput({
                   <button
                     onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
                     className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
-                      adminVal === 'notok' ? 'bg-primary border-red-700 text-white' : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
+                      adminVal === 'notok' ? 'bg-red-500 border-red-600 text-white' : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
                     }`}
                     data-testid={`btn-admin-ad-notok-${id}-${key}`}
                   >✗</button>
@@ -784,7 +784,7 @@ function AdminQualityScoreInput({
                     className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${adminVal === 'ok' ? 'bg-purple-600 border-purple-700 text-white' : 'bg-white border-border text-muted-foreground'}`}
                     data-testid={`btn-admin-quality-ok-${id}-${key}`}>○</button>
                   <button onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
-                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${adminVal === 'notok' ? 'bg-primary border-red-700 text-white' : 'bg-white border-border text-muted-foreground'}`}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${adminVal === 'notok' ? 'bg-red-500 border-red-600 text-white' : 'bg-white border-border text-muted-foreground'}`}
                     data-testid={`btn-admin-quality-notok-${id}-${key}`}>✗</button>
                 </div>
               </div>
@@ -1196,7 +1196,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                 transition={{ delay: index * 0.05 }}
                 key={item.id}
                 id={`vm-card-${item.id}`}
-                className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5 transition-all ${hasNotok ? 'border-2 border-primary' : 'border border-border/50 hover:shadow-xl'}`}
+                className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5 transition-all ${hasNotok ? 'border-2 border-red-400' : 'border border-border/50 hover:shadow-xl'}`}
                 data-testid={`card-checklist-${item.id}`}
               >
                 {(() => {
@@ -1817,7 +1817,7 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
                       className={`rounded-2xl p-3 text-center border-2 ${
                         !s ? 'border-white/10 bg-white/5' :
                         s.status === 'ok' ? 'border-emerald-400 bg-emerald-500/20' :
-                        'border-primary bg-red-500/20'
+                        'border-red-400 bg-red-500/20'
                       }`}
                     >
                       <div className="flex justify-center mb-1">
