@@ -59,6 +59,8 @@ export default function EditChecklist() {
   const [adUploadingCount, setAdUploadingCount] = useState(0);
   const [adNotes, setAdNotes] = useState('');
   const [qualityItems, setQualityItems] = useState<Record<string, any>>({});
+  const [qualityExpired, setQualityExpired] = useState<number>(0);
+  const [qualityMoldy, setQualityMoldy] = useState<number>(0);
   const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
   const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
   const [qualityUploadingCount, setQualityUploadingCount] = useState(0);
@@ -113,7 +115,11 @@ export default function EditChecklist() {
       const existingQualityPhotos: string[] = (checklist as any).qualityPhotoUrls || [];
       setQualityPhotoUrls(existingQualityPhotos);
       setQualityLocalPreviews(existingQualityPhotos);
-      setQualityItems((checklist as any).qualityItems || {});
+      const rawQualityItems = (checklist as any).qualityItems || {};
+      setQualityExpired(typeof rawQualityItems.__expired === 'number' ? rawQualityItems.__expired : 0);
+      setQualityMoldy(typeof rawQualityItems.__moldy === 'number' ? rawQualityItems.__moldy : 0);
+      const { __expired: _e, __moldy: _m, ...cleanedQualityItems } = rawQualityItems;
+      setQualityItems(cleanedQualityItems);
       setQualityNotes((checklist as any).qualityNotes || '');
     }
   }, [checklist]);
@@ -230,7 +236,9 @@ export default function EditChecklist() {
             qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
             qualityNotes: qualityNotes || null,
             ...(qualityGuideItems.length > 0 && {
-              qualityItems: Object.keys(qualityItems).length > 0 ? qualityItems : null,
+              qualityItems: Object.keys(qualityItems).length > 0
+                ? { ...qualityItems, __expired: qualityExpired, __moldy: qualityMoldy }
+                : null,
             }),
           }),
         } as any,
@@ -673,100 +681,63 @@ export default function EditChecklist() {
 
             {qualityGuideItems.length > 0 && (
               <div className="space-y-4">
-                {/* 형식 감지: 첫 값이 object면 새 형식 (A/B/C/E), string이면 구 형식 */}
                 {(() => {
+                  const GRADE_PTS: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
+                  const CRIT_PFXS = ['선도', '상해', '규격', '혼입율'];
+                  const parseCrit = (t: string) => CRIT_PFXS.find(c => t === c || t.startsWith(c + ':') || t.startsWith(c + ' ')) ?? null;
+                  const gradeScore = (g?: string) => GRADE_PTS[g || ''] ?? 0;
+                  const gradeColorEdit = (g: string) => g === 'A' ? 'bg-purple-600 border-purple-700 text-white' : g === 'B' ? 'bg-purple-400 border-purple-500 text-white' : g === 'C' ? 'bg-amber-400 border-amber-500 text-white' : 'bg-red-500 border-red-600 text-white';
+                  const gradeChipColor = (g: string) => g === 'A' ? 'bg-purple-600 text-white' : g === 'B' ? 'bg-purple-400 text-white' : g === 'C' ? 'bg-amber-400 text-white' : 'bg-red-500 text-white';
+
+                  /* Format detection: new format has { grade, note } per item */
                   const firstVal = Object.values(qualityItems)[0];
-                  const isNewFmt = firstVal !== undefined && typeof firstVal === 'object';
-                  const CRITERIA_EDIT = ['선도', '상해', '규격', '혼입율'] as const;
-                  const GRADE_PTS_EDIT: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
-                  const calcItemScore = (d: any) => Math.max(0, Math.round(((GRADE_PTS_EDIT[d['선도']]||0) + (GRADE_PTS_EDIT[d['상해']]||0)) / 2) - (d.expired||0)*2 - (d.moldy||0)*5);
-                  const overallScore = isNewFmt && Object.keys(qualityItems).length > 0
-                    ? Math.round(Object.values(qualityItems).reduce((s, d) => s + calcItemScore(d), 0) / Object.keys(qualityItems).length)
-                    : null;
+                  const isNewFmt = firstVal !== undefined && typeof firstVal === 'object' && ('grade' in (firstVal as object) || 'note' in (firstVal as object));
+                  const isOldCritFmt = firstVal !== undefined && typeof firstVal === 'object' && '선도' in (firstVal as object);
+
+                  /* Overall score for new format */
+                  const gradedItems = qualityGuideItems.filter(i => (qualityItems[i] as any)?.grade);
+                  const 선도Is = gradedItems.filter(i => parseCrit(i) === '선도');
+                  const 상해Is = gradedItems.filter(i => parseCrit(i) === '상해');
+                  let base = 0;
+                  if (선도Is.length > 0 && 상해Is.length > 0) {
+                    base = (선도Is.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / 선도Is.length
+                           + 상해Is.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / 상해Is.length) / 2;
+                  } else if (선도Is.length > 0) {
+                    base = 선도Is.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / 선도Is.length;
+                  } else if (gradedItems.length > 0) {
+                    base = gradedItems.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / gradedItems.length;
+                  }
+                  const overallScore = gradedItems.length > 0 ? Math.max(0, Math.round(base) - qualityExpired * 2 - qualityMoldy * 5) : null;
+                  const getGrade = (s: number) => s >= 100 ? 'A' : s >= 85 ? 'B' : s >= 70 ? 'C' : s > 55 ? 'D' : s >= 40 ? 'E' : '0';
+
                   return (
                     <>
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="text-xl font-bold text-secondary">품질 항목 점검</h3>
-                          <p className="text-sm text-muted-foreground mt-0.5">{isNewFmt ? '각 항목의 등급을 선택하세요 (A/B/C/E)' : '품질 기준과 일치하면 ○, 다르면 ✗를 선택하세요.'}</p>
+                          <p className="text-sm text-muted-foreground mt-0.5">각 항목의 등급을 선택하세요 (A/B/C/E)</p>
                         </div>
                         {overallScore !== null && (
-                          <div className="text-right">
-                            <div className="text-2xl font-black text-purple-600">{overallScore}점</div>
-                            <div className="text-xs text-muted-foreground">매장 평균</div>
+                          <div className="text-right flex items-center gap-2">
+                            <span className={`text-xl font-black px-3 py-1 rounded-full ${gradeChipColor(getGrade(overallScore))}`}>{getGrade(overallScore)}등급</span>
+                            <div>
+                              <div className="text-2xl font-black text-purple-600">{overallScore}점</div>
+                              <div className="text-xs text-muted-foreground">매장 점수</div>
+                            </div>
                           </div>
                         )}
                       </div>
 
-                      {qualityGuideItems.map((item) => {
-                        const d = qualityItems[item] || {};
-                        if (isNewFmt) {
-                          const allFilled = d['선도'] && d['상해'] && d['규격'] && d['혼입율'];
-                          const itemScore = allFilled ? calcItemScore(d) : null;
-                          return (
-                            <div key={item} className={`rounded-2xl border-2 p-4 space-y-3 transition-all ${allFilled ? (itemScore !== null && itemScore >= 90 ? 'border-purple-300 bg-purple-50' : 'border-primary/40 bg-red-50') : 'border-border bg-white'}`}>
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-base font-bold text-secondary">{item}</h4>
-                                {allFilled && itemScore !== null && (
-                                  <span className={`text-sm font-black px-2.5 py-1 rounded-full ${itemScore >= 90 ? 'bg-purple-600 text-white' : itemScore >= 75 ? 'bg-purple-400 text-white' : 'bg-red-500 text-white'}`}>{itemScore}점</span>
-                                )}
-                              </div>
-                              {/* 4개 기준 — 각각 세로 배치 */}
-                              <div className="space-y-3">
-                                {CRITERIA_EDIT.map(criterion => {
-                                  const noteKey = `${criterion}_note`;
-                                  const selectedGrade = d[criterion] as string | undefined;
-                                  const noteVal = d[noteKey] as string | undefined;
-                                  const gradeColorEdit = (g: string) => g === 'A' ? 'bg-purple-600 border-purple-700 text-white' : g === 'B' ? 'bg-purple-400 border-purple-500 text-white' : g === 'C' ? 'bg-amber-400 border-amber-500 text-white' : 'bg-red-500 border-red-600 text-white';
-                                  const gradeBadgeColor = (g: string) => g === 'A' ? 'bg-purple-600 text-white' : g === 'B' ? 'bg-purple-400 text-white' : g === 'C' ? 'bg-amber-400 text-white' : g === 'D' ? 'bg-orange-500 text-white' : 'bg-red-500 text-white';
-                                  return (
-                                    <div key={criterion} className="rounded-xl border border-border/60 bg-white p-3 space-y-2">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs font-black text-white bg-secondary px-2.5 py-0.5 rounded-full">{criterion}</span>
-                                        {selectedGrade && <span className={`text-xs font-black px-2 py-0.5 rounded-full ${gradeBadgeColor(selectedGrade)}`}>{selectedGrade}등급</span>}
-                                      </div>
-                                      <textarea
-                                        rows={2}
-                                        placeholder={`${criterion} 상태를 입력하세요`}
-                                        value={noteVal || ''}
-                                        onChange={e => setQualityItems(prev => ({ ...prev, [item]: { ...d, [noteKey]: e.target.value } }))}
-                                        className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:outline-none focus:border-purple-400 bg-gray-50 resize-none"
-                                        data-testid={`input-quality-edit-${item}-${criterion}-note`}
-                                      />
-                                      <div className="flex gap-2">
-                                        {(['A','B','C','E'] as const).map(grade => (
-                                          <button
-                                            key={grade}
-                                            onClick={() => setQualityItems(prev => ({ ...prev, [item]: { ...d, [criterion]: selectedGrade === grade ? undefined : grade } }))}
-                                            className={`flex-1 h-11 rounded-xl border-2 font-black text-base transition-all active:scale-95 ${selectedGrade === grade ? gradeColorEdit(grade) : 'bg-white border-border text-muted-foreground hover:border-primary/40'}`}
-                                            data-testid={`btn-quality-edit-${item}-${criterion}-${grade}`}
-                                          >{grade}</button>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              {/* 감점 입력 — 각각 세로 배치 */}
-                              <div className="space-y-2 pt-1 border-t border-border/50">
-                                <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-black text-white bg-orange-500 px-2.5 py-0.5 rounded-full">진열기한 경과</span>
-                                    <span className="text-[10px] text-orange-600 font-bold">× -2점/개</span>
-                                  </div>
-                                  <input type="number" min={0} value={d.expired ?? ''} onChange={e => setQualityItems(prev => ({ ...prev, [item]: { ...d, expired: Math.max(0, parseInt(e.target.value)||0) } }))} placeholder="0개" className="w-full px-3 py-2 rounded-xl border border-orange-200 text-sm font-bold text-center focus:outline-none focus:border-orange-400 bg-white" data-testid={`input-edit-expired-${item}`} />
-                                </div>
-                                <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-black text-white bg-red-500 px-2.5 py-0.5 rounded-full">곰팡이</span>
-                                    <span className="text-[10px] text-red-600 font-bold">× -5점/개</span>
-                                  </div>
-                                  <input type="number" min={0} value={d.moldy ?? ''} onChange={e => setQualityItems(prev => ({ ...prev, [item]: { ...d, moldy: Math.max(0, parseInt(e.target.value)||0) } }))} placeholder="0개" className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-bold text-center focus:outline-none focus:border-red-400 bg-white" data-testid={`input-edit-moldy-${item}`} />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        } else {
+                      {/* New format: one grade card per guide item */}
+                      {qualityGuideItems.map((item, idx) => {
+                        const d = (qualityItems[item] as any) || {};
+                        const selectedGrade: string | undefined = isNewFmt ? d.grade : isOldCritFmt ? undefined : (typeof qualityItems[item] === 'string' ? undefined : undefined);
+                        const noteVal: string | undefined = isNewFmt ? d.note : undefined;
+                        const criterion = parseCrit(item);
+                        const itemScoreV = selectedGrade ? gradeScore(selectedGrade) : null;
+
+                        if (!isNewFmt && !isOldCritFmt && typeof qualityItems[item] === 'string') {
+                          /* Legacy ok/notok format */
                           const isOk = qualityItems[item] === 'ok';
                           const isNotok = qualityItems[item] === 'notok';
                           return (
@@ -774,18 +745,81 @@ export default function EditChecklist() {
                               <div className="flex items-center justify-between p-4">
                                 <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
                                 <div className="flex gap-3 shrink-0">
-                                  <button onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'ok' }))}
-                                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${isOk ? 'bg-purple-500 border-purple-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'}`}
-                                    data-testid={`btn-quality-item-ok-edit-${item}`}><CheckCircle2 className="w-8 h-8" /></button>
-                                  <button onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'notok' }))}
-                                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${isNotok ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'}`}
-                                    data-testid={`btn-quality-item-notok-edit-${item}`}><XOctagon className="w-8 h-8" /></button>
+                                  <button onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'ok' }))} className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${isOk ? 'bg-purple-500 border-purple-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'}`} data-testid={`btn-quality-item-ok-edit-${idx}`}><CheckCircle2 className="w-8 h-8" /></button>
+                                  <button onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'notok' }))} className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${isNotok ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'}`} data-testid={`btn-quality-item-notok-edit-${idx}`}><XOctagon className="w-8 h-8" /></button>
                                 </div>
                               </div>
                             </div>
                           );
                         }
+
+                        /* New or upgraded format: single grade per item */
+                        const actualGrade = isOldCritFmt ? (d['선도'] || d['상해'] || d['규격'] || d['혼입율']) : selectedGrade;
+                        const actualNote = isOldCritFmt ? (d['선도_note'] || d['상해_note'] || '') : (noteVal || '');
+                        return (
+                          <div key={item} className={`rounded-2xl border-2 p-4 space-y-3 transition-all ${
+                            actualGrade
+                              ? (gradeScore(actualGrade) >= 85 ? 'border-purple-300 bg-purple-50' : gradeScore(actualGrade) >= 70 ? 'border-amber-300 bg-amber-50' : 'border-red-300 bg-red-50')
+                              : 'border-border bg-white'
+                          }`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-bold text-secondary leading-snug flex-1">{item}</p>
+                              {actualGrade && itemScoreV !== null && (
+                                <span className={`text-sm font-black px-2.5 py-1 rounded-full shrink-0 ${gradeChipColor(actualGrade)}`}>{itemScoreV}점</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {criterion && <span className="text-xs font-black text-white bg-secondary px-2.5 py-0.5 rounded-full">{criterion}</span>}
+                              {actualGrade && <span className={`text-xs font-black px-2 py-0.5 rounded-full ${gradeChipColor(actualGrade)}`}>{actualGrade}등급</span>}
+                            </div>
+                            <textarea
+                              rows={2}
+                              placeholder={`${criterion ?? item} 상태를 입력하세요`}
+                              value={actualNote}
+                              onChange={e => setQualityItems(prev => ({ ...prev, [item]: { ...d, grade: actualGrade, note: e.target.value } }))}
+                              className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:outline-none focus:border-purple-400 bg-gray-50 resize-none"
+                              data-testid={`input-quality-edit-note-${idx}`}
+                            />
+                            <div className="flex gap-2">
+                              {(['A','B','C','E'] as const).map(grade => (
+                                <button
+                                  key={grade}
+                                  onClick={() => setQualityItems(prev => ({ ...prev, [item]: { note: actualNote, grade: actualGrade === grade ? undefined : grade } }))}
+                                  className={`flex-1 h-11 rounded-xl border-2 font-black text-base transition-all active:scale-95 ${actualGrade === grade ? gradeColorEdit(grade) : 'bg-white border-border text-muted-foreground hover:border-primary/40'}`}
+                                  data-testid={`btn-quality-edit-grade-${idx}-${grade}`}
+                                >{grade}</button>
+                              ))}
+                            </div>
+                          </div>
+                        );
                       })}
+
+                      {/* 감점 항목 */}
+                      <div className="space-y-2 pt-1 border-t border-border/50">
+                        <p className="text-xs font-bold text-muted-foreground px-1">감점 항목</p>
+                        <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-white bg-orange-500 px-2.5 py-0.5 rounded-full">진열기한 경과</span>
+                            <span className="text-[10px] text-orange-600 font-bold">× -2점/개</span>
+                          </div>
+                          <input type="number" min={0} value={qualityExpired || ''} onChange={e => setQualityExpired(Math.max(0, parseInt(e.target.value)||0))} placeholder="0개" className="w-full px-3 py-2 rounded-xl border border-orange-200 text-sm font-bold text-center focus:outline-none focus:border-orange-400 bg-white" data-testid="input-edit-expired" />
+                        </div>
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-white bg-red-500 px-2.5 py-0.5 rounded-full">곰팡이</span>
+                            <span className="text-[10px] text-red-600 font-bold">× -5점/개</span>
+                          </div>
+                          <input type="number" min={0} value={qualityMoldy || ''} onChange={e => setQualityMoldy(Math.max(0, parseInt(e.target.value)||0))} placeholder="0개" className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-bold text-center focus:outline-none focus:border-red-400 bg-white" data-testid="input-edit-moldy" />
+                        </div>
+                      </div>
+
+                      {/* 진행 현황 */}
+                      <div className="flex justify-between text-sm font-medium text-muted-foreground bg-muted/40 rounded-2xl px-4 py-3">
+                        <span>{qualityGuideItems.filter(i => (qualityItems[i] as any)?.grade).length} / {qualityGuideItems.length} 완료</span>
+                        {overallScore !== null && (
+                          <span className="font-bold text-purple-600">{overallScore}점 ({getGrade(overallScore)}등급)</span>
+                        )}
+                      </div>
                     </>
                   );
                 })()}

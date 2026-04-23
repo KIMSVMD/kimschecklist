@@ -471,18 +471,57 @@ function AdminAdScoreInput({
 }
 
 const QUALITY_GRADE_SCORES_DASH: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
+const CRIT_PFXS_DASH = ['선도', '상해', '규격', '혼입율'];
 
-function calcQualityItemScoreDash(d: Record<string, any>): number {
-  const s = QUALITY_GRADE_SCORES_DASH[d['선도'] || ''] ?? 0;
-  const dmg = QUALITY_GRADE_SCORES_DASH[d['상해'] || ''] ?? 0;
-  const penalty = (d.expired || 0) * 2 + (d.moldy || 0) * 5;
-  return Math.max(0, Math.round((s + dmg) / 2) - penalty);
+function parseCritDash(t: string): string | null {
+  return CRIT_PFXS_DASH.find(c => t === c || t.startsWith(c + ':') || t.startsWith(c + ' ')) ?? null;
+}
+
+function gradeScoreDash(g?: string): number {
+  return QUALITY_GRADE_SCORES_DASH[g || ''] ?? 0;
 }
 
 function calcOverallQualityScoreDash(items: Record<string, any>): number {
-  const vals = Object.values(items).filter(v => typeof v === 'object' && v !== null);
+  const expired = typeof items.__expired === 'number' ? items.__expired : 0;
+  const moldy = typeof items.__moldy === 'number' ? items.__moldy : 0;
+  const guideItems = Object.keys(items).filter(k => k !== '__expired' && k !== '__moldy');
+  const vals = guideItems.map(k => items[k]).filter(v => v !== null && v !== undefined);
   if (vals.length === 0) return 0;
-  return Math.round(vals.reduce((sum, d) => sum + calcQualityItemScoreDash(d), 0) / vals.length);
+
+  /* New format: {grade, note} per item */
+  const isNewFmt = vals.some(v => typeof v === 'object' && v !== null && 'grade' in v);
+  /* Old criteria format: {선도, 상해, ...} per item */
+  const isOldCritFmt = vals.some(v => typeof v === 'object' && v !== null && '선도' in v);
+
+  if (isNewFmt) {
+    const gradedItems = guideItems.filter(k => items[k]?.grade);
+    if (gradedItems.length === 0) return 0;
+    const 선도Is = gradedItems.filter(k => parseCritDash(k) === '선도');
+    const 상해Is = gradedItems.filter(k => parseCritDash(k) === '상해');
+    let base = 0;
+    if (선도Is.length > 0 && 상해Is.length > 0) {
+      base = (선도Is.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / 선도Is.length
+             + 상해Is.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / 상해Is.length) / 2;
+    } else if (선도Is.length > 0) {
+      base = 선도Is.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / 선도Is.length;
+    } else {
+      base = gradedItems.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / gradedItems.length;
+    }
+    return Math.max(0, Math.round(base) - expired * 2 - moldy * 5);
+  }
+
+  if (isOldCritFmt) {
+    const scored = vals.filter(v => typeof v === 'object');
+    if (scored.length === 0) return 0;
+    return Math.round(scored.reduce((sum, d) => {
+      const fr = gradeScoreDash(d['선도'] || '');
+      const dmg = gradeScoreDash(d['상해'] || '');
+      const pen = (d.expired || 0) * 2 + (d.moldy || 0) * 5;
+      return sum + Math.max(0, Math.round((fr + dmg) / 2) - pen);
+    }, 0) / scored.length);
+  }
+
+  return 0;
 }
 
 function getQualityGradeDash(score: number): string {
@@ -516,11 +555,13 @@ function AdminQualityScoreInput({
   const qualityScoreMutation = useUpdateChecklistQualityScore();
   const [open, setOpen] = useState(existingScore == null);
   const [overrideScore, setOverrideScore] = useState<string>(existingScore != null ? String(existingScore) : '');
-  const itemKeys = Object.keys(staffQualityItems);
+  const itemKeys = Object.keys(staffQualityItems).filter(k => k !== '__expired' && k !== '__moldy');
   const totalItems = itemKeys.length;
+  const savedExpired = typeof staffQualityItems.__expired === 'number' ? staffQualityItems.__expired : 0;
+  const savedMoldy = typeof staffQualityItems.__moldy === 'number' ? staffQualityItems.__moldy : 0;
 
   // Detect format: new (object values) vs old (string values)
-  const firstVal = totalItems > 0 ? Object.values(staffQualityItems)[0] : null;
+  const firstVal = totalItems > 0 ? staffQualityItems[itemKeys[0]] : null;
   const isNewFormat = firstVal !== null && typeof firstVal === 'object';
 
   // Auto-calculated score for new format
@@ -603,38 +644,75 @@ function AdminQualityScoreInput({
           <div className="space-y-1 max-h-60 overflow-y-auto">
             {itemKeys.map(key => {
               const d = staffQualityItems[key] as Record<string, any>;
-              const s = calcQualityItemScoreDash(d);
-              const g = getQualityGradeDash(s);
-              return (
-                <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-secondary">{key}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{g}</span>
-                      <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{s}점</span>
+              if (!d || typeof d !== 'object') return null;
+              /* New format: {grade, note} */
+              const isNewItemFmt = 'grade' in d || 'note' in d;
+              /* Old criteria format: {선도, 상해, ...} */
+              const isOldCritFmt = '선도' in d || '상해' in d;
+              if (isNewItemFmt) {
+                const g = d.grade || '';
+                const s = gradeScoreDash(g);
+                const criterion = parseCritDash(key);
+                return (
+                  <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-secondary flex-1 leading-snug">{key}</span>
+                      {g && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {criterion && <span className="font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md">{criterion}</span>}
+                          <span className={`font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(g)}`}>{g}</span>
+                          <span className={`font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(g)}`}>{s}점</span>
+                        </div>
+                      )}
                     </div>
+                    {d.note && <div className="text-muted-foreground">{d.note}</div>}
                   </div>
-                  {(['선도','상해','규격','혼입율'] as const).map(c => {
-                    const grade = d[c];
-                    const note = d[`${c}_note`];
-                    if (!grade && !note) return null;
-                    return (
-                      <div key={c} className="flex gap-1.5 items-start">
-                        <span className="shrink-0 font-black text-secondary/70 bg-secondary/10 px-1.5 py-0.5 rounded-md">{c}</span>
-                        {grade && <span className={`shrink-0 font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(grade)}`}>{grade}</span>}
-                        {note && <span className="text-muted-foreground leading-relaxed">{note}</span>}
+                );
+              }
+              if (isOldCritFmt) {
+                const fr = gradeScoreDash(d['선도'] || '');
+                const dmg = gradeScoreDash(d['상해'] || '');
+                const pen = (d.expired || 0) * 2 + (d.moldy || 0) * 5;
+                const s = Math.max(0, Math.round((fr + dmg) / 2) - pen);
+                const g = getQualityGradeDash(s);
+                return (
+                  <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-secondary">{key}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{g}</span>
+                        <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{s}점</span>
                       </div>
-                    );
-                  })}
-                  {(d['expired'] > 0 || d['moldy'] > 0) && (
-                    <div className="flex gap-2 pt-0.5">
-                      {d['expired'] > 0 && <span className="text-orange-600 font-bold">진열기한 경과 {d['expired']}개</span>}
-                      {d['moldy'] > 0 && <span className="text-red-600 font-bold">곰팡이 {d['moldy']}개</span>}
                     </div>
-                  )}
-                </div>
-              );
+                    {(['선도','상해','규격','혼입율'] as const).map(c => {
+                      const grade = d[c]; const note = d[`${c}_note`];
+                      if (!grade && !note) return null;
+                      return (
+                        <div key={c} className="flex gap-1.5 items-start">
+                          <span className="shrink-0 font-black text-secondary/70 bg-secondary/10 px-1.5 py-0.5 rounded-md">{c}</span>
+                          {grade && <span className={`shrink-0 font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(grade)}`}>{grade}</span>}
+                          {note && <span className="text-muted-foreground leading-relaxed">{note}</span>}
+                        </div>
+                      );
+                    })}
+                    {(d['expired'] > 0 || d['moldy'] > 0) && (
+                      <div className="flex gap-2 pt-0.5">
+                        {d['expired'] > 0 && <span className="text-orange-600 font-bold">진열기한 경과 {d['expired']}개</span>}
+                        {d['moldy'] > 0 && <span className="text-red-600 font-bold">곰팡이 {d['moldy']}개</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return null;
             })}
+            {/* 감점 정보 표시 */}
+            {(savedExpired > 0 || savedMoldy > 0) && (
+              <div className="flex gap-3 px-3 py-2 text-xs font-bold border border-orange-200/60 rounded-xl bg-orange-50/40">
+                {savedExpired > 0 && <span className="text-orange-600">진열기한 경과 {savedExpired}개 (-{savedExpired * 2}점)</span>}
+                {savedMoldy > 0 && <span className="text-red-600">곰팡이 {savedMoldy}개 (-{savedMoldy * 5}점)</span>}
+              </div>
+            )}
           </div>
           {/* 확정 or 재정의 */}
           <div className="flex gap-2">
@@ -1350,25 +1428,29 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
                     const hasQualityData = hasQualityItemsInner || hasQualityPhotos || qualityNotes;
                     if (!hasQualityData || viewFilter === 'vm' || (item as any).checklistType === 'ad') return null;
                     const qualityAdminItems = (item as any).qualityAdminItems as Record<string, any> | null;
-                    const firstQVal = hasQualityItemsInner ? Object.values(qualityItems!)[0] : null;
+                    const filteredQualityItems = qualityItems
+                      ? Object.fromEntries(Object.entries(qualityItems).filter(([k]) => k !== '__expired' && k !== '__moldy'))
+                      : null;
+                    const firstQVal = hasQualityItemsInner && filteredQualityItems ? Object.values(filteredQualityItems)[0] : null;
                     const isNewQFormat = firstQVal !== null && typeof firstQVal === 'object';
                     return (
                       <>
-                        {hasQualityItemsInner && (
+                        {hasQualityItemsInner && filteredQualityItems && (
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질</span>
                             {isNewQFormat ? (
-                              /* 새 형식: 항목명 + 매장점수 + 출력 등급 태그 */
-                              Object.entries(qualityItems!).map(([name, d]: [string, any]) => {
-                                const s = calcQualityItemScoreDash(d);
-                                const g = getQualityGradeDash(s);
+                              /* 새 형식: 항목명 + 등급 태그 */
+                              Object.entries(filteredQualityItems).map(([name, d]: [string, any]) => {
+                                const g = d?.grade || '';
+                                const s = gradeScoreDash(g);
+                                if (!g) return null;
                                 return (
                                   <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                    s >= 90 ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                    : s >= 75 ? 'bg-purple-50 border-purple-200 text-purple-500'
+                                    s >= 85 ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                    : s >= 70 ? 'bg-amber-50 border-amber-200 text-amber-600'
                                     : 'bg-red-50 border-red-200 text-red-600'
                                   }`}>
-                                    {name}: {d['선도']||'-'}/{d['상해']||'-'} → {s}점({g})
+                                    {name}: {g}등급({s}점)
                                   </span>
                                 );
                               })

@@ -25,29 +25,42 @@ const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['농산', '수산', '축산'];
 
 const QUALITY_GRADE_SCORES: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
-const QUALITY_CRITERIA = ['선도', '상해', '규격', '혼입율'] as const;
-type QualityCriteria = typeof QUALITY_CRITERIA[number];
+const QUALITY_CRITERIA_PREFIXES = ['선도', '상해', '규격', '혼입율'];
 
-type QualityGradeData = {
-  선도?: string; 선도_note?: string;
-  상해?: string; 상해_note?: string;
-  규격?: string; 규격_note?: string;
-  혼입율?: string; 혼입율_note?: string;
-  expired?: number;
-  moldy?: number;
-};
+type QualityItemData = { grade?: string; note?: string; };
 
-function calcQualityItemScore(data: QualityGradeData): number {
-  const 선도 = QUALITY_GRADE_SCORES[data.선도 || ''] ?? 0;
-  const 상해 = QUALITY_GRADE_SCORES[data.상해 || ''] ?? 0;
-  const penalty = (data.expired || 0) * 2 + (data.moldy || 0) * 5;
-  return Math.max(0, Math.round((선도 + 상해) / 2) - penalty);
+function parseCriterionType(text: string): string | null {
+  for (const c of QUALITY_CRITERIA_PREFIXES) {
+    if (text === c || text.startsWith(c + ':') || text.startsWith(c + ' ')) return c;
+  }
+  return null;
 }
 
-function calcOverallQualityScore(items: Record<string, QualityGradeData>): number {
-  const vals = Object.values(items);
-  if (vals.length === 0) return 0;
-  return Math.round(vals.reduce((s, d) => s + calcQualityItemScore(d), 0) / vals.length);
+function calcGradeScore(grade?: string): number {
+  return QUALITY_GRADE_SCORES[grade || ''] ?? 0;
+}
+
+function calcOverallQualityScore(
+  items: Record<string, QualityItemData>,
+  guideItems: string[],
+  expired: number,
+  moldy: number
+): number {
+  const gradedItems = guideItems.filter(i => items[i]?.grade);
+  if (gradedItems.length === 0) return 0;
+  const 선도Items = gradedItems.filter(i => parseCriterionType(i) === '선도');
+  const 상해Items = gradedItems.filter(i => parseCriterionType(i) === '상해');
+  let base: number;
+  if (선도Items.length > 0 && 상해Items.length > 0) {
+    const a = 선도Items.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / 선도Items.length;
+    const b = 상해Items.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / 상해Items.length;
+    base = (a + b) / 2;
+  } else if (선도Items.length > 0) {
+    base = 선도Items.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / 선도Items.length;
+  } else {
+    base = gradedItems.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / gradedItems.length;
+  }
+  return Math.max(0, Math.round(base) - expired * 2 - moldy * 5);
 }
 
 function getQualityGrade(score: number): string {
@@ -631,7 +644,9 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   const qualityGuidePoints: string[] = (qualityGuide?.points as string[]) || [];
   const qualityItemWeights: Record<string, number> = (qualityGuide as any)?.itemWeights || {};
   const hasWeights = Object.keys(qualityItemWeights).length > 0;
-  const [qualityItems, setQualityItems] = useState<Record<string, QualityGradeData>>({});
+  const [qualityItems, setQualityItems] = useState<Record<string, QualityItemData>>({});
+  const [qualityExpired, setQualityExpired] = useState<number>(0);
+  const [qualityMoldy, setQualityMoldy] = useState<number>(0);
   const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
   const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
   const [qualityUploadingCount, setQualityUploadingCount] = useState(0);
@@ -725,7 +740,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
 
   const submitForm = async () => {
     const isQuality = effectiveInspectionType === 'quality';
-    const overallQualityScore = isQuality ? calcOverallQualityScore(qualityItems) : 0;
+    const overallQualityScore = isQuality ? calcOverallQualityScore(qualityItems, qualityGuideItems, qualityExpired, qualityMoldy) : 0;
     const hasNotok = isQuality
       ? overallQualityScore < 90
       : Object.values(items).includes('notok') || Object.values(adItems).includes('notok');
@@ -749,14 +764,16 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
           adNotes: adNotes.trim() || null,
         }),
         ...(isQuality && {
-          qualityItems: Object.keys(qualityItems).length > 0 ? qualityItems : null,
+          qualityItems: Object.keys(qualityItems).length > 0
+            ? { ...qualityItems, __expired: qualityExpired, __moldy: qualityMoldy }
+            : null,
           qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
           qualityNotes: qualityNotes.trim() || null,
           qualityWeightedScore: hasWeights
             ? String(qualityGuideItems.reduce((sum, item) => {
                 const d = qualityItems[item]; const w = qualityItemWeights[item] ?? 0;
-                if (!d || !d.선도 || !d.상해) return sum;
-                return sum + calcQualityItemScore(d as QualityGradeData) * (w / 100);
+                if (!d?.grade) return sum;
+                return sum + calcGradeScore(d.grade) * (w / 100);
               }, 0).toFixed(4))
             : null,
         }),
@@ -792,10 +809,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   const qualityGuideAttachFiles: string[] = (qualityGuide as any)?.attachFileUrls ?? [];
   const effectiveInspectionType = qualityOnly ? 'quality' : 'vm';
   const allItemsChecked = effectiveInspectionType === 'quality'
-    ? (qualityGuideItems.length === 0 || qualityGuideItems.every(item => {
-        const d = qualityItems[item];
-        return d && d.선도 && d.상해 && d.규격 && d.혼입율;
-      }))
+    ? (qualityGuideItems.length === 0 || qualityGuideItems.every(item => qualityItems[item]?.grade))
     : (guideItems.length === 0 || guideItems.every(item => items[item]));
 
   const displayProduct = selProduct?.replace(/\[(.+?)\](.*)/, (_: string, g: string, rest: string) => rest ? `${g} > ${rest}` : g) || selProduct;
@@ -1440,16 +1454,16 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                   <h3 className="text-xl font-bold text-secondary">항목별 품질 점검</h3>
                   <p className="text-sm text-muted-foreground mt-0.5">각 항목의 등급을 선택하세요 (A/B/C/E)</p>
                 </div>
-                {Object.keys(qualityItems).length > 0 && (() => {
-                  const avg = calcOverallQualityScore(qualityItems);
+                {(() => {
+                  const avg = calcOverallQualityScore(qualityItems, qualityGuideItems, qualityExpired, qualityMoldy);
                   const g = getQualityGrade(avg);
-                  // 환산비율합계점수 = Σ(매장점수_i × weight_i / 100)
+                  const anyGraded = qualityGuideItems.some(i => qualityItems[i]?.grade);
+                  if (!anyGraded) return null;
                   const weightedTotal = hasWeights
                     ? qualityGuideItems.reduce((sum, item) => {
-                        const d = qualityItems[item];
-                        const w = qualityItemWeights[item] ?? 0;
-                        if (!d || !d.선도 || !d.상해) return sum;
-                        return sum + calcQualityItemScore(d as QualityGradeData) * (w / 100);
+                        const d = qualityItems[item]; const w = qualityItemWeights[item] ?? 0;
+                        if (!d?.grade) return sum;
+                        return sum + calcGradeScore(d.grade) * (w / 100);
                       }, 0)
                     : null;
                   return (
@@ -1463,150 +1477,143 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                       <span className={`text-xl font-black px-3 py-1 rounded-full ${gradeColor(g)}`}>{g}등급</span>
                       <div>
                         <div className="text-2xl font-black text-purple-600">{avg}점</div>
-                        <div className="text-xs text-muted-foreground">매장 평균</div>
+                        <div className="text-xs text-muted-foreground">매장 점수</div>
                       </div>
                     </div>
                   );
                 })()}
               </div>
 
-
-              {qualityGuideItems.map((item) => {
+              {/* 항목별 등급 카드 — 가이드 항목당 1개 등급 */}
+              {qualityGuideItems.map((item, idx) => {
                 const d = qualityItems[item] || {};
-                const allFilled = d.선도 && d.상해 && d.규격 && d.혼입율;
-                const itemScore = allFilled ? calcQualityItemScore(d as QualityGradeData) : null;
+                const selectedGrade = d.grade;
+                const noteVal = d.note;
+                const criterion = parseCriterionType(item);
+                const itemScore = selectedGrade ? calcGradeScore(selectedGrade) : null;
+                const w = qualityItemWeights[item];
+                const weighted = hasWeights && w != null && itemScore !== null ? itemScore * (w / 100) : null;
                 return (
                   <div key={item} className={`rounded-2xl border-2 p-4 space-y-3 transition-all ${
-                    allFilled ? (itemScore !== null && itemScore >= 90 ? 'border-purple-300 bg-purple-50' : 'border-primary/40 bg-red-50') : 'border-border bg-white'
+                    selectedGrade
+                      ? (itemScore !== null && itemScore >= 85 ? 'border-purple-300 bg-purple-50' : itemScore !== null && itemScore >= 70 ? 'border-amber-300 bg-amber-50' : 'border-red-300 bg-red-50')
+                      : 'border-border bg-white'
                   }`}>
-                    {/* 항목명 + 비율 + 점수 + 출력 등급 */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-base font-bold text-secondary">{item}</h4>
-                        {hasWeights && qualityItemWeights[item] != null && (
-                          <span className="text-[10px] text-indigo-600 font-bold">비율 {qualityItemWeights[item]}%</span>
+                    {/* 항목 텍스트 + 등급/점수 */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-secondary leading-snug">{item}</p>
+                        {hasWeights && w != null && (
+                          <span className="text-[10px] text-indigo-600 font-bold">비율 {w}%</span>
                         )}
                       </div>
-                      {allFilled && itemScore !== null && (() => {
-                        const g = getQualityGrade(itemScore);
-                        const w = qualityItemWeights[item];
-                        const weighted = hasWeights && w != null ? itemScore * (w / 100) : null;
-                        return (
-                          <div className="flex items-center gap-1.5">
-                            {weighted !== null && (
-                              <span className="text-xs font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
-                                환산 {weighted.toFixed(3)}
-                              </span>
-                            )}
-                            <span className={`text-xs font-black px-2 py-0.5 rounded-full ${gradeColor(g)}`}>{g}</span>
-                            <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColor(g)}`}>{itemScore}점</span>
-                          </div>
-                        );
-                      })()}
+                      {selectedGrade && itemScore !== null && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {weighted !== null && (
+                            <span className="text-xs font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                              환산 {weighted.toFixed(3)}
+                            </span>
+                          )}
+                          <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColor(selectedGrade)}`}>{itemScore}점</span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* 4개 기준 — 각각 세로 배치 */}
-                    <div className="space-y-3">
-                      {QUALITY_CRITERIA.map(criterion => {
-                        const noteKey = `${criterion}_note` as keyof QualityGradeData;
-                        const selectedGrade = (d as any)[criterion] as string | undefined;
-                        const noteVal = (d as any)[noteKey] as string | undefined;
-                        return (
-                          <div key={criterion} className="rounded-xl border border-border/60 bg-white p-3 space-y-2">
-                            {/* 기준명 + 선택 등급 */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-black text-white bg-secondary px-2.5 py-0.5 rounded-full">{criterion}</span>
-                              {selectedGrade && (
-                                <span className={`text-xs font-black px-2 py-0.5 rounded-full ${gradeColor(selectedGrade)}`}>{selectedGrade}등급</span>
-                              )}
-                            </div>
-                            {/* 내용 입력 */}
-                            <textarea
-                              rows={2}
-                              placeholder={`${criterion} 상태를 입력하세요`}
-                              value={noteVal || ''}
-                              onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, [noteKey]: e.target.value } })}
-                              className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:outline-none focus:border-purple-400 bg-gray-50 resize-none"
-                              data-testid={`input-quality-${item}-${criterion}-note`}
-                            />
-                            {/* 등급 버튼 */}
-                            <div className="flex gap-2">
-                              {(['A','B','C','E'] as const).map(grade => (
-                                <button
-                                  key={grade}
-                                  onClick={() => setQualityItems({ ...qualityItems, [item]: { ...d, [criterion]: selectedGrade === grade ? undefined : grade } })}
-                                  className={`flex-1 h-11 rounded-xl border-2 font-black text-base transition-all active:scale-95 ${
-                                    selectedGrade === grade
-                                      ? grade === 'A' ? 'bg-purple-600 border-purple-700 text-white'
-                                      : grade === 'B' ? 'bg-purple-400 border-purple-500 text-white'
-                                      : grade === 'C' ? 'bg-amber-400 border-amber-500 text-white'
-                                      : 'bg-red-500 border-red-600 text-white'
-                                      : 'bg-white border-border text-muted-foreground hover:border-primary/40'
-                                  }`}
-                                  data-testid={`btn-quality-${item}-${criterion}-${grade}`}
-                                >
-                                  {grade}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    {/* 기준 배지 + 선택 등급 배지 */}
+                    <div className="flex items-center gap-2">
+                      {criterion && (
+                        <span className="text-xs font-black text-white bg-secondary px-2.5 py-0.5 rounded-full">{criterion}</span>
+                      )}
+                      {selectedGrade && (
+                        <span className={`text-xs font-black px-2 py-0.5 rounded-full ${gradeColor(selectedGrade)}`}>{selectedGrade}등급</span>
+                      )}
                     </div>
 
-                    {/* 감점 입력 — 각각 세로 배치 */}
-                    <div className="space-y-2 pt-1 border-t border-border/50">
-                      <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-white bg-orange-500 px-2.5 py-0.5 rounded-full">진열기한 경과</span>
-                          <span className="text-[10px] text-orange-600 font-bold">× -2점/개</span>
-                        </div>
-                        <input
-                          type="number"
-                          min={0}
-                          value={(d as QualityGradeData).expired ?? ''}
-                          onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, expired: Math.max(0, parseInt(e.target.value) || 0) } })}
-                          placeholder="0개"
-                          className="w-full px-3 py-2 rounded-xl border border-orange-200 text-sm font-bold text-center focus:outline-none focus:border-orange-400 bg-white"
-                          data-testid={`input-quality-expired-${item}`}
-                        />
-                      </div>
-                      <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-white bg-red-500 px-2.5 py-0.5 rounded-full">곰팡이</span>
-                          <span className="text-[10px] text-red-600 font-bold">× -5점/개</span>
-                        </div>
-                        <input
-                          type="number"
-                          min={0}
-                          value={(d as QualityGradeData).moldy ?? ''}
-                          onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, moldy: Math.max(0, parseInt(e.target.value) || 0) } })}
-                          placeholder="0개"
-                          className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-bold text-center focus:outline-none focus:border-red-400 bg-white"
-                          data-testid={`input-quality-moldy-${item}`}
-                        />
-                      </div>
+                    {/* 내용 입력 */}
+                    <textarea
+                      rows={2}
+                      placeholder={`${criterion ?? item} 상태를 입력하세요`}
+                      value={noteVal || ''}
+                      onChange={e => setQualityItems({ ...qualityItems, [item]: { ...d, note: e.target.value } })}
+                      className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:outline-none focus:border-purple-400 bg-gray-50 resize-none"
+                      data-testid={`input-quality-note-${idx}`}
+                    />
+
+                    {/* 등급 버튼 */}
+                    <div className="flex gap-2">
+                      {(['A','B','C','E'] as const).map(grade => (
+                        <button
+                          key={grade}
+                          onClick={() => setQualityItems({ ...qualityItems, [item]: { ...d, grade: selectedGrade === grade ? undefined : grade } })}
+                          className={`flex-1 h-11 rounded-xl border-2 font-black text-base transition-all active:scale-95 ${
+                            selectedGrade === grade
+                              ? grade === 'A' ? 'bg-purple-600 border-purple-700 text-white'
+                              : grade === 'B' ? 'bg-purple-400 border-purple-500 text-white'
+                              : grade === 'C' ? 'bg-amber-400 border-amber-500 text-white'
+                              : 'bg-red-500 border-red-600 text-white'
+                              : 'bg-white border-border text-muted-foreground hover:border-primary/40'
+                          }`}
+                          data-testid={`btn-quality-grade-${idx}-${grade}`}
+                        >
+                          {grade}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 );
               })}
 
+              {/* 감점 항목 (상품 전체 기준) */}
+              <div className="space-y-2 pt-1 border-t border-border/50">
+                <p className="text-xs font-bold text-muted-foreground px-1">감점 항목</p>
+                <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white bg-orange-500 px-2.5 py-0.5 rounded-full">진열기한 경과</span>
+                    <span className="text-[10px] text-orange-600 font-bold">× -2점/개</span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    value={qualityExpired || ''}
+                    onChange={e => setQualityExpired(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="0개"
+                    className="w-full px-3 py-2 rounded-xl border border-orange-200 text-sm font-bold text-center focus:outline-none focus:border-orange-400 bg-white"
+                    data-testid="input-quality-expired"
+                  />
+                </div>
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white bg-red-500 px-2.5 py-0.5 rounded-full">곰팡이</span>
+                    <span className="text-[10px] text-red-600 font-bold">× -5점/개</span>
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    value={qualityMoldy || ''}
+                    onChange={e => setQualityMoldy(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="0개"
+                    className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-bold text-center focus:outline-none focus:border-red-400 bg-white"
+                    data-testid="input-quality-moldy"
+                  />
+                </div>
+              </div>
+
               {/* 전체 진행 현황 */}
               <div className="flex justify-between text-sm font-medium text-muted-foreground bg-muted/40 rounded-2xl px-4 py-3">
-                <span>{qualityGuideItems.filter(item => {const d=qualityItems[item];return d&&d.선도&&d.상해&&d.규격&&d.혼입율}).length} / {qualityGuideItems.length} 완료</span>
-                {Object.keys(qualityItems).length > 0 && (() => {
-                  const avg = calcOverallQualityScore(qualityItems);
+                <span>{qualityGuideItems.filter(item => qualityItems[item]?.grade).length} / {qualityGuideItems.length} 완료</span>
+                {qualityGuideItems.some(i => qualityItems[i]?.grade) && (() => {
+                  const avg = calcOverallQualityScore(qualityItems, qualityGuideItems, qualityExpired, qualityMoldy);
                   const g = getQualityGrade(avg);
                   const wTotal = hasWeights
                     ? qualityGuideItems.reduce((sum, item) => {
                         const d = qualityItems[item]; const w = qualityItemWeights[item] ?? 0;
-                        if (!d || !d.선도 || !d.상해) return sum;
-                        return sum + calcQualityItemScore(d as QualityGradeData) * (w / 100);
+                        if (!d?.grade) return sum;
+                        return sum + calcGradeScore(d.grade) * (w / 100);
                       }, 0)
                     : null;
                   return (
                     <span className="font-bold text-purple-600">
-                      평균 {avg}점 ({g}등급){wTotal !== null ? ` · 환산 ${wTotal.toFixed(2)}` : ''}
+                      {avg}점 ({g}등급){wTotal !== null ? ` · 환산 ${wTotal.toFixed(2)}` : ''}
                     </span>
                   );
                 })()}
