@@ -2017,6 +2017,16 @@ function RankingTab() {
   const [rankMonth, setRankMonth] = useState(now.getMonth() + 1);
   const [rankType, setRankType] = useState<'vm' | 'ad' | 'quality'>('vm');
   const [rankCategory, setRankCategory] = useState('농산');
+  const [rankProduct, setRankProduct] = useState('전체');
+  const { data: validGuideProducts = [] } = useValidGuideProducts(rankYear, rankMonth);
+  const availableRankProducts = useMemo(() => {
+    const cats = rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES;
+    const filtered = validGuideProducts.filter((p: any) =>
+      (rankCategory === '전체' || p.category === rankCategory) &&
+      cats.includes(p.category)
+    );
+    return ['전체', ...Array.from(new Set(filtered.map((p: any) => p.productName as string)))];
+  }, [validGuideProducts, rankCategory, rankType]);
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const ALL_BRANCHES = BRANCHES.slice(1);
@@ -2034,14 +2044,17 @@ function RankingTab() {
   ];
   SORTED_BRANCHES.forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
 
-  const { data: agriAll, isLoading } = useChecklists({ category: rankCategory });
+  const { data: agriAll, isLoading } = useChecklists(rankCategory !== '전체' ? { category: rankCategory } : {});
 
   const agriPeriod = (agriAll ?? []).filter(item => {
     const itemYear = (item as any).year;
     const itemMonth = (item as any).month;
-    if (itemYear && itemMonth) return itemYear === rankYear && itemMonth === rankMonth;
-    const d = new Date(item.createdAt);
-    return d.getFullYear() === rankYear && d.getMonth() + 1 === rankMonth;
+    const matchDate = itemYear && itemMonth
+      ? itemYear === rankYear && itemMonth === rankMonth
+      : (() => { const d = new Date(item.createdAt); return d.getFullYear() === rankYear && d.getMonth() + 1 === rankMonth; })();
+    if (!matchDate) return false;
+    if (rankProduct !== '전체' && item.productName !== rankProduct) return false;
+    return true;
   });
 
   const ranking = useMemo(() => {
@@ -2081,15 +2094,15 @@ function RankingTab() {
 
   return (
     <div className="px-4 md:px-[50px] py-3 space-y-2 w-full">
-      {/* Year / Month / Type + Category — all in one row */}
-      <div className="-mx-4 md:-mx-[50px] px-4 md:px-[50px] flex items-center gap-2 border-b border-border">
-        <Calendar className="w-4 h-4 text-muted-foreground shrink-0 mb-px" />
+      {/* Year / Month / Type + Category + Product — one row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
         <select value={rankYear} onChange={e => setRankYear(Number(e.target.value))}
-          className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm outline-none text-secondary shrink-0">
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
           {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
         </select>
         <select value={rankMonth} onChange={e => setRankMonth(Number(e.target.value))}
-          className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm outline-none text-secondary shrink-0">
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
           {monthOptions.map(m => <option key={m} value={m}>{m}월</option>)}
         </select>
         <select value={rankType} onChange={e => {
@@ -2097,21 +2110,25 @@ function RankingTab() {
           setRankType(v);
           if (v === 'quality' && rankCategory === '공산') setRankCategory('농산');
         }}
-          className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm outline-none text-secondary shrink-0">
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
           <option value="vm">진열(+광고)</option>
           <option value="quality">품질</option>
         </select>
-        {/* Category tabs — fill remaining space */}
-        {(rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => (
-          <button key={cat} onClick={() => setRankCategory(cat)}
-            className={`flex-1 flex items-center justify-center pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
-              rankCategory === cat ? 'border-black text-black' : 'border-transparent text-muted-foreground'
-            }`}
-            style={{ fontWeight: rankCategory === cat ? 700 : 500 }}
-            data-testid={`btn-rank-cat-${cat}`}>
-            {cat}
-          </button>
-        ))}
+        <select value={rankCategory} onChange={e => { setRankCategory(e.target.value); setRankProduct('전체'); }}
+          className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium text-sm outline-none text-secondary min-w-[120px]"
+          data-testid="select-rank-category">
+          <option value="전체">전체 카테고리</option>
+          {(rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select value={rankProduct} onChange={e => setRankProduct(e.target.value)}
+          className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium text-sm outline-none text-secondary min-w-[120px]"
+          data-testid="select-rank-product">
+          {availableRankProducts.map(p => (
+            <option key={p} value={p}>{p === '전체' ? '전체 상품' : p}</option>
+          ))}
+        </select>
       </div>
       {/* Grade legend */}
       <div className="flex items-center gap-1.5">
