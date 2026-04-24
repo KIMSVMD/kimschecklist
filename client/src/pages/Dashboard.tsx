@@ -2020,13 +2020,9 @@ function RankingTab() {
   const [rankProduct, setRankProduct] = useState('전체');
   const { data: validGuideProducts = [] } = useValidGuideProducts(rankYear, rankMonth);
   const availableRankProducts = useMemo(() => {
-    const cats = rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES;
-    const filtered = validGuideProducts.filter((p: any) =>
-      (rankCategory === '전체' || p.category === rankCategory) &&
-      cats.includes(p.category)
-    );
+    const filtered = validGuideProducts.filter((p: any) => p.category === rankCategory);
     return ['전체', ...Array.from(new Set(filtered.map((p: any) => p.productName as string)))];
-  }, [validGuideProducts, rankCategory, rankType]);
+  }, [validGuideProducts, rankCategory]);
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const ALL_BRANCHES = BRANCHES.slice(1);
@@ -2044,7 +2040,7 @@ function RankingTab() {
   ];
   SORTED_BRANCHES.forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
 
-  const { data: agriAll, isLoading } = useChecklists(rankCategory !== '전체' ? { category: rankCategory } : {});
+  const { data: agriAll, isLoading } = useChecklists({ category: rankCategory });
 
   const agriPeriod = (agriAll ?? []).filter(item => {
     const itemYear = (item as any).year;
@@ -2117,7 +2113,6 @@ function RankingTab() {
         <select value={rankCategory} onChange={e => { setRankCategory(e.target.value); setRankProduct('전체'); }}
           className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium text-sm outline-none text-secondary min-w-[120px]"
           data-testid="select-rank-category">
-          <option value="전체">전체 카테고리</option>
           {(rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(c => (
             <option key={c} value={c}>{c}</option>
           ))}
