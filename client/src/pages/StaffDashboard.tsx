@@ -336,7 +336,7 @@ export default function StaffDashboard() {
       <div className="flex flex-col h-full bg-white">
 
         {/* Filter header */}
-        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 pt-3 space-y-0">
+        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 md:px-[50px] pt-3 space-y-0">
           {/* Branch selector + notification bell */}
           <div className="flex items-center gap-2 pb-3">
             <select
@@ -374,7 +374,7 @@ export default function StaffDashboard() {
           </div>
 
           {/* Tab switcher — underline style */}
-          <div className="flex -mx-4 px-4 border-b border-border">
+          <div className="flex -mx-4 px-4 md:-mx-[50px] md:px-[50px] border-b border-border">
             <button
               onClick={() => { setActiveTab('vm'); setFilterCategory('전체'); }}
               className={`relative flex-1 flex items-center justify-center gap-1.5 pb-3 pt-1 text-sm transition-all border-b-2 -mb-px ${
@@ -433,7 +433,7 @@ export default function StaffDashboard() {
                 </div>
               </div>
               {/* category chips — black filled active, white bordered inactive */}
-              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
+              <div className="-mx-4 px-4 md:-mx-[50px] md:px-[50px] flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
                 {(activeTab === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => {
                   const badge = catBadge(cat);
                   return (
@@ -499,7 +499,7 @@ export default function StaffDashboard() {
               </div>
 
               {/* Zone filter chips */}
-              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
+              <div className="-mx-4 px-4 md:-mx-[50px] md:px-[50px] flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
                 <button
                   onClick={() => setFilterZone('전체')}
                   className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95 ${
@@ -680,7 +680,7 @@ export default function StaffDashboard() {
         {/* No branch selected */}
         {!filterBranch ? (
           (activeTab === 'vm' || activeTab === 'quality') ? (
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 md:px-[50px] space-y-3">
               {(() => {
                 const rawRanking = activeTab === 'quality' ? qualityRanking : vmRanking;
                 const title = activeTab === 'quality' ? '품질 월별 피드백' : '진열(+광고) 월별 피드백';
@@ -779,7 +779,7 @@ export default function StaffDashboard() {
             </div>
           )
         ) : (
-          <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-7xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto p-4 md:px-[50px] space-y-4 w-full">
 
             {/* ── VM / QUALITY TAB ── */}
             {(activeTab === 'vm' || activeTab === 'quality') && (
