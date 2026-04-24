@@ -2360,7 +2360,7 @@ export default function Dashboard() {
           >
             <Bell className={`w-4 h-4 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
+              <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[9px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
