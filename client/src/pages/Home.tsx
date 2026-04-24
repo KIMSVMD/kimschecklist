@@ -3,9 +3,11 @@ import { Link } from "wouter";
 import logoKimsClub from "@assets/대지_1_1776987037351.png";
 import {
   ClipboardCheck, ClipboardList,
-  BookOpen, X, ChevronDown, ChevronUp,
+  BookOpen, X, ChevronDown, ChevronUp, Layers, Image as ImageIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useGuides } from "@/hooks/use-guides";
+import type { Guide } from "@shared/schema";
 
 const MANUAL_SECTIONS = [
   {
@@ -116,8 +118,119 @@ function ManualSection({ section }: { section: typeof MANUAL_SECTIONS[0] }) {
   );
 }
 
+const GUIDE_TABS = [
+  { key: 'vm', label: '진열 가이드' },
+  { key: 'ad', label: '광고 가이드' },
+  { key: 'quality', label: '품질 가이드' },
+] as const;
+
+type GuideTabKey = typeof GUIDE_TABS[number]['key'];
+
+const CAT_ORDER = ['농산', '수산', '축산', '공산'];
+
+function GuideCard({ guide }: { guide: Guide }) {
+  const [imgIdx, setImgIdx] = useState(0);
+  const images = guide.imageUrls?.length ? guide.imageUrls : guide.imageUrl ? [guide.imageUrl] : [];
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
+      {/* Image */}
+      {images.length > 0 && (
+        <div className="relative bg-gray-50" style={{ height: '220px' }}>
+          <img
+            src={images[imgIdx]}
+            alt={guide.product}
+            className="w-full h-full object-contain cursor-zoom-in"
+            onClick={() => (window as any).__openLightbox?.(images[imgIdx])}
+          />
+          {images.length > 1 && (
+            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setImgIdx(i)}
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${i === imgIdx ? 'bg-black' : 'bg-black/30'}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {images.length === 0 && (
+        <div className="flex items-center justify-center bg-gray-50" style={{ height: '80px' }}>
+          <ImageIcon className="w-8 h-8 text-gray-300" />
+        </div>
+      )}
+
+      <div className="px-4 py-3 space-y-2">
+        {/* Header row */}
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ background: '#006341', color: '#fff', fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.01em' }}
+          >
+            {guide.category}
+          </span>
+          <p
+            className="font-bold text-gray-900 text-sm leading-tight"
+            style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.03em', fontWeight: 700 }}
+          >
+            {guide.product}
+          </p>
+          {guide.storeType && (
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 ml-auto shrink-0"
+              style={{ fontFamily: "'Pretendard', sans-serif" }}
+            >
+              {guide.storeType}
+            </span>
+          )}
+        </div>
+
+        {/* Points */}
+        {guide.points?.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest" style={{ fontFamily: "'Pretendard', sans-serif" }}>체크포인트</p>
+            {guide.points.map((pt, i) => (
+              <div key={i} className="flex items-start gap-1.5">
+                <span className="w-4 h-4 rounded-full bg-green-800/10 text-green-800 text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                <p className="text-xs text-gray-700 leading-snug" style={{ fontFamily: "'Pretendard', sans-serif" }}>{pt}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Items */}
+        {guide.items?.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest" style={{ fontFamily: "'Pretendard', sans-serif" }}>점검 항목</p>
+            {guide.items.map((it, i) => (
+              <div key={i} className="flex items-start gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0 mt-1.5" />
+                <p className="text-xs text-gray-700 leading-snug" style={{ fontFamily: "'Pretendard', sans-serif" }}>{it}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Date range */}
+        {(guide.validFromYear || guide.validToYear) && (
+          <p className="text-[10px] text-gray-400" style={{ fontFamily: "'Pretendard', sans-serif" }}>
+            {guide.validFromYear && `${guide.validFromYear}년 ${guide.validFromMonth}월`}
+            {guide.validFromYear && guide.validToYear && ' ~ '}
+            {guide.validToYear && `${guide.validToYear}년 ${guide.validToMonth}월`}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [manualOpen, setManualOpen] = useState(false);
+  const [guideSheetOpen, setGuideSheetOpen] = useState(false);
+  const [guideTab, setGuideTab] = useState<GuideTabKey>('vm');
+  const { data: allGuides = [], isLoading: guidesLoading } = useGuides();
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -278,6 +391,30 @@ export default function Home() {
             </Link>
           </div>
 
+          {/* Guide button */}
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setGuideSheetOpen(true)}
+            style={{
+              width: '455px',
+              height: '70px',
+              background: '#006341',
+              borderRadius: '15px',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+              fontWeight: 600,
+              fontSize: '26px',
+              lineHeight: '31px',
+              letterSpacing: '-0.04em',
+              color: '#FFFFFF',
+              marginBottom: '12px',
+            }}
+            data-testid="btn-open-guide"
+          >
+            매장 가이드 보기
+          </motion.button>
+
           {/* Manual button — 455×70px, border-radius 15px, bg #EAEAEA */}
           <motion.button
             whileTap={{ scale: 0.98 }}
@@ -317,6 +454,142 @@ export default function Home() {
       >
         © 2026, 킴스클럽 VMD. All rights reserved.
       </footer>
+
+      {/* Guide bottom sheet */}
+      <AnimatePresence>
+        {guideSheetOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-end"
+            onClick={() => setGuideSheetOpen(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="w-full bg-white rounded-t-3xl flex flex-col"
+              style={{ maxHeight: '92vh' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-green-800" />
+                  <span
+                    className="text-lg font-black text-gray-900"
+                    style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.04em' }}
+                  >
+                    매장 가이드
+                  </span>
+                </div>
+                <button
+                  onClick={() => setGuideSheetOpen(false)}
+                  className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center active:scale-95"
+                  data-testid="btn-close-guide"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b border-gray-100 shrink-0 px-6">
+                {GUIDE_TABS.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setGuideTab(tab.key)}
+                    className={`flex-1 py-3 text-sm transition-all border-b-2 -mb-px ${
+                      guideTab === tab.key
+                        ? 'border-black text-black'
+                        : 'border-transparent text-gray-400'
+                    }`}
+                    style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: guideTab === tab.key ? 700 : 500, letterSpacing: '-0.02em' }}
+                    data-testid={`tab-guide-${tab.key}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Content */}
+              <div className="overflow-y-auto flex-1 px-4 py-4 pb-10">
+                {guidesLoading ? (
+                  <div className="flex items-center justify-center py-20 text-gray-400">
+                    <p style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '14px' }}>불러오는 중...</p>
+                  </div>
+                ) : (() => {
+                  const filtered = allGuides
+                    .filter(g => g.guideType === guideTab)
+                    .sort((a, b) => {
+                      const ai = CAT_ORDER.indexOf(a.category);
+                      const bi = CAT_ORDER.indexOf(b.category);
+                      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                    });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-2">
+                        <ImageIcon className="w-10 h-10 text-gray-200" />
+                        <p style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '14px' }}>등록된 가이드가 없습니다</p>
+                      </div>
+                    );
+                  }
+
+                  const grouped: Record<string, Guide[]> = {};
+                  filtered.forEach(g => {
+                    if (!grouped[g.category]) grouped[g.category] = [];
+                    grouped[g.category].push(g);
+                  });
+
+                  return (
+                    <div className="space-y-6">
+                      {CAT_ORDER.filter(cat => grouped[cat]).map(cat => (
+                        <div key={cat}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <span
+                              className="text-xs font-bold px-3 py-1 rounded-full"
+                              style={{ background: '#000', color: '#fff', fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.01em' }}
+                            >
+                              {cat}
+                            </span>
+                            <span className="text-xs text-gray-400" style={{ fontFamily: "'Pretendard', sans-serif" }}>
+                              {grouped[cat].length}개
+                            </span>
+                          </div>
+                          <div className="space-y-3">
+                            {grouped[cat].map(g => (
+                              <GuideCard key={g.id} guide={g} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {Object.keys(grouped).filter(cat => !CAT_ORDER.includes(cat)).map(cat => (
+                        <div key={cat}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <span
+                              className="text-xs font-bold px-3 py-1 rounded-full"
+                              style={{ background: '#000', color: '#fff', fontFamily: "'Pretendard', sans-serif" }}
+                            >
+                              {cat}
+                            </span>
+                          </div>
+                          <div className="space-y-3">
+                            {grouped[cat].map(g => (
+                              <GuideCard key={g.id} guide={g} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Manual bottom sheet */}
       <AnimatePresence>
