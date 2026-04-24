@@ -58,7 +58,7 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
       <div className="px-2.5 pt-2 pb-2.5 space-y-1">
         <span
           className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full"
-          style={{ background: '#006341', color: '#fff' }}
+          style={{ background: '#000', color: '#fff' }}
         >
           {badgeText}
         </span>
@@ -114,7 +114,7 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
         <div className="flex items-center justify-between px-5 pt-5 pb-0 shrink-0">
           <span
             className="inline-flex items-center gap-1 text-[12px] font-bold px-3 py-1 rounded-full"
-            style={{ background: '#006341', color: '#fff', fontFamily: "'Pretendard', sans-serif" }}
+            style={{ background: '#000', color: '#fff', fontFamily: "'Pretendard', sans-serif" }}
           >
             {guide.category}
             {guide.storeType && (
