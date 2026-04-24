@@ -204,7 +204,7 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
 
             {guide.points?.length > 0 && (
               <div className="rounded-xl px-4 py-3.5" style={{ background: '#F5F5F5' }}>
-                <p className="text-[11px] font-bold text-gray-400 mb-2.5" style={{ fontFamily: "'Pretendard', sans-serif" }}>체크포인트</p>
+                <p className="text-[11px] font-bold text-gray-400 mb-2.5" style={{ fontFamily: "'Pretendard', sans-serif" }}>점검가이드</p>
                 <div className="space-y-2.5">
                   {guide.points.map((pt, i) => (
                     <div key={i} className="flex items-start gap-2.5">
