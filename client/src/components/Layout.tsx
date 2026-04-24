@@ -95,18 +95,18 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
           className="hidden md:flex w-full items-center justify-between"
           style={{ height: '85px', padding: '0 50px' }}
         >
-          <div className="flex items-center gap-5">
+          <div className="flex flex-col justify-center gap-1">
+            <img src={logoKimsClub} alt="KIM'S CLUB" style={{ width: '198px', height: '31px', objectFit: 'contain' }} />
             {canGoBack && (
               <button
                 onClick={handleBack}
-                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors active:scale-95 shrink-0"
-                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 500, fontSize: '15px', letterSpacing: '-0.02em' }}
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors active:scale-95 self-start"
+                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 500, fontSize: '13px', letterSpacing: '-0.02em' }}
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
                 뒤로
               </button>
             )}
-            <img src={logoKimsClub} alt="KIM'S CLUB" style={{ width: '198px', height: '31px', objectFit: 'contain' }} />
           </div>
           <Link href="/admin/login">
             <button
