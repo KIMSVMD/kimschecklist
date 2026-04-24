@@ -2339,43 +2339,29 @@ export default function Dashboard() {
       />
       <div className="flex flex-col h-full bg-background">
         {/* Tab switcher + bell */}
-        <div className="flex gap-1 py-3 px-4 md:px-[50px] bg-muted/50 border-b border-border items-center">
-          <button
-            onClick={() => setActiveTab('ranking')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
-              activeTab === 'ranking' ? 'bg-white text-violet-600 shadow-sm' : 'text-muted-foreground'
-            }`}
-            data-testid="tab-ranking"
-          >
-            <Trophy className="w-4 h-4" /> 점별 순위
-          </button>
-          <button
-            onClick={() => setActiveTab('vm')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
-              activeTab === 'vm' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
-            }`}
-            data-testid="tab-vm"
-          >
-            <BarChart3 className="w-4 h-4" /> 점검
-          </button>
-          <button
-            onClick={() => setActiveTab('cleaning')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
-              activeTab === 'cleaning' ? 'bg-white text-emerald-600 shadow-sm' : 'text-muted-foreground'
-            }`}
-            data-testid="tab-cleaning"
-          >
-            <Droplets className="w-4 h-4" /> 청소
-          </button>
-          <button
-            onClick={() => setActiveTab('activity')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${
-              activeTab === 'activity' ? 'bg-white text-amber-600 shadow-sm' : 'text-muted-foreground'
-            }`}
-            data-testid="tab-activity"
-          >
-            <ClipboardList className="w-4 h-4" /> 활동
-          </button>
+        <div className="flex px-4 md:px-[50px] border-b border-border items-center">
+          {(['ranking', 'vm', 'cleaning', 'activity'] as const).map((tab) => {
+            const cfg: Record<string, { label: string; icon: JSX.Element }> = {
+              ranking: { label: '점별 순위', icon: <Trophy className="w-4 h-4" /> },
+              vm:      { label: '점검',     icon: <BarChart3 className="w-4 h-4" /> },
+              cleaning:{ label: '청소',     icon: <Droplets className="w-4 h-4" /> },
+              activity:{ label: '활동',     icon: <ClipboardList className="w-4 h-4" /> },
+            };
+            const { label, icon } = cfg[tab];
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 flex items-center justify-center gap-1.5 pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                  activeTab === tab ? 'border-black text-black' : 'border-transparent text-muted-foreground'
+                }`}
+                style={{ fontWeight: activeTab === tab ? 700 : 500 }}
+                data-testid={`tab-${tab}`}
+              >
+                {icon} {label}
+              </button>
+            );
+          })}
           {/* Notification bell — only clickable when unread exist */}
           <button
             onClick={handleBellClick}
