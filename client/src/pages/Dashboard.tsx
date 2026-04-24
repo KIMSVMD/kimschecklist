@@ -836,7 +836,7 @@ function AdminQualityScoreInput({
   );
 }
 
-function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlightBranch?: string }) {
+function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: { highlightId?: number; highlightBranch?: string; unreadCount?: number; onBellClick?: () => void }) {
   const now = new Date();
   const [filterBranch, setFilterBranch] = useState('전체');
   const [filterCategory, setFilterCategory] = useState('전체');
@@ -1047,22 +1047,39 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
         <div className="flex gap-2 items-center">
           <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
           <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}
-            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary shrink-0"
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0"
             data-testid="select-filter-year">
             {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
           </select>
           <select value={filterMonth} onChange={e => setFilterMonth(Number(e.target.value))}
-            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary shrink-0"
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0"
             data-testid="select-filter-month">
             {monthOptions.map(m => <option key={m} value={m}>{m}월</option>)}
           </select>
           <select value={viewFilter} onChange={e => setViewFilter(e.target.value as 'all' | 'vm' | 'quality')}
-            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary shrink-0"
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0"
             data-testid="select-view-filter">
             <option value="all">전체</option>
             <option value="vm">진열(+광고)</option>
             <option value="quality">품질</option>
           </select>
+          <div className="flex-1" />
+          {/* Notification bell */}
+          <button
+            onClick={onBellClick}
+            disabled={unreadCount === 0}
+            className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+              unreadCount > 0 ? 'bg-white border border-border shadow-sm active:scale-95' : 'bg-muted cursor-default'
+            }`}
+            data-testid="btn-notification-bell"
+          >
+            <Bell className={`w-4 h-4 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[9px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
         </div>
         {/* Branch / Category filter */}
         <div className="flex items-center gap-2">
@@ -2335,31 +2352,17 @@ export default function Dashboard() {
               activity:{ label: '활동',     icon: <ClipboardList className="w-4 h-4" /> },
             };
             const { label, icon } = cfg[tab];
-            const isVm = tab === 'vm';
             return (
               <button
                 key={tab}
-                onClick={() => {
-                  if (isVm && activeTab === 'vm' && unreadCount > 0) {
-                    handleBellClick();
-                  } else {
-                    setActiveTab(tab);
-                  }
-                }}
+                onClick={() => setActiveTab(tab)}
                 className={`flex-1 flex items-center justify-center pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                   activeTab === tab ? 'border-black text-black' : 'border-transparent text-muted-foreground'
                 }`}
                 style={{ fontWeight: activeTab === tab ? 700 : 500 }}
                 data-testid={`tab-${tab}`}
               >
-                <span className="relative flex items-center gap-1.5">
-                  {icon} {label}
-                  {isVm && unreadCount > 0 && (
-                    <span className="absolute -top-2 -right-3 min-w-[14px] h-3.5 px-0.5 rounded-full bg-primary text-white text-[8px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                </span>
+                {icon} {label}
               </button>
             );
           })}
@@ -2369,7 +2372,7 @@ export default function Dashboard() {
           {activeTab === 'ranking' ? (
             <RankingTab />
           ) : activeTab === 'vm' ? (
-            <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} highlightBranch={highlightTarget?.type === 'vm' ? highlightTarget.branch : undefined} />
+            <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} highlightBranch={highlightTarget?.type === 'vm' ? highlightTarget.branch : undefined} unreadCount={unreadCount} onBellClick={handleBellClick} />
           ) : activeTab === 'cleaning' ? (
             <CleaningTab highlightId={highlightTarget?.type === 'cleaning' ? highlightTarget.id : undefined} highlightDate={highlightTarget?.type === 'cleaning' ? highlightTarget.date : undefined} highlightBranch={highlightTarget?.type === 'cleaning' ? highlightTarget.branch : undefined} />
           ) : (
