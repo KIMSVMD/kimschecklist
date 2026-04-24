@@ -7,6 +7,13 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const CAT_TABS = ['농산', '수산', '축산', '공산'];
 
+const GUIDE_TYPE_TABS = [
+  { key: 'vm',      label: '진열' },
+  { key: 'ad',      label: '광고' },
+  { key: 'quality', label: '품질' },
+] as const;
+type GuideTypeKey = typeof GUIDE_TYPE_TABS[number]['key'];
+
 function fmtDate(d: string | Date | null | undefined) {
   if (!d) return '';
   const dt = typeof d === 'string' ? new Date(d) : d;
@@ -232,6 +239,7 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
    Main page
 ══════════════════════════════════ */
 export default function GuidesPage() {
+  const [guideType, setGuideType] = useState<GuideTypeKey>('vm');
   const [activeCat, setActiveCat] = useState('전체');
   const [search, setSearch]       = useState('');
   const [selected, setSelected]   = useState<Guide | null>(null);
@@ -241,6 +249,7 @@ export default function GuidesPage() {
   const q = search.trim().toLowerCase();
 
   const visible = allGuides
+    .filter(g => g.guideType === guideType)
     .filter(g => activeCat === '전체' || g.category === activeCat)
     .filter(g =>
       !q ||
@@ -267,6 +276,27 @@ export default function GuidesPage() {
 
         {/* ── Filter header ── */}
         <div className="sticky top-0 z-40 bg-white" style={{ borderBottom: '1px solid #f0f0f0' }}>
+
+          {/* Guide type tabs */}
+          <div className="flex border-b border-gray-100 px-4">
+            {GUIDE_TYPE_TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setGuideType(tab.key); setActiveCat('전체'); setSearch(''); }}
+                className={`shrink-0 py-3.5 px-5 text-[15px] transition-all border-b-2 -mb-px whitespace-nowrap ${
+                  guideType === tab.key ? 'border-black text-black' : 'border-transparent text-gray-400'
+                }`}
+                style={{
+                  fontFamily: "'Pretendard', sans-serif",
+                  fontWeight: guideType === tab.key ? 700 : 500,
+                  letterSpacing: '-0.02em',
+                }}
+                data-testid={`tab-guide-type-${tab.key}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
           {/* Search */}
           <div className="px-4 pt-3 pb-2">
