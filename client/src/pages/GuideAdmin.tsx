@@ -793,10 +793,10 @@ function ProductManager() {
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full py-5 rounded-2xl border-2 border-dashed border-primary/40 text-primary font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-primary/5"
+          className="w-full py-4 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5"
           data-testid="button-add-product"
         >
-          <Plus className="w-6 h-6" /> 상품 추가
+          <Plus className="w-5 h-5" /> 상품 추가
         </button>
       )}
 
