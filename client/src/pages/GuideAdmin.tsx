@@ -1273,7 +1273,7 @@ export default function GuideAdmin() {
           <button
             onClick={() => setActiveTab('guides')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
-              activeTab === 'guides' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+              activeTab === 'guides' ? 'bg-white text-primary shadow-sm' : 'bg-transparent text-muted-foreground hover:bg-white/60'
             }`}
             data-testid="tab-guides"
           >
@@ -1282,7 +1282,7 @@ export default function GuideAdmin() {
           <button
             onClick={() => setActiveTab('products')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
-              activeTab === 'products' ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground'
+              activeTab === 'products' ? 'bg-white text-primary shadow-sm' : 'bg-transparent text-muted-foreground hover:bg-white/60'
             }`}
             data-testid="tab-products"
           >
