@@ -2098,8 +2098,7 @@ function RankingTab() {
           if (v === 'quality' && rankCategory === '공산') setRankCategory('농산');
         }}
           className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
-          <option value="vm">진열</option>
-          <option value="ad">광고(+셀링)</option>
+          <option value="vm">진열(+광고)</option>
           <option value="quality">품질</option>
         </select>
         <div className="flex gap-1 ml-auto">
