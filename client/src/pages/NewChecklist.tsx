@@ -171,7 +171,7 @@ export default function NewChecklist() {
       <div className="flex flex-col h-full bg-white">
 
         {/* ── Sticky filter header ── */}
-        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 pt-3 space-y-0">
+        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 md:px-[50px] pt-3 space-y-0">
 
           {/* Row 1: Branch selector */}
           <div className="pb-3">
@@ -196,7 +196,7 @@ export default function NewChecklist() {
           </div>
 
           {/* Tab switcher — underline style */}
-          <div className="flex border-b border-border -mx-4 px-4">
+          <div className="flex border-b border-border -mx-4 px-4 md:-mx-[50px] md:px-[50px]">
             <button
               onClick={() => handleTabChange('vm')}
               className={`relative flex-1 flex items-center justify-center px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
@@ -242,7 +242,7 @@ export default function NewChecklist() {
 
         {/* ── Sub-filter (year/month) ── */}
         {(activeTab === 'vm' || activeTab === 'quality') && (
-          <div className="bg-white px-4 pt-3 pb-3 border-b border-border/30 flex items-center gap-2">
+          <div className="bg-white px-4 md:px-[50px] pt-3 pb-3 border-b border-border/30 flex items-center gap-2">
             <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 w-32 shrink-0 justify-between">
               <button onClick={prevYear} className="active:scale-95 transition-all" data-testid="btn-new-prev-year">
                 <ChevronLeft className="w-4 h-4 text-muted-foreground" />
@@ -390,7 +390,7 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
   const productBadge = (product: string) => pendingGuideNotifs.filter(n => n.product === product).length > 0;
 
   return (
-    <div className="p-4 md:p-8 space-y-4 max-w-3xl mx-auto w-full">
+    <div className="p-4 md:px-[50px] space-y-4 w-full">
       {/* Stage back-nav */}
       {vmStage !== 'category' && (
         <button
