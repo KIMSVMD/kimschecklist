@@ -21,48 +21,48 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
   return (
     <motion.div
       whileTap={{ scale: 0.97 }}
-      className="rounded-xl overflow-hidden bg-white cursor-pointer"
-      style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.08)', border: '1px solid #efefef' }}
+      className="rounded-xl overflow-hidden cursor-pointer relative"
+      style={{ aspectRatio: '3/4', boxShadow: '0 2px 10px rgba(0,0,0,0.08)', border: '1px solid #efefef', background: 'rgba(0,99,65,0.07)' }}
       onClick={onClick}
       data-testid={`card-guide-${guide.id}`}
     >
-      {/* Image */}
-      <div
-        className="relative w-full"
-        style={{ aspectRatio: '16/9', background: 'rgba(0,99,65,0.07)' }}
-      >
-        {images.length > 0 ? (
-          <img src={images[0]} alt={guide.product} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="w-8 h-8" style={{ color: 'rgba(0,99,65,0.2)' }} />
-          </div>
-        )}
-        {images.length > 1 && (
-          <span
-            className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold"
-            style={{ background: 'rgba(0,0,0,0.48)', color: '#fff' }}
-          >
-            +{images.length - 1}
-          </span>
-        )}
-      </div>
+      {/* Full-cover image */}
+      {images.length > 0 ? (
+        <img src={images[0]} alt={guide.product} className="absolute inset-0 w-full h-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <ImageIcon className="w-8 h-8" style={{ color: 'rgba(0,99,65,0.2)' }} />
+        </div>
+      )}
 
-      {/* Info */}
-      <div className="px-2.5 pt-2 pb-2.5 space-y-1">
+      {/* Extra image count */}
+      {images.length > 1 && (
         <span
-          className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full"
+          className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold z-10"
+          style={{ background: 'rgba(0,0,0,0.48)', color: '#fff' }}
+        >
+          +{images.length - 1}
+        </span>
+      )}
+
+      {/* Bottom overlay info */}
+      <div
+        className="absolute bottom-0 left-0 right-0 px-2.5 pt-5 pb-2.5 space-y-0.5"
+        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.62) 0%, transparent 100%)' }}
+      >
+        <span
+          className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1"
           style={{ background: '#006341', color: '#fff' }}
         >
           {badgeText}
         </span>
         <p
-          className="font-bold text-gray-900 leading-snug line-clamp-2"
+          className="font-bold leading-snug line-clamp-2 text-white"
           style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '12px', letterSpacing: '-0.02em' }}
         >
           {guide.product}
         </p>
-        <p style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '10px', color: '#bbb' }}>
+        <p style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>
           {fmtDate(guide.updatedAt)}
         </p>
       </div>
