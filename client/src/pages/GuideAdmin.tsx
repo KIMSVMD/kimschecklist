@@ -1290,29 +1290,31 @@ export default function GuideAdmin() {
           </button>
         </div>
 
+        {/* Guide type filter — outside scroll so border spans full width */}
+        {activeTab === 'guides' && (
+          <div className="flex border-b border-border px-4 md:px-[50px] shrink-0">
+            {([['vm', '진열'], ['ad', '광고(+셀링)'], ['quality', '품질']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => { setGuideTypeFilter(val); setShowAddForm(false); setEditingId(null); }}
+                className={`px-4 py-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 -mb-px ${
+                  guideTypeFilter === val
+                    ? 'text-secondary border-secondary'
+                    : 'text-muted-foreground border-transparent hover:text-secondary/70'
+                }`}
+                data-testid={`tab-guide-type-${val}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto px-4 md:px-[50px] pt-4 pb-6 space-y-4 w-full">
           {activeTab === 'products' ? (
             <ProductManager />
           ) : (
             <>
-              {/* Guide type filter */}
-              <div className="-mx-4 md:-mx-[50px] px-4 md:px-[50px] flex border-b border-border">
-                {([['vm', '진열'], ['ad', '광고(+셀링)'], ['quality', '품질']] as const).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => { setGuideTypeFilter(val); setShowAddForm(false); setEditingId(null); }}
-                    className={`px-4 py-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 -mb-px ${
-                      guideTypeFilter === val
-                        ? 'text-secondary border-secondary'
-                        : 'text-muted-foreground border-transparent hover:text-secondary/70'
-                    }`}
-                    data-testid={`tab-guide-type-${val}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
               {/* Category filter */}
               <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
                 {['전체', ...CATEGORIES].map(cat => (
