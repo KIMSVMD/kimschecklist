@@ -100,7 +100,7 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
         className="w-full bg-white rounded-3xl flex flex-col"
-        style={{ maxHeight: '90vh', maxWidth: '480px' }}
+        style={{ maxHeight: '90vh', maxWidth: '640px' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Top bar */}
@@ -161,7 +161,7 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
                   src={images[imgIdx]}
                   alt={guide.product}
                   className="w-full object-contain cursor-zoom-in"
-                  style={{ maxHeight: '360px' }}
+                  style={{ maxHeight: '440px' }}
                   onClick={() => (window as any).__openLightbox?.(images[imgIdx])}
                 />
                 {images.length > 1 && (
