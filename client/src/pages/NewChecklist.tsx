@@ -196,7 +196,8 @@ export default function NewChecklist() {
           </div>
 
           {/* Tab switcher — underline style */}
-          <div className="flex border-b border-border -mx-4 px-4 md:-mx-[50px] md:px-[50px]">
+          <div className="border-b border-border -mx-4 px-4 md:-mx-[50px] md:px-[50px]">
+            <div className="flex md:w-1/2">
             <button
               onClick={() => handleTabChange('vm')}
               className={`relative flex-1 flex items-center justify-center px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
@@ -237,6 +238,7 @@ export default function NewChecklist() {
             >
               <Droplets className="w-3.5 h-3.5" /> 청소
             </button>
+            </div>
           </div>
         </div>
 

@@ -374,7 +374,8 @@ export default function StaffDashboard() {
           </div>
 
           {/* Tab switcher — underline style */}
-          <div className="flex -mx-4 px-4 md:-mx-[50px] md:px-[50px] border-b border-border">
+          <div className="-mx-4 px-4 md:-mx-[50px] md:px-[50px] border-b border-border">
+            <div className="flex md:w-1/2">
             <button
               onClick={() => { setActiveTab('vm'); setFilterCategory('전체'); }}
               className={`relative flex-1 flex items-center justify-center gap-1.5 pb-3 pt-1 text-sm transition-all border-b-2 -mb-px ${
@@ -407,6 +408,7 @@ export default function StaffDashboard() {
             >
               <Droplets className="w-3.5 h-3.5" /> 청소
             </button>
+            </div>
           </div>
 
           {/* Year/Month filter — VM / Quality tabs */}
