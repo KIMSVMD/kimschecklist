@@ -2329,7 +2329,7 @@ export default function Dashboard() {
         }}
       />
       <div className="flex flex-col h-full bg-background">
-        {/* Tab switcher + bell */}
+        {/* Tab switcher */}
         <div className="flex px-4 md:px-[50px] border-b border-border items-center">
           {(['ranking', 'vm', 'cleaning', 'activity'] as const).map((tab) => {
             const cfg: Record<string, { label: string; icon: JSX.Element }> = {
@@ -2339,37 +2339,34 @@ export default function Dashboard() {
               activity:{ label: '활동',     icon: <ClipboardList className="w-4 h-4" /> },
             };
             const { label, icon } = cfg[tab];
+            const isVm = tab === 'vm';
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 flex items-center justify-center gap-1.5 pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                onClick={() => {
+                  if (isVm && activeTab === 'vm' && unreadCount > 0) {
+                    handleBellClick();
+                  } else {
+                    setActiveTab(tab);
+                  }
+                }}
+                className={`flex-1 flex items-center justify-center pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                   activeTab === tab ? 'border-black text-black' : 'border-transparent text-muted-foreground'
                 }`}
                 style={{ fontWeight: activeTab === tab ? 700 : 500 }}
                 data-testid={`tab-${tab}`}
               >
-                {icon} {label}
+                <span className="relative flex items-center gap-1.5">
+                  {icon} {label}
+                  {isVm && unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-3 min-w-[14px] h-3.5 px-0.5 rounded-full bg-primary text-white text-[8px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </span>
               </button>
             );
           })}
-          {/* Notification bell — only clickable when unread exist */}
-          <button
-            onClick={handleBellClick}
-            className={`relative w-10 h-10 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
-              unreadCount > 0
-                ? 'bg-white border-border shadow-sm active:scale-95'
-                : 'bg-muted border-transparent cursor-default'
-            }`}
-            data-testid="btn-notification-bell"
-          >
-            <Bell className={`w-4 h-4 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
-            {unreadCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[9px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
