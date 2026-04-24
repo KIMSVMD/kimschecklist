@@ -1251,7 +1251,7 @@ export default function GuideAdmin() {
     <Layout title="관리자 메뉴" showBack={false}>
       <div className="flex flex-col h-full bg-background">
         {/* Top bar */}
-        <div className="px-4 pt-3 pb-3 flex items-center justify-between border-b border-border gap-3">
+        <div className="px-4 md:px-[50px] pt-3 pb-3 flex items-center justify-between border-b border-border gap-3">
           <a
             href="/dashboard"
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary font-bold text-sm active:scale-[0.97] transition-all border border-primary/20"
