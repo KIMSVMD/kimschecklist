@@ -166,7 +166,27 @@ export default function NewChecklist() {
     if (tab !== 'cleaning') resetVm();
   };
 
-  const handleBack = useCallback(() => {
+  // ── Stage state (needed for back logic) ──────────────────────────────────
+  const VMStages: VMStage[] = ['category', 'group', 'product', 'items'];
+  const suppressPopCount = useRef(0);
+  const prevVmStageRef = useRef<VMStage>(vmStage);
+
+  // Push a history entry when moving FORWARD between stages
+  useEffect(() => {
+    const prev = VMStages.indexOf(prevVmStageRef.current);
+    const curr = VMStages.indexOf(vmStage);
+    if (curr > prev) {
+      window.history.pushState({ _appNav: true, stage: vmStage }, '');
+    } else if (curr < prev) {
+      // In-app back: pop the matching history entry & suppress the resulting popstate
+      suppressPopCount.current += 1;
+      window.history.go(-1);
+    }
+    prevVmStageRef.current = vmStage;
+  }, [vmStage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Actual stage transition (used by both browser & in-app back)
+  const goBackOneStage = useCallback(() => {
     if (activeTab === 'cleaning' || vmStage === 'category') {
       setLocation('/');
     } else if (vmStage === 'group') {
@@ -184,20 +204,28 @@ export default function NewChecklist() {
     }
   }, [activeTab, vmStage, setLocation]);
 
-  const handleBackRef = useRef(handleBack);
-  useEffect(() => { handleBackRef.current = handleBack; }, [handleBack]);
+  const goBackRef = useRef(goBackOneStage);
+  useEffect(() => { goBackRef.current = goBackOneStage; }, [goBackOneStage]);
+
+  // Register __appBack (in-app header / bottom-nav back)
+  const handleBack = useCallback(() => {
+    goBackRef.current();
+  }, []);
 
   useEffect(() => {
     (window as any).__appBack = handleBack;
     return () => { delete (window as any).__appBack; };
   }, [handleBack]);
 
-  // Browser back button: push a guard state on mount, intercept popstate
+  // Browser back button: push guard on mount, intercept popstate
   useEffect(() => {
-    window.history.pushState({ _appNav: true }, '');
+    window.history.pushState({ _appNav: true, stage: 'category' }, '');
     const onPopState = () => {
-      window.history.pushState({ _appNav: true }, '');
-      handleBackRef.current();
+      if (suppressPopCount.current > 0) {
+        suppressPopCount.current -= 1;
+        return;
+      }
+      goBackRef.current();
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
