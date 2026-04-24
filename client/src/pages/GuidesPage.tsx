@@ -26,8 +26,9 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
       onClick={onClick}
       data-testid={`card-guide-${guide.id}`}
     >
-      {/* Image */}
-      <div className="relative w-full" style={{ aspectRatio: '16/9', background: 'rgba(0,99,65,0.07)' }}>
+      {/* Image with white padding */}
+      <div className="p-2.5 pb-0">
+      <div className="relative w-full rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', background: 'rgba(0,99,65,0.07)' }}>
         {images.length > 0 ? (
           <img src={images[0]} alt={guide.product} className="w-full h-full object-cover" />
         ) : (
@@ -43,6 +44,7 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
             +{images.length - 1}
           </span>
         )}
+      </div>
       </div>
 
       {/* Info below image */}
