@@ -454,77 +454,69 @@ export default function StaffDashboard() {
 
           {/* Date navigator + time filter — cleaning tab */}
           {activeTab === 'cleaning' && (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-muted rounded-2xl p-1 flex-1">
-                <button
-                  onClick={goBack}
-                  className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
-                  data-testid="btn-staff-date-prev"
-                >
-                  <ChevronLeft className="w-5 h-5 text-secondary" />
-                </button>
-                <div className="flex-1 text-center">
-                  <p className="font-black text-secondary text-sm whitespace-nowrap">
+            <div className="space-y-3 pt-3">
+              <div className="flex items-center gap-2">
+                {/* Date navigator */}
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
+                  <button onClick={goBack} className="active:scale-95 transition-all" data-testid="btn-staff-date-prev">
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  <p className="font-bold text-foreground text-sm whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em' }}>
                     {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
                   </p>
-                </div>
-                <button
-                  onClick={goForward}
-                  disabled={isToday}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
-                  data-testid="btn-staff-date-next"
-                >
-                  <ChevronRight className="w-5 h-5 text-secondary" />
-                </button>
-              </div>
-              {/* 오픈 / 마감 toggle */}
-              <div className="flex bg-muted rounded-2xl p-1 gap-0.5 shrink-0">
-                {(['전체', '오픈', '마감'] as const).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setFilterTime(t)}
-                    className={`flex items-center gap-0.5 px-2 py-2 rounded-xl text-xs font-bold transition-all ${
-                      filterTime === t
-                        ? t === '오픈' ? 'bg-amber-400 text-white shadow-sm'
-                          : t === '마감' ? 'bg-secondary text-white shadow-sm'
-                          : 'bg-white text-secondary shadow-sm'
-                        : 'text-muted-foreground hover:text-secondary'
-                    }`}
-                    data-testid={`btn-staff-filter-time-${t}`}
-                  >
-                    {t === '오픈' && <Sun className="w-3 h-3" />}
-                    {t === '마감' && <Moon className="w-3 h-3" />}
-                    {t}
+                  <button onClick={goForward} disabled={isToday} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-date-next">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </button>
-                ))}
+                </div>
+                {/* 오픈 / 마감 chips */}
+                <div className="flex gap-1.5 shrink-0">
+                  {(['전체', '오픈', '마감'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setFilterTime(t)}
+                      className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                        filterTime === t
+                          ? t === '오픈' ? 'bg-amber-400 text-white'
+                            : t === '마감' ? 'bg-secondary text-white'
+                            : 'bg-black text-white'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                      data-testid={`btn-staff-filter-time-${t}`}
+                    >
+                      {t === '오픈' && <Sun className="w-3 h-3" />}
+                      {t === '마감' && <Moon className="w-3 h-3" />}
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Zone filter — cleaning tab */}
-          {activeTab === 'cleaning' && (
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-              <button
-                onClick={() => setFilterZone('전체')}
-                className={`shrink-0 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
-                  filterZone === '전체' ? 'bg-emerald-500 text-white shadow-sm' : 'bg-muted text-muted-foreground'
-                }`}
-                data-testid="btn-staff-zone-전체"
-              >
-                전체
-              </button>
-              {ZONES.map(z => (
+              {/* Zone filter chips */}
+              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
                 <button
-                  key={z}
-                  onClick={() => setFilterZone(z)}
-                  className={`shrink-0 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 ${
-                    filterZone === z ? 'bg-emerald-500 text-white shadow-sm' : 'bg-muted text-muted-foreground'
+                  onClick={() => setFilterZone('전체')}
+                  className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95 ${
+                    filterZone === '전체' ? 'bg-black text-white' : 'bg-white border border-border text-secondary hover:border-black/40'
                   }`}
-                  data-testid={`btn-staff-zone-${z}`}
+                  style={{ fontFamily: "'Pretendard', sans-serif" }}
+                  data-testid="btn-staff-zone-전체"
+                >
+                  전체
+                </button>
+                {ZONES.map(z => (
+                  <button
+                    key={z}
+                    onClick={() => setFilterZone(z)}
+                    className={`shrink-0 px-4 py-1.5 rounded-full text-sm transition-all active:scale-95 ${
+                      filterZone === z ? 'bg-black text-white font-bold' : 'bg-white border border-border text-secondary hover:border-black/40'
+                    }`}
+                    style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: filterZone === z ? 700 : 500 }}
+                    data-testid={`btn-staff-zone-${z}`}
                 >
                   {z}
                 </button>
               ))}
+            </div>
             </div>
           )}
         </div>
