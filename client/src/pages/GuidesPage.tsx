@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useGuides } from "@/hooks/use-guides";
 import type { Guide } from "@shared/schema";
@@ -232,29 +232,20 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
    Main page
 ══════════════════════════════════ */
 export default function GuidesPage() {
-  const [activeCat, setActiveCat] = useState(CAT_TABS[0]);
-  const [subCat, setSubCat]       = useState('전체');
+  const [activeCat, setActiveCat] = useState('전체');
   const [search, setSearch]       = useState('');
   const [selected, setSelected]   = useState<Guide | null>(null);
 
   const { data: allGuides = [], isLoading } = useGuides();
 
-  /* Sub-categories derived from storeType within the active main category */
-  const subCats = useMemo(() => {
-    const types = allGuides
-      .filter(g => g.category === activeCat && g.storeType)
-      .map(g => g.storeType as string);
-    return ['전체', ...Array.from(new Set(types))];
-  }, [allGuides, activeCat]);
-
   const q = search.trim().toLowerCase();
 
   const visible = allGuides
-    .filter(g => g.category === activeCat)
-    .filter(g => subCat === '전체' || g.storeType === subCat)
+    .filter(g => activeCat === '전체' || g.category === activeCat)
     .filter(g =>
       !q ||
       g.product.toLowerCase().includes(q) ||
+      g.category.toLowerCase().includes(q) ||
       (g.storeType ?? '').toLowerCase().includes(q)
     );
 
@@ -274,28 +265,8 @@ export default function GuidesPage() {
     <Layout title="매장 가이드" showBack={true}>
       <div className="flex flex-col h-full bg-white">
 
-        {/* ── Category tabs (primary nav) ── */}
+        {/* ── Filter header ── */}
         <div className="sticky top-0 z-40 bg-white" style={{ borderBottom: '1px solid #f0f0f0' }}>
-
-          <div className="flex overflow-x-auto no-scrollbar border-b border-gray-100 px-4">
-            {CAT_TABS.map(cat => (
-              <button
-                key={cat}
-                onClick={() => { setActiveCat(cat); setSubCat('전체'); setSearch(''); }}
-                className={`shrink-0 py-3.5 px-5 text-[15px] transition-all border-b-2 -mb-px whitespace-nowrap ${
-                  activeCat === cat ? 'border-black text-black' : 'border-transparent text-gray-400'
-                }`}
-                style={{
-                  fontFamily: "'Pretendard', sans-serif",
-                  fontWeight: activeCat === cat ? 700 : 500,
-                  letterSpacing: '-0.02em',
-                }}
-                data-testid={`tab-guide-cat-${cat}`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
 
           {/* Search */}
           <div className="px-4 pt-3 pb-2">
@@ -318,12 +289,12 @@ export default function GuidesPage() {
             </div>
           </div>
 
-          {/* Sub-category chips */}
+          {/* Category chips */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-3 touch-pan-x">
-            {subCats.map(c => (
+            {['전체', ...CAT_TABS].map(c => (
               <button
                 key={c}
-                onClick={() => setSubCat(c)}
+                onClick={() => { setActiveCat(c); setSearch(''); }}
                 className="shrink-0 transition-all"
                 style={{
                   padding: '6px 16px',
@@ -332,11 +303,11 @@ export default function GuidesPage() {
                   fontWeight: 700,
                   fontFamily: "'Pretendard', sans-serif",
                   letterSpacing: '-0.01em',
-                  background: subCat === c ? '#111' : '#fff',
-                  color: subCat === c ? '#fff' : '#555',
-                  border: subCat === c ? '1.5px solid #111' : '1.5px solid #ddd',
+                  background: activeCat === c ? '#111' : '#fff',
+                  color: activeCat === c ? '#fff' : '#555',
+                  border: activeCat === c ? '1.5px solid #111' : '1.5px solid #ddd',
                 }}
-                data-testid={`chip-guide-sub-${c}`}
+                data-testid={`chip-guide-cat-${c}`}
               >
                 {c === '전체' ? '전체보기' : c}
               </button>
