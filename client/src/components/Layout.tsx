@@ -181,8 +181,9 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
         style={{ height: '56px', boxShadow: '0 -1px 6px rgba(0,0,0,0.07)' }}
       >
         <button
-          onClick={() => window.history.back()}
-          className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+          onClick={() => { if (location !== '/') window.history.back(); }}
+          disabled={location === '/'}
+          className={`flex flex-col items-center justify-center gap-0.5 w-14 h-14 rounded-xl transition-colors ${location === '/' ? 'opacity-30' : 'active:bg-gray-100'}`}
           data-testid="btn-nav-back"
           aria-label="뒤로 가기"
         >
