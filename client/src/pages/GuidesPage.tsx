@@ -23,7 +23,7 @@ function fmtDate(d: string | Date | null | undefined) {
 /* ── Card ── */
 function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
   const images = guide.imageUrls?.length ? guide.imageUrls : guide.imageUrl ? [guide.imageUrl] : [];
-  const badgeText = guide.storeType || guide.category;
+  const badgeText = guide.category;
 
   return (
     <motion.div
