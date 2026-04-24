@@ -105,16 +105,16 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] bg-black/60 flex items-end"
+      className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="w-full bg-white rounded-t-3xl flex flex-col"
-        style={{ maxHeight: '94vh' }}
+        className="w-full bg-white rounded-3xl flex flex-col"
+        style={{ maxHeight: '90vh', maxWidth: '480px' }}
         onClick={e => e.stopPropagation()}
       >
         {/* ── Top bar: [green badge] ............... [date  X] ── */}
