@@ -2021,7 +2021,7 @@ function RankingTab() {
   const { data: validGuideProducts = [] } = useValidGuideProducts(rankYear, rankMonth);
   const availableRankProducts = useMemo(() => {
     const filtered = validGuideProducts.filter((p: any) => p.category === rankCategory);
-    return ['전체', ...Array.from(new Set(filtered.map((p: any) => p.productName as string)))];
+    return ['전체', ...Array.from(new Set(filtered.map((p: any) => p.product as string)))];
   }, [validGuideProducts, rankCategory]);
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
