@@ -1296,34 +1296,21 @@ export default function GuideAdmin() {
           ) : (
             <>
               {/* Guide type filter */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setGuideTypeFilter('vm'); setShowAddForm(false); setEditingId(null); }}
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
-                    guideTypeFilter === 'vm' ? 'bg-primary text-white border-primary shadow-md' : 'bg-muted text-muted-foreground border-transparent'
-                  }`}
-                  data-testid="tab-guide-type-vm"
-                >
-                  진열
-                </button>
-                <button
-                  onClick={() => { setGuideTypeFilter('ad'); setShowAddForm(false); setEditingId(null); }}
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
-                    guideTypeFilter === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-md' : 'bg-muted text-muted-foreground border-transparent'
-                  }`}
-                  data-testid="tab-guide-type-ad"
-                >
-                  광고(+셀링)
-                </button>
-                <button
-                  onClick={() => { setGuideTypeFilter('quality'); setShowAddForm(false); setEditingId(null); }}
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
-                    guideTypeFilter === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-muted text-muted-foreground border-transparent'
-                  }`}
-                  data-testid="tab-guide-type-quality"
-                >
-                  품질
-                </button>
+              <div className="-mx-4 md:-mx-[50px] px-4 md:px-[50px] flex border-b border-border">
+                {([['vm', '진열'], ['ad', '광고(+셀링)'], ['quality', '품질']] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => { setGuideTypeFilter(val); setShowAddForm(false); setEditingId(null); }}
+                    className={`px-4 py-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 -mb-px ${
+                      guideTypeFilter === val
+                        ? 'text-secondary border-secondary'
+                        : 'text-muted-foreground border-transparent hover:text-secondary/70'
+                    }`}
+                    data-testid={`tab-guide-type-${val}`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
               {/* Category filter */}
