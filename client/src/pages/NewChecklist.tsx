@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateChecklist, useUploadPhoto, useChecklists } from "@/hooks/use-checklists";
@@ -166,9 +166,9 @@ export default function NewChecklist() {
     if (tab !== 'cleaning') resetVm();
   };
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (activeTab === 'cleaning' || vmStage === 'category') {
-      window.history.back();
+      setLocation('/');
     } else if (vmStage === 'group') {
       setVmStage('category');
       setSelCategory('');
@@ -182,12 +182,26 @@ export default function NewChecklist() {
       setPhotoUrls([]);
       setNotes('');
     }
-  };
+  }, [activeTab, vmStage, setLocation]);
+
+  const handleBackRef = useRef(handleBack);
+  useEffect(() => { handleBackRef.current = handleBack; }, [handleBack]);
 
   useEffect(() => {
     (window as any).__appBack = handleBack;
     return () => { delete (window as any).__appBack; };
-  }, [activeTab, vmStage]);
+  }, [handleBack]);
+
+  // Browser back button: push a guard state on mount, intercept popstate
+  useEffect(() => {
+    window.history.pushState({ _appNav: true }, '');
+    const onPopState = () => {
+      window.history.pushState({ _appNav: true }, '');
+      handleBackRef.current();
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   return (
     <Layout title="새 점검 등록" showBack={true} onBack={handleBack}>
