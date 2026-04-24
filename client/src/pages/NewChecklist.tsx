@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
   Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
-  Calendar, FileText, Paperclip,
+  FileText, Paperclip,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -102,6 +102,8 @@ export default function NewChecklist() {
     else { setSelMonth(m => m + 1); }
     resetVm();
   };
+  const prevYear = () => { setSelYear(y => y - 1); resetVm(); };
+  const nextYear = () => { setSelYear(y => y + 1); resetVm(); };
 
   const [vmStage, setVmStage] = useState<VMStage>('category');
   const [selCategory, setSelCategory] = useState('');
@@ -241,9 +243,14 @@ export default function NewChecklist() {
         {/* ── Sub-filter (year/month) ── */}
         {(activeTab === 'vm' || activeTab === 'quality') && (
           <div className="bg-white px-4 pt-3 pb-3 border-b border-border/30 flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 w-28 shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
+              <button onClick={prevYear} className="active:scale-95 transition-all" data-testid="btn-new-prev-year">
+                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+              </button>
               <span className="text-sm text-foreground whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{selYear}년</span>
+              <button onClick={nextYear} className="active:scale-95 transition-all" data-testid="btn-new-next-year">
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
             <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
               <button onClick={prevMonth} className="active:scale-95 transition-all" data-testid="btn-new-prev-month">

@@ -97,6 +97,8 @@ export default function StaffDashboard() {
     if (vmFilterMonth === 12) { setVmFilterYear(y => y + 1); setVmFilterMonth(1); }
     else { setVmFilterMonth(m => m + 1); }
   };
+  const prevVmYear = () => setVmFilterYear(y => y - 1);
+  const nextVmYear = () => setVmFilterYear(y => y + 1);
 
   const goBack = () => {
     const d = new Date(selectedDate);
@@ -411,9 +413,14 @@ export default function StaffDashboard() {
           {(activeTab === 'vm' || activeTab === 'quality') && (
             <div className="space-y-3 pt-3">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-muted rounded-xl px-3 py-2 shrink-0">
-                  <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
+                  <button onClick={prevVmYear} className="active:scale-95 transition-all" data-testid="btn-staff-prev-year">
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                  </button>
                   <span className="text-sm text-foreground whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{vmFilterYear}년</span>
+                  <button onClick={nextVmYear} className="active:scale-95 transition-all" data-testid="btn-staff-next-year">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </button>
                 </div>
                 <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
                   <button onClick={prevVmMonth} className="active:scale-95 transition-all" data-testid="btn-staff-prev-month">
