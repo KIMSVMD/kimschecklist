@@ -305,7 +305,7 @@ export default function GuidesPage() {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="광고 검색..."
+                placeholder="가이드 검색..."
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em', color: '#222' }}
                 data-testid="input-guide-search"
