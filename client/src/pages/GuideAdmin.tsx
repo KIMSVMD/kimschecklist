@@ -1297,7 +1297,7 @@ export default function GuideAdmin() {
               <button
                 key={val}
                 onClick={() => { setGuideTypeFilter(val); setShowAddForm(false); setEditingId(null); }}
-                className={`flex-1 flex items-center justify-center px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                className={`flex-1 flex items-center justify-center px-2 pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                   guideTypeFilter === val ? 'border-black text-black' : 'border-transparent text-muted-foreground'
                 }`}
                 style={{ fontWeight: guideTypeFilter === val ? 700 : 500 }}
