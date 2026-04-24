@@ -1043,67 +1043,51 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
   return (
     <>
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-4 space-y-3 shadow-sm w-full">
-        <div className="flex gap-1.5">
-          {([['all', '전체'], ['vm', '진열(+광고)'], ['quality', '품질']] as const).map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => setViewFilter(val)}
-              className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
-                viewFilter === val
-                  ? val === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                  : 'bg-primary text-white border-primary shadow-sm'
-                  : 'bg-muted text-muted-foreground border-transparent'
-              }`}
-              data-testid={`btn-view-filter-${val}`}
-            >
-              {label}
-            </button>
-          ))}
+        {/* Year / Month / View filter — one row */}
+        <div className="flex gap-2 items-center">
+          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+          <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary shrink-0"
+            data-testid="select-filter-year">
+            {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
+          </select>
+          <select value={filterMonth} onChange={e => setFilterMonth(Number(e.target.value))}
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary shrink-0"
+            data-testid="select-filter-month">
+            {monthOptions.map(m => <option key={m} value={m}>{m}월</option>)}
+          </select>
+          <select value={viewFilter} onChange={e => setViewFilter(e.target.value as 'all' | 'vm' | 'quality')}
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary shrink-0"
+            data-testid="select-view-filter">
+            <option value="all">전체</option>
+            <option value="vm">진열(+광고)</option>
+            <option value="quality">품질</option>
+          </select>
         </div>
-        <div className="flex items-center gap-2 text-secondary font-bold">
-          <Filter className="w-5 h-5" />
-          <span>필터링</span>
-        </div>
-        <div className="flex gap-2">
+        {/* Branch / Category filter */}
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
           <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
+            className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
             data-testid="select-filter-branch">
             {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
           </select>
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
+            className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
             data-testid="select-filter-category">
             <option value="전체">전체 카테고리</option>
             {(viewFilter === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </div>
-        <select
-          value={filterProduct}
-          onChange={e => setFilterProduct(e.target.value)}
-          className="w-full bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
-          data-testid="select-filter-product"
-        >
-          {availableProducts.map(p => (
-            <option key={p} value={p}>{p === '전체' ? '전체 상품' : p}</option>
-          ))}
-        </select>
-        {/* Year/Month filter */}
-        <div className="flex gap-2 items-center">
-          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-          <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}
-            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm focus:ring-2 focus:ring-primary/50 outline-none text-secondary">
-            {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
-          </select>
-          <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1 touch-pan-x">
-            {monthOptions.map(m => (
-              <button key={m} onClick={() => setFilterMonth(m)}
-                className={`shrink-0 px-3 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                  filterMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground'
-                }`}>
-                {m}월
-              </button>
+          <select
+            value={filterProduct}
+            onChange={e => setFilterProduct(e.target.value)}
+            className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
+            data-testid="select-filter-product"
+          >
+            {availableProducts.map(p => (
+              <option key={p} value={p}>{p === '전체' ? '전체 상품' : p}</option>
             ))}
-          </div>
+          </select>
         </div>
       </div>
 
