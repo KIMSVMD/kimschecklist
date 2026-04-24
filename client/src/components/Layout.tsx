@@ -87,7 +87,7 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
 
       {/* ── Global Header — matches Home.tsx top bar ── */}
       <header
-        className="sticky top-0 z-40 bg-white flex items-center justify-between shrink-0"
+        className="sticky top-0 z-40 bg-white flex items-center justify-between shrink-0 border-b border-gray-200"
       >
         {/* Desktop */}
         <div
