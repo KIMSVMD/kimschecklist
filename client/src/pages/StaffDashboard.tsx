@@ -334,44 +334,8 @@ export default function StaffDashboard() {
       <div className="flex flex-col h-full bg-white">
 
         {/* Filter header */}
-        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 pt-4 space-y-0">
-          {/* Branch selector + notification bell */}
-          <div className="flex items-center gap-2 pb-3">
-            <select
-              value={filterBranch}
-              onChange={e => { setFilterBranch(e.target.value); setNotifOpen(false); }}
-              className="flex-1 bg-muted border-none rounded-xl px-4 py-3 text-sm focus:outline-none outline-none text-foreground"
-              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '-0.02em' }}
-              data-testid="select-staff-branch"
-            >
-              <option value="">지점 선택</option>
-              <optgroup label="대형점">
-                {REGIONS['대형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-              <optgroup label="중형점">
-                {REGIONS['중형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-              <optgroup label="소형점">
-                {REGIONS['소형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-            </select>
-            {filterBranch && (
-              <button
-                onClick={() => setNotifOpen(o => !o)}
-                className="relative w-12 h-12 rounded-2xl bg-muted flex items-center justify-center shrink-0 active:scale-95 transition-all"
-                data-testid="btn-staff-notif-bell"
-              >
-                <Bell className={`w-5 h-5 ${(commentUnread + scoreUnread + tabGuideUnread) > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                {(commentUnread + scoreUnread + tabGuideUnread) > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center px-1">
-                    {(commentUnread + scoreUnread + tabGuideUnread) > 9 ? '9+' : (commentUnread + scoreUnread + tabGuideUnread)}
-                  </span>
-                )}
-              </button>
-            )}
-          </div>
-
-          {/* Tab switcher — underline style */}
+        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 pt-3 space-y-0">
+          {/* Tab switcher — underline style (always visible at top) */}
           <div className="flex -mx-4 px-4 border-b border-border">
             <button
               onClick={() => { setActiveTab('vm'); setFilterCategory('전체'); }}
@@ -405,6 +369,42 @@ export default function StaffDashboard() {
             >
               <Droplets className="w-3.5 h-3.5" /> 청소
             </button>
+          </div>
+
+          {/* Branch selector + notification bell */}
+          <div className="flex items-center gap-2 pt-3 pb-3">
+            <select
+              value={filterBranch}
+              onChange={e => { setFilterBranch(e.target.value); setNotifOpen(false); }}
+              className="flex-1 bg-muted border-none rounded-xl px-4 py-3 text-sm focus:outline-none outline-none text-foreground"
+              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '-0.02em' }}
+              data-testid="select-staff-branch"
+            >
+              <option value="">지점 선택</option>
+              <optgroup label="대형점">
+                {REGIONS['대형점'].map(b => <option key={b} value={b}>{b}점</option>)}
+              </optgroup>
+              <optgroup label="중형점">
+                {REGIONS['중형점'].map(b => <option key={b} value={b}>{b}점</option>)}
+              </optgroup>
+              <optgroup label="소형점">
+                {REGIONS['소형점'].map(b => <option key={b} value={b}>{b}점</option>)}
+              </optgroup>
+            </select>
+            {filterBranch && (
+              <button
+                onClick={() => setNotifOpen(o => !o)}
+                className="relative w-12 h-12 rounded-2xl bg-muted flex items-center justify-center shrink-0 active:scale-95 transition-all"
+                data-testid="btn-staff-notif-bell"
+              >
+                <Bell className={`w-5 h-5 ${(commentUnread + scoreUnread + tabGuideUnread) > 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                {(commentUnread + scoreUnread + tabGuideUnread) > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center px-1">
+                    {(commentUnread + scoreUnread + tabGuideUnread) > 9 ? '9+' : (commentUnread + scoreUnread + tabGuideUnread)}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Year/Month filter — VM / Quality tabs */}
