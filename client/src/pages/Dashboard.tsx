@@ -2081,56 +2081,43 @@ function RankingTab() {
 
   return (
     <div className="px-4 md:px-[50px] py-3 space-y-2 w-full">
-      {/* Year/Month filter */}
-      <div className="flex gap-1.5 items-center">
+      {/* Year / Month / Type — one row dropdowns */}
+      <div className="flex gap-2 items-center">
+        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
         <select value={rankYear} onChange={e => setRankYear(Number(e.target.value))}
-          className="bg-muted border-none rounded-lg px-2 py-1.5 font-bold text-xs outline-none text-secondary shrink-0">
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
           {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
         </select>
-        <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1 touch-pan-x">
-          {monthOptions.map(m => (
-            <button key={m} onClick={() => setRankMonth(m)}
-              className={`shrink-0 px-2 py-1 rounded-lg font-bold text-xs transition-all active:scale-95 ${
-                rankMonth === m ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground'
-              }`}>
-              {m}월
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* VM / Ad toggle + Grade legend in one row */}
-      <div className="flex gap-1.5 items-center">
-        {([['vm', '진열'], ['ad', '광고(+셀링)'], ['quality', '품질']] as const).map(([val, label]) => (
-          <button key={val} onClick={() => {
-            setRankType(val);
-            if (val === 'quality' && rankCategory === '공산') setRankCategory('농산');
-          }}
-            className={`py-1.5 px-3 rounded-lg font-bold text-xs transition-all active:scale-95 border ${
-              rankType === val
-                ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                : val === 'quality' ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                : 'bg-primary text-white border-primary shadow-sm'
-                : 'bg-muted text-muted-foreground border-transparent'
-            }`}>
-            {label}
-          </button>
-        ))}
+        <select value={rankMonth} onChange={e => setRankMonth(Number(e.target.value))}
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
+          {monthOptions.map(m => <option key={m} value={m}>{m}월</option>)}
+        </select>
+        <select value={rankType} onChange={e => {
+          const v = e.target.value as 'vm' | 'ad' | 'quality';
+          setRankType(v);
+          if (v === 'quality' && rankCategory === '공산') setRankCategory('농산');
+        }}
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
+          <option value="vm">진열</option>
+          <option value="ad">광고(+셀링)</option>
+          <option value="quality">품질</option>
+        </select>
         <div className="flex gap-1 ml-auto">
           {(['A', 'B', 'C'] as const).map(g => (
             <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
           ))}
         </div>
-        <span className="text-[10px] text-muted-foreground">80/60/0 기준</span>
+        <span className="text-[10px] text-muted-foreground shrink-0">80/60/0 기준</span>
       </div>
 
-      {/* Category chips */}
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+      {/* Category — underline tabs */}
+      <div className="-mx-4 md:-mx-[50px] px-4 md:px-[50px] flex border-b border-border overflow-x-auto no-scrollbar">
         {(rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => (
           <button key={cat} onClick={() => setRankCategory(cat)}
-            className={`shrink-0 px-3 py-1 rounded-full font-bold text-xs transition-all active:scale-95 ${
-              rankCategory === cat ? 'bg-black text-white' : 'bg-muted text-muted-foreground'
+            className={`flex-1 flex items-center justify-center px-3 pb-2.5 pt-2.5 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              rankCategory === cat ? 'border-black text-black' : 'border-transparent text-muted-foreground'
             }`}
+            style={{ fontWeight: rankCategory === cat ? 700 : 500 }}
             data-testid={`btn-rank-cat-${cat}`}>
             {cat}
           </button>
