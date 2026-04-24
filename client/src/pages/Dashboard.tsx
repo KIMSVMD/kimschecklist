@@ -1760,25 +1760,25 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
           </div>
       ) : (<>
             {/* Summary card for selected date */}
-            <div className="bg-secondary text-white rounded-3xl p-5 shadow-xl">
+            <div className="bg-white border border-border rounded-3xl p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <Droplets className="w-6 h-6 text-emerald-400" />
-                <h3 className="text-xl font-black">
+                <Droplets className="w-5 h-5 text-primary" />
+                <h3 className="text-base font-black text-secondary">
                   {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 청소 점검 현황
                 </h3>
               </div>
-              <div className="flex gap-4 mb-5">
-                <div className="flex-1 bg-white/10 rounded-2xl p-4 text-center">
-                  <p className="text-3xl font-black text-emerald-400">{completedSlotCount}<span className="text-lg text-white/60">/{totalSlots}</span></p>
-                  <p className="text-sm text-white/70 font-medium mt-1">점검 완료</p>
+              <div className="flex gap-3 mb-4">
+                <div className="flex-1 bg-muted rounded-2xl p-4 text-center">
+                  <p className="text-3xl font-black text-emerald-500">{completedSlotCount}<span className="text-lg text-muted-foreground">/{totalSlots}</span></p>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">점검 완료</p>
                 </div>
-                <div className="flex-1 bg-white/10 rounded-2xl p-4 text-center">
+                <div className="flex-1 bg-muted rounded-2xl p-4 text-center">
                   <p className="text-3xl font-black text-primary">{issues.length}</p>
-                  <p className="text-sm text-white/70 font-medium mt-1">문제 발생</p>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">문제 발생</p>
                 </div>
-                <div className="flex-1 bg-white/10 rounded-2xl p-4 text-center">
-                  <p className="text-3xl font-black text-white">{completionRate}<span className="text-lg text-white/60">%</span></p>
-                  <p className="text-sm text-white/70 font-medium mt-1">완료율</p>
+                <div className="flex-1 bg-muted rounded-2xl p-4 text-center">
+                  <p className="text-3xl font-black text-secondary">{completionRate}<span className="text-lg text-muted-foreground">%</span></p>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">완료율</p>
                 </div>
               </div>
 
@@ -1790,23 +1790,23 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
                     <div
                       key={zone}
                       className={`rounded-2xl p-3 text-center border-2 ${
-                        !s ? 'border-white/10 bg-white/5' :
-                        s.status === 'ok' ? 'border-emerald-400 bg-emerald-500/20' :
-                        'border-red-400 bg-red-500/20'
+                        !s ? 'border-border bg-muted/50' :
+                        s.status === 'ok' ? 'border-emerald-300 bg-emerald-50' :
+                        'border-red-300 bg-red-50'
                       }`}
                     >
                       <div className="flex justify-center mb-1">
                         {!s ? (
-                          <div className="w-6 h-6 rounded-full border-2 border-white/30" />
+                          <div className="w-6 h-6 rounded-full border-2 border-border" />
                         ) : s.status === 'ok' ? (
-                          <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                          <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                         ) : (
                           <XCircle className="w-6 h-6 text-primary" />
                         )}
                       </div>
-                      <p className="text-xs font-bold text-white">{zone}</p>
+                      <p className="text-xs font-bold text-secondary">{zone}</p>
                       {s && (
-                        <p className="text-[10px] text-white/60 mt-0.5 flex items-center justify-center gap-0.5">
+                        <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-0.5">
                           {s.time === '오픈' ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
                           {s.time}
                         </p>
