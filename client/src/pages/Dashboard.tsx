@@ -2101,12 +2101,12 @@ function RankingTab() {
           <option value="vm">진열(+광고)</option>
           <option value="quality">품질</option>
         </select>
-        <div className="flex gap-1 ml-auto">
-          {(['A', 'B', 'C'] as const).map(g => (
-            <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
-          ))}
-        </div>
-        <span className="text-[10px] text-muted-foreground shrink-0">80/60/0 기준</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {(['A', 'B', 'C'] as const).map(g => (
+          <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
+        ))}
+        <span className="text-[10px] text-muted-foreground">80/60/0 기준</span>
       </div>
 
       {/* Category — underline tabs */}
