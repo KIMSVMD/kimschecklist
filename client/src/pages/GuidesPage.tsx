@@ -29,7 +29,7 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
       {/* Image */}
       <div
         className="relative w-full"
-        style={{ aspectRatio: '4/3', background: 'rgba(0,99,65,0.07)' }}
+        style={{ aspectRatio: '16/9', background: 'rgba(0,99,65,0.07)' }}
       >
         {images.length > 0 ? (
           <img src={images[0]} alt={guide.product} className="w-full h-full object-cover" />
