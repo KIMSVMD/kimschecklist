@@ -2042,7 +2042,7 @@ function RankingTab() {
       ? itemYear === rankYear && itemMonth === rankMonth
       : (() => { const d = new Date(item.createdAt); return d.getFullYear() === rankYear && d.getMonth() + 1 === rankMonth; })();
     if (!matchDate) return false;
-    if (rankProduct !== '전체' && item.productName !== rankProduct) return false;
+    if (rankProduct !== '전체' && (item as any).product !== rankProduct) return false;
     return true;
   });
 
@@ -2196,7 +2196,9 @@ function RankingTab() {
           })()}
         </div>
       )}
-      <p className="text-center text-[10px] text-muted-foreground">{rankCategory} 카테고리 기준 · 관리자 입력 점수</p>
+      <p className="text-center text-[10px] text-muted-foreground">
+        {rankCategory}{rankProduct !== '전체' ? ` · ${rankProduct}` : ''} 기준 · 관리자 입력 점수
+      </p>
     </div>
   );
 }
