@@ -171,7 +171,7 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
         </div>
       )}
 
-      <main className="flex-1 flex flex-col overflow-y-auto w-full pb-16 md:pb-0">
+      <main className="flex-1 flex flex-col overflow-y-auto w-full pb-16 md:pb-0 bg-white">
         {children}
       </main>
 
