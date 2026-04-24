@@ -27,6 +27,24 @@ import {
 } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
+function ItemText({ text }: { text: string }) {
+  const colonIdx = text.indexOf(': ');
+  if (colonIdx === -1) return <span>{text}</span>;
+  const label = text.slice(0, colonIdx);
+  const desc  = text.slice(colonIdx + 2);
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span
+        className="inline-block self-start text-[11px] font-bold px-2 py-0.5 rounded-md"
+        style={{ background: '#006341', color: '#fff', letterSpacing: '-0.01em' }}
+      >
+        {label}
+      </span>
+      <span>{desc}</span>
+    </span>
+  );
+}
+
 export default function EditChecklist() {
   const params = useParams<{ id: string }>();
   const id = parseInt(params.id);
@@ -401,7 +419,7 @@ export default function EditChecklist() {
                   isOk ? 'border-blue-300 bg-blue-50' : isNotok ? 'border-primary bg-red-50' : 'border-border bg-white'
                 }`}>
                   <div className="flex items-center justify-between p-4">
-                    <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                    <h4 className="text-base font-bold text-secondary flex-1 pr-3"><ItemText text={item} /></h4>
                     <div className="flex gap-3 shrink-0">
                       <button
                         onClick={() => setItems(prev => ({ ...prev, [item]: 'ok' }))}
@@ -546,7 +564,7 @@ export default function EditChecklist() {
                       isOk ? 'border-amber-300 bg-amber-50' : isNotok ? 'border-primary bg-red-50' : 'border-border bg-white'
                     }`}>
                       <div className="flex items-center justify-between p-4">
-                        <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                        <h4 className="text-base font-bold text-secondary flex-1 pr-3"><ItemText text={item} /></h4>
                         <div className="flex gap-3 shrink-0">
                           <button
                             onClick={() => setAdItems(prev => ({ ...prev, [item]: 'ok' }))}
@@ -739,7 +757,7 @@ export default function EditChecklist() {
                           return (
                             <div key={item} className={`rounded-2xl border-2 overflow-hidden transition-all ${isOk ? 'border-purple-300 bg-purple-50' : isNotok ? 'border-primary bg-red-50' : 'border-border bg-white'}`}>
                               <div className="flex items-center justify-between p-4">
-                                <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                                <h4 className="text-base font-bold text-secondary flex-1 pr-3"><ItemText text={item} /></h4>
                                 <div className="flex gap-3 shrink-0">
                                   <button onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'ok' }))} className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${isOk ? 'bg-purple-500 border-purple-600 text-white shadow-md' : 'bg-white border-border text-muted-foreground'}`} data-testid={`btn-quality-item-ok-edit-${idx}`}><CheckCircle2 className="w-8 h-8" /></button>
                                   <button onClick={() => setQualityItems(prev => ({ ...prev, [item]: 'notok' }))} className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center transition-all active:scale-95 ${isNotok ? 'bg-primary border-red-700 text-white shadow-md' : 'bg-white border-border text-muted-foreground'}`} data-testid={`btn-quality-item-notok-edit-${idx}`}><XOctagon className="w-8 h-8" /></button>

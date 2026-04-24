@@ -81,6 +81,24 @@ function gradeColor(grade: string): string {
 
 type VMStage = 'category' | 'group' | 'product' | 'items';
 
+function ItemText({ text }: { text: string }) {
+  const colonIdx = text.indexOf(': ');
+  if (colonIdx === -1) return <span>{text}</span>;
+  const label = text.slice(0, colonIdx);
+  const desc  = text.slice(colonIdx + 2);
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span
+        className="inline-block self-start text-[11px] font-bold px-2 py-0.5 rounded-md"
+        style={{ background: '#006341', color: '#fff', letterSpacing: '-0.01em' }}
+      >
+        {label}
+      </span>
+      <span>{desc}</span>
+    </span>
+  );
+}
+
 export default function NewChecklist() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -1035,7 +1053,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               : 'border-border bg-white'
             }`}>
               <div className="flex items-center justify-between p-4">
-                <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                <h4 className="text-base font-bold text-secondary flex-1 pr-3"><ItemText text={item} /></h4>
                 <div className="flex gap-3 shrink-0">
                   <button
                     onClick={() => setItems({ ...items, [item]: 'ok' })}
@@ -1213,7 +1231,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                   : 'border-border bg-white'
                 }`}>
                   <div className="flex items-center justify-between p-4">
-                    <h4 className="text-base font-bold text-secondary flex-1 pr-3">{item}</h4>
+                    <h4 className="text-base font-bold text-secondary flex-1 pr-3"><ItemText text={item} /></h4>
                     <div className="flex gap-3 shrink-0">
                       <button
                         onClick={() => setAdItems({ ...adItems, [item]: 'ok' })}
