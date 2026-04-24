@@ -1,6 +1,6 @@
 import { ReactNode, useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home, RotateCcw } from "lucide-react";
 import logoKimsClub from "@assets/대지_1_1776987037351.png";
 
 interface LayoutProps {
@@ -171,9 +171,56 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
         </div>
       )}
 
-      <main className="flex-1 flex flex-col overflow-y-auto w-full">
+      <main className="flex-1 flex flex-col overflow-y-auto w-full pb-16 md:pb-0">
         {children}
       </main>
+
+      {/* ── Bottom Nav Bar — mobile/tablet only ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 flex items-center justify-around"
+        style={{ height: '56px', boxShadow: '0 -1px 6px rgba(0,0,0,0.07)' }}
+      >
+        <button
+          onClick={() => window.history.back()}
+          className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+          data-testid="btn-nav-back"
+          aria-label="뒤로 가기"
+        >
+          <ChevronLeft className="w-6 h-6 text-gray-600" />
+          <span className="text-[10px] text-gray-500">뒤로</span>
+        </button>
+
+        <button
+          onClick={() => window.history.forward()}
+          className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+          data-testid="btn-nav-forward"
+          aria-label="앞으로 가기"
+        >
+          <ChevronRight className="w-6 h-6 text-gray-600" />
+          <span className="text-[10px] text-gray-500">앞으로</span>
+        </button>
+
+        <Link href="/">
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+            data-testid="btn-nav-home"
+            aria-label="홈으로"
+          >
+            <Home className="w-6 h-6 text-gray-600" />
+            <span className="text-[10px] text-gray-500">홈</span>
+          </button>
+        </Link>
+
+        <button
+          onClick={() => window.location.reload()}
+          className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+          data-testid="btn-nav-reload"
+          aria-label="새로고침"
+        >
+          <RotateCcw className="w-6 h-6 text-gray-600" />
+          <span className="text-[10px] text-gray-500">새로고침</span>
+        </button>
+      </nav>
     </div>
   );
 }
