@@ -155,39 +155,41 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
           )}
 
           {images.length > 0 && (
-            <div className="relative w-full" style={{ background: 'rgba(0,99,65,0.06)' }}>
-              <img
-                src={images[imgIdx]}
-                alt={guide.product}
-                className="w-full object-contain cursor-zoom-in"
-                style={{ maxHeight: '280px' }}
-                onClick={() => (window as any).__openLightbox?.(images[imgIdx])}
-              />
-              {images.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center active:scale-95"
-                  >
-                    <ChevronLeft className="w-4 h-4 text-gray-600" />
-                  </button>
-                  <button
-                    onClick={() => setImgIdx(i => (i + 1) % images.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center active:scale-95"
-                  >
-                    <ChevronRight className="w-4 h-4 text-gray-600" />
-                  </button>
-                  <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
-                    {images.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setImgIdx(i)}
-                        className={`w-1.5 h-1.5 rounded-full transition-all ${i === imgIdx ? 'bg-black' : 'bg-black/25'}`}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
+            <div className="px-4 pb-1">
+              <div className="relative w-full rounded-2xl overflow-hidden" style={{ background: 'rgba(0,99,65,0.06)' }}>
+                <img
+                  src={images[imgIdx]}
+                  alt={guide.product}
+                  className="w-full object-contain cursor-zoom-in"
+                  style={{ maxHeight: '360px' }}
+                  onClick={() => (window as any).__openLightbox?.(images[imgIdx])}
+                />
+                {images.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center active:scale-95"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={() => setImgIdx(i => (i + 1) % images.length)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center active:scale-95"
+                    >
+                      <ChevronRight className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+                      {images.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setImgIdx(i)}
+                          className={`w-1.5 h-1.5 rounded-full transition-all ${i === imgIdx ? 'bg-black' : 'bg-black/25'}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
