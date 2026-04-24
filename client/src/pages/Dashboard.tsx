@@ -2081,15 +2081,15 @@ function RankingTab() {
 
   return (
     <div className="px-4 md:px-[50px] py-3 space-y-2 w-full">
-      {/* Year / Month / Type — one row dropdowns */}
-      <div className="flex gap-2 items-center">
-        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+      {/* Year / Month / Type + Category — all in one row */}
+      <div className="-mx-4 md:-mx-[50px] px-4 md:px-[50px] flex items-center gap-2 border-b border-border">
+        <Calendar className="w-4 h-4 text-muted-foreground shrink-0 mb-px" />
         <select value={rankYear} onChange={e => setRankYear(Number(e.target.value))}
-          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
+          className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm outline-none text-secondary shrink-0">
           {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
         </select>
         <select value={rankMonth} onChange={e => setRankMonth(Number(e.target.value))}
-          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
+          className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm outline-none text-secondary shrink-0">
           {monthOptions.map(m => <option key={m} value={m}>{m}월</option>)}
         </select>
         <select value={rankType} onChange={e => {
@@ -2097,23 +2097,14 @@ function RankingTab() {
           setRankType(v);
           if (v === 'quality' && rankCategory === '공산') setRankCategory('농산');
         }}
-          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
+          className="bg-muted border-none rounded-xl px-3 py-2 font-bold text-sm outline-none text-secondary shrink-0">
           <option value="vm">진열(+광고)</option>
           <option value="quality">품질</option>
         </select>
-      </div>
-      <div className="flex items-center gap-1.5">
-        {(['A', 'B', 'C'] as const).map(g => (
-          <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
-        ))}
-        <span className="text-[10px] text-muted-foreground">80/60/0 기준</span>
-      </div>
-
-      {/* Category — underline tabs */}
-      <div className="-mx-4 md:-mx-[50px] px-4 md:px-[50px] flex border-b border-border overflow-x-auto no-scrollbar">
+        {/* Category tabs — fill remaining space */}
         {(rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => (
           <button key={cat} onClick={() => setRankCategory(cat)}
-            className={`flex-1 flex items-center justify-center px-3 pb-2.5 pt-2.5 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+            className={`flex-1 flex items-center justify-center pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
               rankCategory === cat ? 'border-black text-black' : 'border-transparent text-muted-foreground'
             }`}
             style={{ fontWeight: rankCategory === cat ? 700 : 500 }}
@@ -2121,6 +2112,13 @@ function RankingTab() {
             {cat}
           </button>
         ))}
+      </div>
+      {/* Grade legend */}
+      <div className="flex items-center gap-1.5">
+        {(['A', 'B', 'C'] as const).map(g => (
+          <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
+        ))}
+        <span className="text-[10px] text-muted-foreground">80/60/0 기준</span>
       </div>
 
       {/* Ranking list */}
