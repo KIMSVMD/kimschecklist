@@ -28,7 +28,7 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
     >
       {/* Image with white padding */}
       <div className="p-2.5 pb-0">
-      <div className="relative w-full rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', background: 'rgba(0,99,65,0.07)' }}>
+      <div className="relative w-full rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', background: 'rgba(0,99,65,0.07)', border: '1.5px solid #006341' }}>
         {images.length > 0 ? (
           <img src={images[0]} alt={guide.product} className="w-full h-full object-cover" />
         ) : (
@@ -156,7 +156,7 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
 
           {images.length > 0 && (
             <div className="px-4 pb-1">
-              <div className="relative w-full rounded-2xl overflow-hidden" style={{ background: 'rgba(0,99,65,0.06)' }}>
+              <div className="relative w-full rounded-2xl overflow-hidden" style={{ background: 'rgba(0,99,65,0.06)', border: '1.5px solid #006341' }}>
                 <img
                   src={images[imgIdx]}
                   alt={guide.product}
