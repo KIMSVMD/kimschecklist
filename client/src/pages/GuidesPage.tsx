@@ -220,19 +220,6 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
               </div>
             )}
 
-            {guide.items?.length > 0 && (
-              <div>
-                <p className="text-[15px] font-bold text-gray-900 mb-2.5" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.03em' }}>점검 항목</p>
-                <div className="space-y-2">
-                  {guide.items.map((it, i) => (
-                    <div key={i} className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: '#F5F5F5' }}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0 mt-[6px]" />
-                      <p className="text-[13px] text-gray-700 leading-snug" style={{ fontFamily: "'Pretendard', sans-serif" }}>{it}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </motion.div>
