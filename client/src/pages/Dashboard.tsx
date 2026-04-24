@@ -1694,13 +1694,14 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
   return (
     <>
       {/* Branch filter + date navigator */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-4 shadow-sm space-y-3">
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-3 space-y-2.5">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
           <select
             value={filterBranch}
             onChange={e => setFilterBranch(e.target.value)}
-            className={`flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-emerald-400/50 outline-none text-sm ${filterBranch ? 'text-secondary' : 'text-muted-foreground'}`}
+            className={`flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium outline-none text-sm ${filterBranch ? 'text-secondary' : 'text-muted-foreground'}`}
+            data-testid="select-cleaning-branch"
           >
             <option value="">지점 선택</option>
             {BRANCHES.filter(b => b !== '전체').map(b => (
@@ -1710,52 +1711,44 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
         </div>
 
         {/* Date navigator + 오픈/마감 filter — only when a branch is selected */}
-        {filterBranch && <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-muted rounded-2xl p-1 flex-1">
-            <button
-              onClick={goBack}
-              className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
-              data-testid="btn-date-prev"
-            >
-              <ChevronLeft className="w-5 h-5 text-secondary" />
-            </button>
-            <div className="flex-1 text-center">
-              <p className="font-black text-secondary text-sm whitespace-nowrap">
-                {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
-              </p>
-            </div>
-            <button
-              onClick={goForward}
-              disabled={isToday}
-              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
-              data-testid="btn-date-next"
-            >
-              <ChevronRight className="w-5 h-5 text-secondary" />
-            </button>
-          </div>
-
-          {/* 오픈 / 마감 toggle */}
-          <div className="flex bg-muted rounded-2xl p-1 gap-0.5 shrink-0">
-            {(['전체', '오픈', '마감'] as const).map(t => (
+        {filterBranch && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-muted rounded-xl px-2 py-1.5 flex-1">
               <button
-                key={t}
-                onClick={() => setFilterTime(t)}
-                className={`flex items-center gap-0.5 px-2 py-2 rounded-xl text-xs font-bold transition-all ${
-                  filterTime === t
-                    ? t === '오픈' ? 'bg-amber-400 text-white shadow-sm'
-                      : t === '마감' ? 'bg-secondary text-white shadow-sm'
-                      : 'bg-white text-secondary shadow-sm'
-                    : 'text-muted-foreground hover:text-secondary'
-                }`}
-                data-testid={`btn-filter-time-${t}`}
+                onClick={goBack}
+                className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
+                data-testid="btn-date-prev"
               >
-                {t === '오픈' && <Sun className="w-3 h-3" />}
-                {t === '마감' && <Moon className="w-3 h-3" />}
-                {t}
+                <ChevronLeft className="w-4 h-4 text-secondary" />
               </button>
-            ))}
+              <div className="flex-1 text-center">
+                <p className="font-bold text-secondary text-sm whitespace-nowrap">
+                  {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
+                </p>
+              </div>
+              <button
+                onClick={goForward}
+                disabled={isToday}
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
+                data-testid="btn-date-next"
+              >
+                <ChevronRight className="w-4 h-4 text-secondary" />
+              </button>
+            </div>
+
+            {/* 오픈 / 마감 dropdown */}
+            <select
+              value={filterTime}
+              onChange={e => setFilterTime(e.target.value as '전체' | '오픈' | '마감')}
+              className="bg-muted border-none rounded-xl px-3 py-2.5 font-medium text-sm outline-none text-secondary shrink-0"
+              data-testid="select-filter-time"
+            >
+              <option value="전체">전체</option>
+              <option value="오픈">☀ 오픈</option>
+              <option value="마감">🌙 마감</option>
+            </select>
           </div>
-        </div>}
+        )}
       </div>
 
       <div className="px-4 md:px-[50px] py-4 space-y-5 w-full">
