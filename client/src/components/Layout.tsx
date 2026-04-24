@@ -95,19 +95,9 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
           className="hidden md:flex w-full items-center justify-between"
           style={{ height: '85px', padding: '0 50px' }}
         >
-          <div className="flex flex-col justify-center gap-1">
-            <img src={logoKimsClub} alt="KIM'S CLUB" style={{ width: '198px', height: '31px', objectFit: 'contain' }} />
-            {canGoBack && (
-              <button
-                onClick={handleBack}
-                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors active:scale-95 self-start"
-                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 500, fontSize: '13px', letterSpacing: '-0.02em' }}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                뒤로
-              </button>
-            )}
-          </div>
+          <Link href="/">
+            <img src={logoKimsClub} alt="KIM'S CLUB" style={{ width: '198px', height: '31px', objectFit: 'contain', cursor: 'pointer' }} />
+          </Link>
           <Link href="/admin/login">
             <button
               className="active:scale-95 transition-transform"
@@ -136,18 +126,9 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
           className="md:hidden w-full flex items-center justify-between"
           style={{ height: '60px', padding: '0 16px' }}
         >
-          <div className="flex items-center gap-2">
-            {canGoBack && (
-              <button
-                onClick={handleBack}
-                className="p-1.5 -ml-1.5 rounded-full active:scale-95 transition-all text-muted-foreground"
-                data-testid="btn-mobile-back"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            )}
-            <img src={logoKimsClub} alt="KIM'S CLUB" style={{ height: '20px', objectFit: 'contain' }} />
-          </div>
+          <Link href="/">
+            <img src={logoKimsClub} alt="KIM'S CLUB" style={{ height: '20px', objectFit: 'contain', cursor: 'pointer' }} />
+          </Link>
           <Link href="/admin/login">
             <button
               className="active:scale-95 transition-transform"
