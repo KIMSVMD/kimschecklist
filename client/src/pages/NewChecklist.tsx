@@ -1022,8 +1022,8 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               </h4>
               <div className="overflow-y-auto max-h-[200px] pr-2 space-y-2.5 scrollbar-thin scrollbar-thumb-primary/20">
                 {guidePoints.map((point, i) => (
-                  <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
-                    <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                  <div key={i} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
+                    <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0">{i+1}</div>
                     <p className="text-base font-medium text-secondary leading-tight">{point}</p>
                   </div>
                 ))}
@@ -1213,8 +1213,8 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               </h4>
               <div className="space-y-2">
                 {adGuidePoints.map((point, i) => (
-                  <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
-                    <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                  <div key={i} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
+                    <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0">{i+1}</div>
                     <p className="text-base font-medium text-secondary leading-tight">{point}</p>
                   </div>
                 ))}
@@ -1394,8 +1394,8 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               </h4>
               <div className="space-y-2">
                 {qualityGuidePoints.map((point, i) => (
-                  <div key={i} className="flex items-start gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
-                    <div className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">{i+1}</div>
+                  <div key={i} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-border/50 shadow-sm">
+                    <div className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0">{i+1}</div>
                     <p className="text-base font-medium text-secondary leading-tight">{point}</p>
                   </div>
                 ))}
