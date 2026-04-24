@@ -1,18 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { useGuides } from "@/hooks/use-guides";
 import type { Guide } from "@shared/schema";
 import { Search, X, Image as ImageIcon, ChevronLeft, ChevronRight, ChevronRight as ChevRt } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const GUIDE_TABS = [
-  { key: 'vm',      label: '진열 가이드' },
-  { key: 'ad',      label: '광고 가이드' },
-  { key: 'quality', label: '품질 가이드' },
-] as const;
-type GuideTabKey = typeof GUIDE_TABS[number]['key'];
-
-const CAT_ORDER = ['농산', '수산', '축산', '공산'];
+const CAT_TABS = ['농산', '수산', '축산', '공산'];
 
 function fmtDate(d: string | Date | null | undefined) {
   if (!d) return '';
@@ -20,7 +13,7 @@ function fmtDate(d: string | Date | null | undefined) {
   return `등록일: ${dt.getFullYear()}. ${dt.getMonth() + 1}. ${dt.getDate()}.`;
 }
 
-/* ── Card — matches reference image ── */
+/* ── Card ── */
 function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
   const images = guide.imageUrls?.length ? guide.imageUrls : guide.imageUrl ? [guide.imageUrl] : [];
   const badgeText = guide.storeType || guide.category;
@@ -28,31 +21,27 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
   return (
     <motion.div
       whileTap={{ scale: 0.97 }}
-      className="rounded-2xl overflow-hidden bg-white cursor-pointer"
-      style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.09)', border: '1px solid #f0f0f0' }}
+      className="rounded-xl overflow-hidden bg-white cursor-pointer"
+      style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.08)', border: '1px solid #efefef' }}
       onClick={onClick}
       data-testid={`card-guide-${guide.id}`}
     >
-      {/* Image area */}
+      {/* Image */}
       <div
         className="relative w-full"
-        style={{ aspectRatio: '4/3', background: 'rgba(0,99,65,0.08)' }}
+        style={{ aspectRatio: '4/3', background: 'rgba(0,99,65,0.07)' }}
       >
         {images.length > 0 ? (
-          <img
-            src={images[0]}
-            alt={guide.product}
-            className="w-full h-full object-cover"
-          />
+          <img src={images[0]} alt={guide.product} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="w-10 h-10" style={{ color: 'rgba(0,99,65,0.18)' }} />
+            <ImageIcon className="w-8 h-8" style={{ color: 'rgba(0,99,65,0.2)' }} />
           </div>
         )}
         {images.length > 1 && (
           <span
-            className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md text-[10px] font-bold"
-            style={{ background: 'rgba(0,0,0,0.5)', color: '#fff', fontFamily: "'Pretendard', sans-serif" }}
+            className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold"
+            style={{ background: 'rgba(0,0,0,0.48)', color: '#fff' }}
           >
             +{images.length - 1}
           </span>
@@ -60,22 +49,20 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
       </div>
 
       {/* Info */}
-      <div className="px-3 pt-3 pb-3.5 space-y-1.5">
+      <div className="px-2.5 pt-2 pb-2.5 space-y-1">
         <span
-          className="inline-block text-[11px] font-bold px-2.5 py-1 rounded-full"
-          style={{ background: '#111', color: '#fff', fontFamily: "'Pretendard', sans-serif" }}
+          className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full"
+          style={{ background: '#006341', color: '#fff' }}
         >
           {badgeText}
         </span>
         <p
           className="font-bold text-gray-900 leading-snug line-clamp-2"
-          style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '14px', letterSpacing: '-0.03em', fontWeight: 700 }}
+          style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '12px', letterSpacing: '-0.02em' }}
         >
           {guide.product}
         </p>
-        <p
-          style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '11px', color: '#aaa' }}
-        >
+        <p style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '10px', color: '#bbb' }}>
           {fmtDate(guide.updatedAt)}
         </p>
       </div>
@@ -83,7 +70,7 @@ function GuideCard({ guide, onClick }: { guide: Guide; onClick: () => void }) {
   );
 }
 
-/* ── Detail — matches reference layout ── */
+/* ── Detail Modal ── */
 function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) {
   const [imgIdx, setImgIdx] = useState(0);
   const images = guide.imageUrls?.length ? guide.imageUrls : guide.imageUrl ? [guide.imageUrl] : [];
@@ -117,9 +104,8 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
         style={{ maxHeight: '90vh', maxWidth: '480px' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* ── Top bar: [green badge] ............... [date  X] ── */}
+        {/* Top bar */}
         <div className="flex items-center justify-between px-5 pt-5 pb-0 shrink-0">
-          {/* Green breadcrumb badge */}
           <span
             className="inline-flex items-center gap-1 text-[12px] font-bold px-3 py-1 rounded-full"
             style={{ background: '#006341', color: '#fff', fontFamily: "'Pretendard', sans-serif" }}
@@ -132,22 +118,13 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
               </>
             )}
           </span>
-
-          {/* Date + X */}
           <div className="flex items-center gap-3">
             {dateStr && (
-              <span
-                className="text-[12px] text-gray-400"
-                style={{ fontFamily: "'Pretendard', sans-serif" }}
-              >
+              <span className="text-[12px] text-gray-400" style={{ fontFamily: "'Pretendard', sans-serif" }}>
                 {dateStr}
               </span>
             )}
-            <button
-              onClick={onClose}
-              className="flex items-center justify-center active:scale-95 shrink-0"
-              data-testid="btn-close-guide-detail"
-            >
+            <button onClick={onClose} className="flex items-center justify-center active:scale-95 shrink-0" data-testid="btn-close-guide-detail">
               <X className="w-5 h-5 text-gray-400" />
             </button>
           </div>
@@ -155,8 +132,6 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
 
         {/* Scrollable body */}
         <div className="overflow-y-auto flex-1 pb-10">
-
-          {/* ── Title ── */}
           <div className="px-5 pt-4 pb-3">
             <h2
               className="font-black text-gray-900 leading-tight"
@@ -166,13 +141,9 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
             </h2>
           </div>
 
-          {/* ── Subtitle row: storeType chips (like "딸기 품종 셀링" row) ── */}
           {guide.storeType && (
             <div className="px-5 pb-4 flex items-center gap-2">
-              <span
-                className="text-[13px] font-bold text-gray-700"
-                style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em' }}
-              >
+              <span className="text-[13px] font-bold text-gray-700" style={{ fontFamily: "'Pretendard', sans-serif" }}>
                 점포 유형
               </span>
               <span
@@ -184,12 +155,8 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
             </div>
           )}
 
-          {/* ── Image carousel (full-width, no side padding) ── */}
           {images.length > 0 && (
-            <div
-              className="relative w-full"
-              style={{ background: 'rgba(0,99,65,0.06)' }}
-            >
+            <div className="relative w-full" style={{ background: 'rgba(0,99,65,0.06)' }}>
               <img
                 src={images[imgIdx]}
                 alt={guide.product}
@@ -226,40 +193,17 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
           )}
 
           <div className="px-5 pt-4 space-y-3">
-            {/* ── Validity info card (like "사이즈 / 단가" row) ── */}
             {hasValidity && (
-              <div
-                className="rounded-xl px-4 py-3.5 flex items-center gap-3"
-                style={{ background: '#F5F5F5' }}
-              >
-                <span
-                  className="text-[13px] font-bold text-gray-700"
-                  style={{ fontFamily: "'Pretendard', sans-serif" }}
-                >
-                  유효 기간
-                </span>
+              <div className="rounded-xl px-4 py-3.5 flex items-center gap-3" style={{ background: '#F5F5F5' }}>
+                <span className="text-[13px] font-bold text-gray-700" style={{ fontFamily: "'Pretendard', sans-serif" }}>유효 기간</span>
                 <div className="w-px h-4 bg-gray-300 shrink-0" />
-                <span
-                  className="text-[13px] text-gray-600"
-                  style={{ fontFamily: "'Pretendard', sans-serif" }}
-                >
-                  {validityStr}
-                </span>
+                <span className="text-[13px] text-gray-600" style={{ fontFamily: "'Pretendard', sans-serif" }}>{validityStr}</span>
               </div>
             )}
 
-            {/* ── Points (like "메모" card) ── */}
             {guide.points?.length > 0 && (
-              <div
-                className="rounded-xl px-4 py-3.5"
-                style={{ background: '#F5F5F5' }}
-              >
-                <p
-                  className="text-[11px] font-bold text-gray-400 mb-2.5"
-                  style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.01em' }}
-                >
-                  체크포인트
-                </p>
+              <div className="rounded-xl px-4 py-3.5" style={{ background: '#F5F5F5' }}>
+                <p className="text-[11px] font-bold text-gray-400 mb-2.5" style={{ fontFamily: "'Pretendard', sans-serif" }}>체크포인트</p>
                 <div className="space-y-2.5">
                   {guide.points.map((pt, i) => (
                     <div key={i} className="flex items-start gap-2.5">
@@ -269,41 +213,21 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
                       >
                         {i + 1}
                       </span>
-                      <p
-                        className="text-[13px] text-gray-700 leading-snug"
-                        style={{ fontFamily: "'Pretendard', sans-serif" }}
-                      >
-                        {pt}
-                      </p>
+                      <p className="text-[13px] text-gray-700 leading-snug" style={{ fontFamily: "'Pretendard', sans-serif" }}>{pt}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* ── Items section (like "셋팅 사진" section) ── */}
             {guide.items?.length > 0 && (
               <div>
-                <p
-                  className="text-[15px] font-bold text-gray-900 mb-2.5"
-                  style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.03em' }}
-                >
-                  점검 항목
-                </p>
+                <p className="text-[15px] font-bold text-gray-900 mb-2.5" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.03em' }}>점검 항목</p>
                 <div className="space-y-2">
                   {guide.items.map((it, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-2.5 rounded-xl px-3.5 py-3"
-                      style={{ background: '#F5F5F5' }}
-                    >
+                    <div key={i} className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: '#F5F5F5' }}>
                       <span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0 mt-[6px]" />
-                      <p
-                        className="text-[13px] text-gray-700 leading-snug"
-                        style={{ fontFamily: "'Pretendard', sans-serif" }}
-                      >
-                        {it}
-                      </p>
+                      <p className="text-[13px] text-gray-700 leading-snug" style={{ fontFamily: "'Pretendard', sans-serif" }}>{it}</p>
                     </div>
                   ))}
                 </div>
@@ -320,63 +244,67 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
    Main page
 ══════════════════════════════════ */
 export default function GuidesPage() {
-  const [activeTab, setActiveTab] = useState<GuideTabKey>('vm');
+  const [activeCat, setActiveCat] = useState(CAT_TABS[0]);
+  const [subCat, setSubCat]       = useState('전체');
   const [search, setSearch]       = useState('');
-  const [cat, setCat]             = useState('전체');
   const [selected, setSelected]   = useState<Guide | null>(null);
 
   const { data: allGuides = [], isLoading } = useGuides();
 
+  /* Sub-categories derived from storeType within the active main category */
+  const subCats = useMemo(() => {
+    const types = allGuides
+      .filter(g => g.category === activeCat && g.storeType)
+      .map(g => g.storeType as string);
+    return ['전체', ...Array.from(new Set(types))];
+  }, [allGuides, activeCat]);
+
   const q = search.trim().toLowerCase();
 
   const visible = allGuides
-    .filter(g => g.guideType === activeTab)
-    .filter(g => cat === '전체' || g.category === cat)
+    .filter(g => g.category === activeCat)
+    .filter(g => subCat === '전체' || g.storeType === subCat)
     .filter(g =>
       !q ||
       g.product.toLowerCase().includes(q) ||
-      g.category.toLowerCase().includes(q) ||
       (g.storeType ?? '').toLowerCase().includes(q)
     );
 
-  /* group by product, sort by CAT_ORDER */
-  const productGroups: { product: string; category: string; items: Guide[] }[] = [];
+  /* Group by product */
+  const productGroups: { product: string; storeType: string; items: Guide[] }[] = [];
   const seen = new Map<string, number>();
-  [...visible]
-    .sort((a, b) => {
-      const ai = CAT_ORDER.indexOf(a.category);
-      const bi = CAT_ORDER.indexOf(b.category);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    })
-    .forEach(g => {
-      const key = g.product;
-      if (!seen.has(key)) {
-        seen.set(key, productGroups.length);
-        productGroups.push({ product: g.product, category: g.category, items: [] });
-      }
-      productGroups[seen.get(key)!].items.push(g);
-    });
+  visible.forEach(g => {
+    const key = `${g.product}__${g.storeType ?? ''}`;
+    if (!seen.has(key)) {
+      seen.set(key, productGroups.length);
+      productGroups.push({ product: g.product, storeType: g.storeType ?? '', items: [] });
+    }
+    productGroups[seen.get(key)!].items.push(g);
+  });
 
   return (
     <Layout title="매장 가이드" showBack={true}>
       <div className="flex flex-col h-full bg-white">
 
-        {/* ── Sticky filter header ── */}
+        {/* ── Category tabs (primary nav) ── */}
         <div className="sticky top-0 z-40 bg-white" style={{ borderBottom: '1px solid #f0f0f0' }}>
 
-          {/* Guide-type tabs */}
           <div className="flex overflow-x-auto no-scrollbar border-b border-gray-100 px-4">
-            {GUIDE_TABS.map(tab => (
+            {CAT_TABS.map(cat => (
               <button
-                key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setCat('전체'); setSearch(''); }}
-                className={`shrink-0 py-3.5 px-4 text-[15px] transition-all border-b-2 -mb-px whitespace-nowrap ${
-                  activeTab === tab.key ? 'border-black text-black' : 'border-transparent text-gray-400'
+                key={cat}
+                onClick={() => { setActiveCat(cat); setSubCat('전체'); setSearch(''); }}
+                className={`shrink-0 py-3.5 px-5 text-[15px] transition-all border-b-2 -mb-px whitespace-nowrap ${
+                  activeCat === cat ? 'border-black text-black' : 'border-transparent text-gray-400'
                 }`}
-                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === tab.key ? 700 : 500, letterSpacing: '-0.02em' }}
-                data-testid={`tab-guide-${tab.key}`}
+                style={{
+                  fontFamily: "'Pretendard', sans-serif",
+                  fontWeight: activeCat === cat ? 700 : 500,
+                  letterSpacing: '-0.02em',
+                }}
+                data-testid={`tab-guide-cat-${cat}`}
               >
-                {tab.label}
+                {cat}
               </button>
             ))}
           </div>
@@ -389,7 +317,7 @@ export default function GuidesPage() {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="가이드 검색..."
+                placeholder="광고 검색..."
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em', color: '#222' }}
                 data-testid="input-guide-search"
@@ -402,12 +330,12 @@ export default function GuidesPage() {
             </div>
           </div>
 
-          {/* Category chips */}
+          {/* Sub-category chips */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-3 touch-pan-x">
-            {['전체', ...CAT_ORDER].map(c => (
+            {subCats.map(c => (
               <button
                 key={c}
-                onClick={() => setCat(c)}
+                onClick={() => setSubCat(c)}
                 className="shrink-0 transition-all"
                 style={{
                   padding: '6px 16px',
@@ -416,11 +344,11 @@ export default function GuidesPage() {
                   fontWeight: 700,
                   fontFamily: "'Pretendard', sans-serif",
                   letterSpacing: '-0.01em',
-                  background: cat === c ? '#111' : '#fff',
-                  color: cat === c ? '#fff' : '#555',
-                  border: cat === c ? '1.5px solid #111' : '1.5px solid #ddd',
+                  background: subCat === c ? '#111' : '#fff',
+                  color: subCat === c ? '#fff' : '#555',
+                  border: subCat === c ? '1.5px solid #111' : '1.5px solid #ddd',
                 }}
-                data-testid={`chip-guide-cat-${c}`}
+                data-testid={`chip-guide-sub-${c}`}
               >
                 {c === '전체' ? '전체보기' : c}
               </button>
@@ -428,7 +356,7 @@ export default function GuidesPage() {
           </div>
         </div>
 
-        {/* ── Scrollable content ── */}
+        {/* ── Content ── */}
         <div className="flex-1 overflow-y-auto px-4 pt-3 pb-12">
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
@@ -444,24 +372,26 @@ export default function GuidesPage() {
           ) : (
             <div className="space-y-6">
               {productGroups.map(group => (
-                <div key={group.product}>
+                <div key={`${group.product}__${group.storeType}`}>
                   {/* Section header */}
                   <div className="flex items-center gap-2 mb-3">
                     <span
                       className="font-bold text-gray-900"
-                      style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '16px', letterSpacing: '-0.03em' }}
+                      style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '15px', letterSpacing: '-0.03em' }}
                     >
                       {group.product}
                     </span>
-                    <span
-                      className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                      style={{ background: '#f0f0f0', color: '#666', fontFamily: "'Pretendard', sans-serif" }}
-                    >
-                      {group.category}
-                    </span>
+                    {group.storeType && (
+                      <span
+                        className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                        style={{ background: '#f0f0f0', color: '#666', fontFamily: "'Pretendard', sans-serif" }}
+                      >
+                        {group.storeType}
+                      </span>
+                    )}
                   </div>
-                  {/* 2-column grid */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Responsive grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     {group.items.map(g => (
                       <GuideCard key={g.id} guide={g} onClick={() => setSelected(g)} />
                     ))}
@@ -473,7 +403,7 @@ export default function GuidesPage() {
         </div>
       </div>
 
-      {/* Detail overlay */}
+      {/* Detail modal */}
       <AnimatePresence>
         {selected && (
           <GuideDetail guide={selected} onClose={() => setSelected(null)} />
