@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import logoKimsClub from "@assets/대지_1_1776987037351.png";
 import {
   ClipboardCheck, ClipboardList,
   BookOpen, X, ChevronDown, ChevronUp,
+  Home as HomeIcon, ChevronLeft, ChevronRight, RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -122,32 +123,20 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
 
-      {/* Top bar — height 85px, shadow, padding 0 50px */}
+      {/* Top bar — responsive */}
       <header
-        className="flex items-center justify-between bg-white"
-        style={{
-          height: '85px',
-          padding: '0 50px',
-          boxShadow: '0px 2px 3px rgba(0,0,0,0.1)',
-        }}
+        className="flex items-center justify-between bg-white shrink-0 md:h-[85px] h-[60px] md:px-[50px] px-4"
+        style={{ boxShadow: '0px 2px 3px rgba(0,0,0,0.1)' }}
       >
-        <img src={logoKimsClub} alt="KIM'S CLUB" style={{ width: '198px', height: '31px', objectFit: 'contain' }} />
+        <img
+          src={logoKimsClub}
+          alt="KIM'S CLUB"
+          className="md:w-[198px] md:h-[31px] h-[20px] w-auto object-contain"
+        />
         <Link href="/admin/login">
           <button
-            className="active:scale-95 transition-transform"
-            style={{
-              fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-              fontWeight: 600,
-              fontSize: '18px',
-              letterSpacing: '-0.04em',
-              color: '#EAEAEA',
-              background: '#000000',
-              borderRadius: '100px',
-              padding: '13px 35px',
-              border: 'none',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
+            className="active:scale-95 transition-transform font-semibold text-[#EAEAEA] bg-black rounded-full md:text-lg text-[13px] md:px-[35px] md:py-[13px] px-[18px] py-[8px] whitespace-nowrap border-none cursor-pointer"
+            style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em' }}
             data-testid="btn-admin-mode"
           >
             관리자 모드
@@ -156,18 +145,16 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="flex flex-col items-center justify-center flex-1">
-        <div className="flex flex-col items-center" style={{ gap: '0px' }}>
+      <main className="flex flex-col items-center justify-center flex-1 pb-20 md:pb-0 px-4 md:px-0">
+        <div className="flex flex-col items-center w-full md:w-auto">
 
-          {/* Title block — gap 8px between title and subtitle */}
-          <div className="flex flex-col items-center" style={{ gap: '8px', marginBottom: '50px' }}>
+          {/* Title block */}
+          <div className="flex flex-col items-center mb-8 md:mb-[50px] gap-2">
             <h1
-              className="text-center"
+              className="text-center md:text-[50px] md:leading-[60px] text-[32px] leading-[40px]"
               style={{
                 fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
                 fontWeight: 700,
-                fontSize: '50px',
-                lineHeight: '60px',
                 letterSpacing: '-0.04em',
                 color: '#000000',
                 margin: 0,
@@ -176,12 +163,10 @@ export default function Home() {
               매장 점검 <span style={{ color: '#006341' }}>체크리스트</span>
             </h1>
             <p
-              className="text-center"
+              className="text-center md:text-[24px] md:leading-[29px] text-[15px] leading-[22px]"
               style={{
                 fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
                 fontWeight: 500,
-                fontSize: '24px',
-                lineHeight: '29px',
                 letterSpacing: '-0.04em',
                 color: 'rgba(0,0,0,0.4)',
                 margin: 0,
@@ -191,112 +176,66 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Cards row — 455px wide, gap 15px */}
-          <div className="flex flex-row" style={{ gap: '15px', marginBottom: '30px' }}>
+          {/* Cards row */}
+          <div className="flex flex-row gap-[15px] mb-[20px] md:mb-[30px] w-full md:w-auto justify-center">
             {/* Green card */}
-            <Link href="/checklist/new" data-testid="link-new-checklist">
+            <Link href="/checklist/new" data-testid="link-new-checklist" className="flex-1 md:flex-none">
               <motion.div
                 whileTap={{ scale: 0.97 }}
-                className="flex flex-col items-center justify-center cursor-pointer"
+                className="flex flex-col items-center justify-center cursor-pointer w-full md:w-[220px] md:h-[220px] h-[170px]"
                 style={{
-                  width: '220px',
-                  height: '220px',
                   background: '#006341',
                   borderRadius: '20px',
-                  gap: '18px',
-                  padding: '13px 35px',
+                  gap: '14px',
+                  padding: '13px 20px',
                   boxSizing: 'border-box',
                 }}
               >
-                <ClipboardCheck style={{ width: '40px', height: '40px', color: '#FFFFFF' }} strokeWidth={2} />
+                <ClipboardCheck className="md:w-[40px] md:h-[40px] w-8 h-8" style={{ color: '#FFFFFF' }} strokeWidth={2} />
                 <div className="flex flex-col items-center" style={{ gap: '3px' }}>
-                  <p style={{
-                    fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-                    fontWeight: 700,
-                    fontSize: '28px',
-                    lineHeight: '33px',
-                    letterSpacing: '-0.04em',
-                    color: '#FFFFFF',
-                    margin: 0,
-                    textAlign: 'center',
-                  }}>새 점검 등록</p>
-                  <p style={{
-                    fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-                    fontWeight: 500,
-                    fontSize: '18px',
-                    lineHeight: '21px',
-                    letterSpacing: '-0.04em',
-                    color: '#FFFFFF',
-                    margin: 0,
-                    textAlign: 'center',
-                  }}>현장 점검 시작하기</p>
+                  <p className="md:text-[28px] md:leading-[33px] text-[20px] leading-[26px] text-center text-white font-bold" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em', margin: 0 }}>새 점검 등록</p>
+                  <p className="md:text-[18px] md:leading-[21px] text-[13px] leading-[17px] text-center text-white" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: '-0.04em', margin: 0 }}>현장 점검 시작하기</p>
                 </div>
               </motion.div>
             </Link>
 
             {/* White card */}
-            <Link href="/staff-dashboard" data-testid="link-staff-dashboard">
+            <Link href="/staff-dashboard" data-testid="link-staff-dashboard" className="flex-1 md:flex-none">
               <motion.div
                 whileTap={{ scale: 0.97 }}
-                className="flex flex-col items-center justify-center cursor-pointer"
+                className="flex flex-col items-center justify-center cursor-pointer w-full md:w-[220px] md:h-[220px] h-[170px]"
                 style={{
-                  width: '220px',
-                  height: '220px',
                   background: '#FFFFFF',
                   borderRadius: '20px',
-                  gap: '18px',
-                  padding: '13px 35px',
+                  gap: '14px',
+                  padding: '13px 20px',
                   boxSizing: 'border-box',
                   filter: 'drop-shadow(0px 0px 6px rgba(0,0,0,0.25))',
                 }}
               >
-                <ClipboardList style={{ width: '40px', height: '40px', color: '#006341' }} strokeWidth={2} />
+                <ClipboardList className="md:w-[40px] md:h-[40px] w-8 h-8" style={{ color: '#006341' }} strokeWidth={2} />
                 <div className="flex flex-col items-center" style={{ gap: '3px' }}>
-                  <p style={{
-                    fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-                    fontWeight: 700,
-                    fontSize: '28px',
-                    lineHeight: '33px',
-                    letterSpacing: '-0.04em',
-                    color: '#006341',
-                    margin: 0,
-                    textAlign: 'center',
-                    whiteSpace: 'nowrap',
-                  }}>점검 월별 피드백</p>
-                  <p style={{
-                    fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-                    fontWeight: 500,
-                    fontSize: '18px',
-                    lineHeight: '21px',
-                    letterSpacing: '-0.04em',
-                    color: '#000000',
-                    margin: 0,
-                    textAlign: 'center',
-                  }}>수정 및 삭제 가능</p>
+                  <p className="md:text-[28px] md:leading-[33px] text-[20px] leading-[26px] text-center font-bold" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em', color: '#006341', margin: 0 }}>점검 월별<br className="md:hidden" /> 피드백</p>
+                  <p className="md:text-[18px] md:leading-[21px] text-[13px] leading-[17px] text-center" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: '-0.04em', color: '#000000', margin: 0 }}>수정 및 삭제 가능</p>
                 </div>
               </motion.div>
             </Link>
           </div>
 
-          {/* Guide button — navigates to /guides page */}
-          <Link href="/guides" style={{ width: '455px', display: 'block', marginBottom: '12px' }}>
+          {/* Guide button */}
+          <Link href="/guides" className="w-full md:w-[455px] block mb-3">
             <motion.div
               whileTap={{ scale: 0.98 }}
+              className="w-full flex items-center justify-center md:h-[70px] h-[56px] md:text-[26px] text-[20px]"
               style={{
-                width: '100%',
-                height: '70px',
                 background: '#006341',
                 borderRadius: '15px',
                 cursor: 'pointer',
                 fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
                 fontWeight: 600,
-                fontSize: '26px',
                 lineHeight: '31px',
                 letterSpacing: '-0.04em',
                 color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
               }}
               data-testid="btn-open-guide"
             >
@@ -304,20 +243,18 @@ export default function Home() {
             </motion.div>
           </Link>
 
-          {/* Manual button — 455×70px, border-radius 15px, bg #EAEAEA */}
+          {/* Manual button */}
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => setManualOpen(true)}
+            className="w-full md:w-[455px] md:h-[70px] h-[56px] md:text-[26px] text-[20px]"
             style={{
-              width: '455px',
-              height: '70px',
               background: '#EAEAEA',
               borderRadius: '15px',
               border: 'none',
               cursor: 'pointer',
               fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
               fontWeight: 600,
-              fontSize: '26px',
               lineHeight: '31px',
               letterSpacing: '-0.04em',
               color: '#000000',
@@ -331,7 +268,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer
-        className="text-center"
+        className="text-center hidden md:block"
         style={{
           padding: '20px 0',
           fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
@@ -343,6 +280,53 @@ export default function Home() {
       >
         © 2026, 킴스클럽 VMD. All rights reserved.
       </footer>
+
+      {/* ── Bottom Nav Bar — mobile only ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 flex items-center justify-around"
+        style={{ height: '56px', boxShadow: '0 -1px 6px rgba(0,0,0,0.07)' }}
+      >
+        <button
+          onClick={() => window.history.back()}
+          className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+          data-testid="btn-nav-back"
+          aria-label="뒤로 가기"
+        >
+          <ChevronLeft className="w-6 h-6 text-gray-600" />
+          <span className="text-[10px] text-gray-500">뒤로</span>
+        </button>
+
+        <button
+          onClick={() => window.history.forward()}
+          className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+          data-testid="btn-nav-forward"
+          aria-label="앞으로 가기"
+        >
+          <ChevronRight className="w-6 h-6 text-gray-600" />
+          <span className="text-[10px] text-gray-500">앞으로</span>
+        </button>
+
+        <Link href="/">
+          <button
+            className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+            data-testid="btn-nav-home"
+            aria-label="홈으로"
+          >
+            <HomeIcon className="w-6 h-6 text-gray-600" />
+            <span className="text-[10px] text-gray-500">홈</span>
+          </button>
+        </Link>
+
+        <button
+          onClick={() => window.location.reload()}
+          className="flex flex-col items-center justify-center gap-0.5 w-14 h-14 active:bg-gray-100 rounded-xl transition-colors"
+          data-testid="btn-nav-reload"
+          aria-label="새로고침"
+        >
+          <RotateCcw className="w-6 h-6 text-gray-600" />
+          <span className="text-[10px] text-gray-500">새로고침</span>
+        </button>
+      </nav>
 
       {/* Manual bottom sheet */}
       <AnimatePresence>
