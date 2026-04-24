@@ -166,26 +166,36 @@ export default function NewChecklist() {
     if (tab !== 'cleaning') resetVm();
   };
 
-  // ── Stage state (needed for back logic) ──────────────────────────────────
+  // ── History-sync for stage navigation ────────────────────────────────────
   const VMStages: VMStage[] = ['category', 'group', 'product', 'items'];
   const suppressPopCount = useRef(0);
+  const fromBrowserBackRef = useRef(false); // true when vmStage change came from browser back
   const prevVmStageRef = useRef<VMStage>(vmStage);
 
-  // Push a history entry when moving FORWARD between stages
   useEffect(() => {
     const prev = VMStages.indexOf(prevVmStageRef.current);
     const curr = VMStages.indexOf(vmStage);
-    if (curr > prev) {
-      window.history.pushState({ _appNav: true, stage: vmStage }, '');
-    } else if (curr < prev) {
-      // In-app back: pop the matching history entry & suppress the resulting popstate
-      suppressPopCount.current += 1;
-      window.history.go(-1);
-    }
     prevVmStageRef.current = vmStage;
+
+    // Always clear the flag so it doesn't bleed into future forward navigations
+    const wasBrowserBack = fromBrowserBackRef.current;
+    fromBrowserBackRef.current = false;
+
+    if (curr > prev) {
+      // Forward: push one history entry per step skipped (usually 1)
+      for (let i = 0; i < curr - prev; i++) {
+        window.history.pushState({ _appNav: true, stage: vmStage }, '');
+      }
+    } else if (curr < prev && !wasBrowserBack) {
+      // In-app back OR resetVm (tab/month change): pop all skipped entries.
+      // history.go(-N) fires exactly ONE popstate regardless of N.
+      suppressPopCount.current += 1;
+      window.history.go(-(prev - curr));
+    }
+    // If wasBrowserBack && curr < prev: browser already popped the entry — do nothing.
   }, [vmStage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Actual stage transition (used by both browser & in-app back)
+  // Actual stage transition (shared by both browser & in-app back)
   const goBackOneStage = useCallback(() => {
     if (activeTab === 'cleaning' || vmStage === 'category') {
       setLocation('/');
@@ -207,8 +217,9 @@ export default function NewChecklist() {
   const goBackRef = useRef(goBackOneStage);
   useEffect(() => { goBackRef.current = goBackOneStage; }, [goBackOneStage]);
 
-  // Register __appBack (in-app header / bottom-nav back)
+  // Register __appBack (in-app header / bottom-nav back button)
   const handleBack = useCallback(() => {
+    // In-app back: don't set fromBrowserBackRef → effect will pop history to match
     goBackRef.current();
   }, []);
 
@@ -225,6 +236,9 @@ export default function NewChecklist() {
         suppressPopCount.current -= 1;
         return;
       }
+      // Mark that the upcoming vmStage change is from browser back
+      // so the effect does NOT try to pop history again (it's already been popped)
+      fromBrowserBackRef.current = true;
       goBackRef.current();
     };
     window.addEventListener('popstate', onPopState);
