@@ -295,7 +295,7 @@ export default function EditChecklist() {
 
   return (
     <Layout title="점검 수정" showBack={true}>
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 pb-10">
+      <div className="flex-1 overflow-y-auto px-4 py-6 md:px-[50px] space-y-6 pb-10">
         {/* Branch / Product info (read-only) */}
         <div className="bg-secondary text-white rounded-3xl p-5 flex items-center gap-4 shadow-lg">
           <div className="bg-white/10 p-3 rounded-2xl">
