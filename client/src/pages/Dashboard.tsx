@@ -1042,7 +1042,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
 
   return (
     <>
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 space-y-3 shadow-sm max-w-7xl mx-auto w-full">
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-4 space-y-3 shadow-sm w-full">
         <div className="flex gap-1.5">
           {([['all', '전체'], ['vm', '진열(+광고)'], ['quality', '품질']] as const).map(([val, label]) => (
             <button
@@ -1107,7 +1107,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
         </div>
       </div>
 
-      <div className="p-4 md:p-8 space-y-4 max-w-7xl mx-auto w-full">
+      <div className="px-4 md:px-[50px] py-4 space-y-4 w-full">
         {/* ── 지점 순위 리더보드 (지점 미선택 + VM/광고 탭) ── */}
         {showLeaderboard ? (() => {
           const ranking = viewFilter === 'quality' ? qualityRanking : vmRanking;
@@ -1710,7 +1710,7 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
   return (
     <>
       {/* Branch filter + date navigator */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 p-4 shadow-sm space-y-3">
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-4 shadow-sm space-y-3">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
           <select
@@ -1774,7 +1774,7 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
         </div>}
       </div>
 
-      <div className="p-4 md:p-8 space-y-5 max-w-7xl mx-auto w-full">
+      <div className="px-4 md:px-[50px] py-4 space-y-5 w-full">
       {!filterBranch ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
           <Droplets className="w-12 h-12 text-emerald-300" />
@@ -2096,7 +2096,7 @@ function RankingTab() {
   }, [agriPeriod, rankType]);
 
   return (
-    <div className="p-3 md:p-6 space-y-2 max-w-5xl mx-auto w-full">
+    <div className="px-4 md:px-[50px] py-3 space-y-2 w-full">
       {/* Year/Month filter */}
       <div className="flex gap-1.5 items-center">
         <select value={rankYear} onChange={e => setRankYear(Number(e.target.value))}
@@ -2248,7 +2248,7 @@ function ActivityTab() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-4 max-w-5xl mx-auto w-full">
+    <div className="px-4 md:px-[50px] py-4 space-y-4 w-full">
       {/* Branch filter */}
       <select
         value={selectedBranch}
@@ -2355,7 +2355,7 @@ export default function Dashboard() {
       />
       <div className="flex flex-col h-full bg-background">
         {/* Tab switcher + bell */}
-        <div className="flex gap-1 p-3 bg-muted/50 border-b border-border items-center">
+        <div className="flex gap-1 py-3 px-4 md:px-[50px] bg-muted/50 border-b border-border items-center">
           <button
             onClick={() => setActiveTab('ranking')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-bold text-sm transition-all ${

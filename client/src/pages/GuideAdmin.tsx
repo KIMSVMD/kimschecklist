@@ -1269,7 +1269,7 @@ export default function GuideAdmin() {
         </div>
 
         {/* Tab switcher */}
-        <div className="flex gap-2 px-4 py-2.5 bg-muted/50 border-b border-border">
+        <div className="flex gap-2 px-4 md:px-[50px] py-2.5 bg-muted/50 border-b border-border">
           <button
             onClick={() => setActiveTab('guides')}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
@@ -1290,7 +1290,7 @@ export default function GuideAdmin() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-4 pb-6 space-y-4 max-w-6xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto px-4 md:px-[50px] pt-4 pb-6 space-y-4 w-full">
           {activeTab === 'products' ? (
             <ProductManager />
           ) : (
