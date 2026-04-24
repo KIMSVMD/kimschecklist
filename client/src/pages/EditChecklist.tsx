@@ -29,7 +29,7 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 function ItemText({ text }: { text: string }) {
   const colonIdx = text.indexOf(': ');
-  if (colonIdx === -1) return <span className="text-lg">{text}</span>;
+  if (colonIdx === -1) return <span className="text-xl">{text}</span>;
   const label = text.slice(0, colonIdx);
   const desc  = text.slice(colonIdx + 2);
   return (
@@ -40,7 +40,7 @@ function ItemText({ text }: { text: string }) {
       >
         {label}
       </span>
-      <span className="text-lg">{desc}</span>
+      <span className="text-xl">{desc}</span>
     </span>
   );
 }
