@@ -15,11 +15,13 @@ import AdminLogin from "./pages/AdminLogin";
 import GuideAdmin from "./pages/GuideAdmin";
 import EditChecklist from "./pages/EditChecklist";
 import CleaningChecklist from "./pages/CleaningChecklist";
+import GuidesPage from "./pages/GuidesPage";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/guides" component={GuidesPage} />
       <Route path="/checklist/new" component={NewChecklist} />
       <Route path="/checklist/edit/:id" component={EditChecklist} />
       <Route path="/staff-dashboard" component={StaffDashboard} />
