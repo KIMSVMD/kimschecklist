@@ -1,11 +1,7 @@
 import { ReactNode, useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import {
-  ChevronLeft, Menu, Home, ClipboardCheck, ClipboardList,
-  LayoutDashboard, BookOpen, Brush, X
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import kimsClubLogo from "../assets/image_1775461936743.png";
+import { ChevronLeft } from "lucide-react";
+import logoKimsClub from "@assets/대지_1_1776987037351.png";
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,88 +10,8 @@ interface LayoutProps {
   onBack?: () => void;
 }
 
-const NAV_SECTIONS = [
-  {
-    label: "현장 직원",
-    items: [
-      { href: "/", icon: Home, label: "홈" },
-      { href: "/checklist/new", icon: ClipboardCheck, label: "새 점검 등록" },
-      { href: "/staff-dashboard", icon: ClipboardList, label: "점검 월별 피드백" },
-      { href: "/cleaning/new", icon: Brush, label: "청소 점검" },
-    ],
-  },
-  {
-    label: "VMD 관리자",
-    items: [
-      { href: "/dashboard", icon: LayoutDashboard, label: "관리자 대시보드" },
-      { href: "/admin/guides", icon: BookOpen, label: "가이드 관리" },
-    ],
-  },
-];
-
-function Sidebar({ onClose }: { onClose?: () => void }) {
-  const [location] = useLocation();
-
-  return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="px-5 border-b border-border/40 flex items-center justify-between shrink-0" style={{ height: '70px' }}>
-        <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-5 w-auto object-contain" />
-        {onClose && (
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors md:hidden">
-            <X className="w-5 h-5 text-muted-foreground" />
-          </button>
-        )}
-      </div>
-
-      <nav className="flex-1 p-4 space-y-5 overflow-y-auto">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.label}>
-            <p
-              className="text-[11px] text-muted-foreground px-2 mb-1.5"
-              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '0.06em' }}
-            >
-              {section.label}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map(({ href, icon: Icon, label }) => {
-                const isActive = location === href;
-                return (
-                  <Link key={href} href={href} onClick={onClose}>
-                    <div
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer",
-                        isActive
-                          ? "bg-black text-white"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                      )}
-                      style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: isActive ? 700 : 500, fontSize: '14px', letterSpacing: '-0.02em' }}
-                    >
-                      <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "text-muted-foreground")} />
-                      {label}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
-
-      <div className="p-4 border-t border-border/40 flex flex-col items-center gap-1">
-        <p
-          className="text-muted-foreground text-center"
-          style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '11px', letterSpacing: '-0.02em' }}
-        >
-          © 2026, 킴스클럽 VMD
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onBack }: LayoutProps) {
   const [location] = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isValidSwipe = useRef(false);
@@ -167,108 +83,116 @@ export function Layout({ children, title = "KIMS CLUB VMD", showBack = true, onB
   }, [swipeEnabled, onBack, location]);
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex flex-col">
 
-      {/* ── Desktop Sidebar (md+) ── */}
-      <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border/50 fixed left-0 top-0 h-screen z-40">
-        <Sidebar />
-      </aside>
-
-      {/* ── Mobile Sidebar Overlay ── */}
-      {mobileMenuOpen && (
+      {/* ── Global Header — matches Home.tsx top bar ── */}
+      <header
+        className="sticky top-0 z-40 bg-white flex items-center justify-between shrink-0"
+        style={{ boxShadow: '0px 2px 3px rgba(0,0,0,0.1)' }}
+      >
+        {/* Desktop */}
         <div
-          className="fixed inset-0 z-50 md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
+          className="hidden md:flex w-full items-center justify-between"
+          style={{ height: '85px', padding: '0 50px' }}
         >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="flex items-center gap-5">
+            {canGoBack && (
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors active:scale-95 shrink-0"
+                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 500, fontSize: '15px', letterSpacing: '-0.02em' }}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                뒤로
+              </button>
+            )}
+            <img src={logoKimsClub} alt="KIM'S CLUB" style={{ width: '198px', height: '31px', objectFit: 'contain' }} />
+          </div>
+          <Link href="/admin/login">
+            <button
+              className="active:scale-95 transition-transform"
+              style={{
+                fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                fontWeight: 600,
+                fontSize: '18px',
+                letterSpacing: '-0.04em',
+                color: '#EAEAEA',
+                background: '#000000',
+                borderRadius: '100px',
+                padding: '13px 35px',
+                border: 'none',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+              data-testid="btn-admin-mode"
+            >
+              관리자 모드
+            </button>
+          </Link>
+        </div>
+
+        {/* Mobile */}
+        <div
+          className="md:hidden w-full flex items-center justify-between"
+          style={{ height: '60px', padding: '0 16px' }}
+        >
+          <div className="flex items-center gap-2">
+            {canGoBack && (
+              <button
+                onClick={handleBack}
+                className="p-1.5 -ml-1.5 rounded-full active:scale-95 transition-all text-muted-foreground"
+                data-testid="btn-mobile-back"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            <img src={logoKimsClub} alt="KIM'S CLUB" style={{ height: '20px', objectFit: 'contain' }} />
+          </div>
+          <Link href="/admin/login">
+            <button
+              className="active:scale-95 transition-transform"
+              style={{
+                fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                fontWeight: 600,
+                fontSize: '13px',
+                letterSpacing: '-0.03em',
+                color: '#EAEAEA',
+                background: '#000000',
+                borderRadius: '100px',
+                padding: '8px 18px',
+                border: 'none',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+              data-testid="btn-admin-mode-mobile"
+            >
+              관리자 모드
+            </button>
+          </Link>
+        </div>
+      </header>
+
+      {/* Swipe back indicator (mobile) */}
+      {swipeEnabled && swipeProgress > 0 && (
+        <div
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex items-center pointer-events-none md:hidden"
+          style={{ opacity: swipeProgress }}
+        >
           <div
-            className="absolute left-0 top-0 h-full w-72 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className="bg-secondary/80 text-white rounded-r-2xl flex items-center justify-center shadow-xl"
+            style={{
+              width: `${20 + swipeProgress * 28}px`,
+              height: `${40 + swipeProgress * 20}px`,
+            }}
           >
-            <Sidebar onClose={() => setMobileMenuOpen(false)} />
+            <ChevronLeft className="w-5 h-5" style={{ opacity: swipeProgress }} />
           </div>
         </div>
       )}
 
-      {/* ── Main Area ── */}
-      <div className="flex-1 flex flex-col min-h-screen md:ml-60">
-
-        {/* Mobile header */}
-        <header className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 h-14 flex items-center justify-between shrink-0">
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-all text-secondary"
-            data-testid="btn-mobile-menu"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-
-          {title === "KIMS CLUB" ? (
-            <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-5 w-auto object-contain flex-1 mx-2" />
-          ) : (
-            <h1 className="text-base font-bold text-foreground truncate flex-1 text-center mx-2 font-display tracking-wide">
-              {title}
-            </h1>
-          )}
-
-          <div className="w-10 flex items-center justify-end">
-            {canGoBack && (
-              <button
-                onClick={handleBack}
-                className="p-2 -mr-2 rounded-full hover:bg-muted active:scale-95 transition-all text-secondary"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            )}
-          </div>
-        </header>
-
-        {/* Desktop header bar */}
-        <header className="hidden md:flex sticky top-0 z-30 bg-white border-b border-border/60 px-8 h-14 items-center gap-3 shrink-0">
-          {canGoBack && (
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
-              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 500, letterSpacing: '-0.02em' }}
-            >
-              <ChevronLeft className="w-4 h-4" />
-              뒤로
-            </button>
-          )}
-          {title === "KIMS CLUB" ? (
-            <img src={kimsClubLogo} alt="KIM'S CLUB" className="h-5 w-auto object-contain" />
-          ) : (
-            <h1
-              className="text-sm text-foreground"
-              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '-0.03em' }}
-            >
-              {title}
-            </h1>
-          )}
-        </header>
-
-        {/* Swipe back indicator (mobile) */}
-        {swipeEnabled && swipeProgress > 0 && (
-          <div
-            className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex items-center pointer-events-none md:hidden"
-            style={{ opacity: swipeProgress }}
-          >
-            <div
-              className="bg-secondary/80 text-white rounded-r-2xl flex items-center justify-center shadow-xl"
-              style={{
-                width: `${20 + swipeProgress * 28}px`,
-                height: `${40 + swipeProgress * 20}px`,
-              }}
-            >
-              <ChevronLeft className="w-5 h-5" style={{ opacity: swipeProgress }} />
-            </div>
-          </div>
-        )}
-
-        <main className="flex-1 flex flex-col overflow-y-auto w-full">
-          {children}
-        </main>
-      </div>
+      <main className="flex-1 flex flex-col overflow-y-auto w-full">
+        {children}
+      </main>
     </div>
   );
 }
