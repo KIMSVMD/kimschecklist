@@ -184,6 +184,11 @@ export default function NewChecklist() {
     }
   };
 
+  useEffect(() => {
+    (window as any).__appBack = handleBack;
+    return () => { delete (window as any).__appBack; };
+  }, [activeTab, vmStage]);
+
   return (
     <Layout title="새 점검 등록" showBack={true} onBack={handleBack}>
       <div className="flex flex-col h-full bg-white">
