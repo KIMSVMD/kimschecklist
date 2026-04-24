@@ -83,18 +83,18 @@ type VMStage = 'category' | 'group' | 'product' | 'items';
 
 function ItemText({ text }: { text: string }) {
   const colonIdx = text.indexOf(': ');
-  if (colonIdx === -1) return <span>{text}</span>;
+  if (colonIdx === -1) return <span className="text-lg">{text}</span>;
   const label = text.slice(0, colonIdx);
   const desc  = text.slice(colonIdx + 2);
   return (
-    <span className="flex flex-col gap-0.5">
+    <span className="flex flex-row items-center gap-2 flex-wrap">
       <span
-        className="inline-block self-start text-[11px] font-bold px-2 py-0.5 rounded-md"
+        className="inline-block shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-md"
         style={{ background: '#006341', color: '#fff', letterSpacing: '-0.01em' }}
       >
         {label}
       </span>
-      <span>{desc}</span>
+      <span className="text-lg">{desc}</span>
     </span>
   );
 }
