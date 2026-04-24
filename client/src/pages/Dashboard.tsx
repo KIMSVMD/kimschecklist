@@ -1693,14 +1693,14 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
 
   return (
     <>
-      {/* Branch filter + date navigator */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-3 space-y-2.5">
+      {/* Branch filter + date navigator — single row */}
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-3">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
           <select
             value={filterBranch}
             onChange={e => setFilterBranch(e.target.value)}
-            className={`flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium outline-none text-sm ${filterBranch ? 'text-secondary' : 'text-muted-foreground'}`}
+            className={`bg-muted border-none rounded-xl px-3 py-2.5 font-medium outline-none text-sm shrink-0 ${filterBranch ? 'text-secondary' : 'text-muted-foreground'}`}
             data-testid="select-cleaning-branch"
           >
             <option value="">지점 선택</option>
@@ -1708,35 +1708,31 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
               <option key={b} value={b}>{b}점</option>
             ))}
           </select>
-        </div>
 
-        {/* Date navigator + 오픈/마감 filter — only when a branch is selected */}
-        {filterBranch && (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-muted rounded-xl px-2 py-1.5 flex-1">
+          {filterBranch && (<>
+            <div className="flex items-center gap-1 bg-muted rounded-xl px-2 py-1.5 flex-1 min-w-0">
               <button
                 onClick={goBack}
-                className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all"
+                className="w-7 h-7 rounded-lg bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all shrink-0"
                 data-testid="btn-date-prev"
               >
-                <ChevronLeft className="w-4 h-4 text-secondary" />
+                <ChevronLeft className="w-3.5 h-3.5 text-secondary" />
               </button>
-              <div className="flex-1 text-center">
-                <p className="font-bold text-secondary text-sm whitespace-nowrap">
+              <div className="flex-1 text-center min-w-0">
+                <p className="font-bold text-secondary text-sm whitespace-nowrap truncate">
                   {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
                 </p>
               </div>
               <button
                 onClick={goForward}
                 disabled={isToday}
-                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm"
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm shrink-0"
                 data-testid="btn-date-next"
               >
-                <ChevronRight className="w-4 h-4 text-secondary" />
+                <ChevronRight className="w-3.5 h-3.5 text-secondary" />
               </button>
             </div>
 
-            {/* 오픈 / 마감 dropdown */}
             <select
               value={filterTime}
               onChange={e => setFilterTime(e.target.value as '전체' | '오픈' | '마감')}
@@ -1747,8 +1743,8 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
               <option value="오픈">☀ 오픈</option>
               <option value="마감">🌙 마감</option>
             </select>
-          </div>
-        )}
+          </>)}
+        </div>
       </div>
 
       <div className="px-4 md:px-[50px] py-4 space-y-5 w-full">
