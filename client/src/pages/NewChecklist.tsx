@@ -390,7 +390,7 @@ function VMContent({ adOnly, qualityOnly = false, branch, selYear, selMonth, vmS
   const productBadge = (product: string) => pendingGuideNotifs.filter(n => n.product === product).length > 0;
 
   return (
-    <div className="p-4 md:px-[50px] space-y-4 w-full max-w-3xl">
+    <div className="p-4 md:px-[50px] space-y-4 w-full max-w-3xl mx-auto">
       {/* Stage back-nav */}
       {vmStage !== 'category' && (
         <button
