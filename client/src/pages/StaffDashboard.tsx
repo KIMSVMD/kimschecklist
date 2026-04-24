@@ -413,7 +413,7 @@ export default function StaffDashboard() {
           {(activeTab === 'vm' || activeTab === 'quality') && (
             <div className="space-y-3 pt-3">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 w-32 shrink-0 justify-between">
                   <button onClick={prevVmYear} className="active:scale-95 transition-all" data-testid="btn-staff-prev-year">
                     <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                   </button>

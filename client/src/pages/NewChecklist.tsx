@@ -243,7 +243,7 @@ export default function NewChecklist() {
         {/* ── Sub-filter (year/month) ── */}
         {(activeTab === 'vm' || activeTab === 'quality') && (
           <div className="bg-white px-4 pt-3 pb-3 border-b border-border/30 flex items-center gap-2">
-            <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
+            <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 w-32 shrink-0 justify-between">
               <button onClick={prevYear} className="active:scale-95 transition-all" data-testid="btn-new-prev-year">
                 <ChevronLeft className="w-4 h-4 text-muted-foreground" />
               </button>
