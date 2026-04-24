@@ -29,18 +29,18 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 function ItemText({ text }: { text: string }) {
   const colonIdx = text.indexOf(': ');
-  if (colonIdx === -1) return <span className="text-xl">{text}</span>;
+  if (colonIdx === -1) return <span className="text-base">{text}</span>;
   const label = text.slice(0, colonIdx);
   const desc  = text.slice(colonIdx + 2);
   return (
     <span className="flex flex-row items-center gap-2 flex-wrap">
       <span
-        className="inline-block shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-md"
+        className="inline-block shrink-0 text-sm font-bold px-2.5 py-1 rounded-md"
         style={{ background: '#006341', color: '#fff', letterSpacing: '-0.01em' }}
       >
         {label}
       </span>
-      <span className="text-xl">{desc}</span>
+      <span className="text-base">{desc}</span>
     </span>
   );
 }
