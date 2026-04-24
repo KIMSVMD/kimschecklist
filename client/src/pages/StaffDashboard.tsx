@@ -172,10 +172,11 @@ export default function StaffDashboard() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  // 농산 기준 월별 순위 계산
+  // 선택된 카테고리 기준 월별 순위 계산 (전체 선택 시 농산 기본)
+  const effectiveCat = filterCategory !== '전체' ? filterCategory : '농산';
   const agriPeriod = (allVmChecklists ?? []).filter(item => {
     const cat = (item as any).category as string;
-    if (cat !== '농산') return false;
+    if (cat !== effectiveCat) return false;
     const itemYear = (item as any).year;
     const itemMonth = (item as any).month;
     if (itemYear && itemMonth) return itemYear === vmFilterYear && itemMonth === vmFilterMonth;
@@ -426,7 +427,7 @@ export default function StaffDashboard() {
               </div>
               {/* category chips — black filled active, white bordered inactive */}
               <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
-                {CATEGORIES.map(cat => {
+                {(activeTab === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => {
                   const badge = catBadge(cat);
                   return (
                     <button key={cat}
@@ -714,7 +715,7 @@ export default function StaffDashboard() {
                     <div className="flex items-center gap-2 pt-1 pb-2">
                       <Star className={`w-5 h-5 ${accentClass}`} />
                       <h2 className={`text-base font-black ${accentClass}`}>{vmFilterYear}년 {vmFilterMonth}월 {title}</h2>
-                      <span className="text-[11px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">농산 기준</span>
+                      <span className="text-[11px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">{effectiveCat} 기준</span>
                     </div>
                     {/* Grade legend inline */}
                     <div className="flex gap-1.5 items-center pb-1">

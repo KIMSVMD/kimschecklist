@@ -887,8 +887,9 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
     category: filterCategory !== '전체' ? filterCategory : undefined,
   });
 
-  // 농산 전체 데이터 — 순위 계산용
-  const { data: agriAll } = useChecklists({ category: '농산' });
+  // 선택 카테고리 전체 데이터 — 순위 계산용 (전체 선택 시 농산 기본)
+  const effectiveCat = filterCategory !== '전체' ? filterCategory : '농산';
+  const { data: agriAll } = useChecklists({ category: effectiveCat });
   const { data: validGuideProducts = [] } = useValidGuideProducts(filterYear, filterMonth);
 
   // 탭별 가이드 상품 세트를 미리 분리
@@ -1073,7 +1074,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
             className="flex-1 bg-muted border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary"
             data-testid="select-filter-category">
             <option value="전체">전체 카테고리</option>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            {(viewFilter === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <select
@@ -1118,7 +1119,7 @@ function VMTab({ highlightId, highlightBranch }: { highlightId?: number; highlig
               <div className="flex items-center gap-2 pt-1 pb-2">
                 <Trophy className={`w-5 h-5 ${accentClass}`} />
                 <h2 className={`text-base font-black ${accentClass}`}>{filterYear}년 {filterMonth}월 {title}</h2>
-                <span className="text-[11px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">농산 기준</span>
+                <span className="text-[11px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">{effectiveCat} 기준</span>
               </div>
               {ranking.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -2031,6 +2032,7 @@ function RankingTab() {
   const [rankYear, setRankYear] = useState(now.getFullYear());
   const [rankMonth, setRankMonth] = useState(now.getMonth() + 1);
   const [rankType, setRankType] = useState<'vm' | 'ad' | 'quality'>('vm');
+  const [rankCategory, setRankCategory] = useState('농산');
   const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const ALL_BRANCHES = BRANCHES.slice(1);
@@ -2048,7 +2050,7 @@ function RankingTab() {
   ];
   SORTED_BRANCHES.forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
 
-  const { data: agriAll, isLoading } = useChecklists({ category: '농산' });
+  const { data: agriAll, isLoading } = useChecklists({ category: rankCategory });
 
   const agriPeriod = (agriAll ?? []).filter(item => {
     const itemYear = (item as any).year;
@@ -2116,7 +2118,10 @@ function RankingTab() {
       {/* VM / Ad toggle + Grade legend in one row */}
       <div className="flex gap-1.5 items-center">
         {([['vm', '진열'], ['ad', '광고(+셀링)'], ['quality', '품질']] as const).map(([val, label]) => (
-          <button key={val} onClick={() => setRankType(val)}
+          <button key={val} onClick={() => {
+            setRankType(val);
+            if (val === 'quality' && rankCategory === '공산') setRankCategory('농산');
+          }}
             className={`py-1.5 px-3 rounded-lg font-bold text-xs transition-all active:scale-95 border ${
               rankType === val
                 ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
@@ -2133,6 +2138,19 @@ function RankingTab() {
           ))}
         </div>
         <span className="text-[10px] text-muted-foreground">80/60/0 기준</span>
+      </div>
+
+      {/* Category chips */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+        {(rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => (
+          <button key={cat} onClick={() => setRankCategory(cat)}
+            className={`shrink-0 px-3 py-1 rounded-full font-bold text-xs transition-all active:scale-95 ${
+              rankCategory === cat ? 'bg-black text-white' : 'bg-muted text-muted-foreground'
+            }`}
+            data-testid={`btn-rank-cat-${cat}`}>
+            {cat}
+          </button>
+        ))}
       </div>
 
       {/* Ranking list */}
@@ -2205,7 +2223,7 @@ function RankingTab() {
           })()}
         </div>
       )}
-      <p className="text-center text-[10px] text-muted-foreground">농산 카테고리 기준 · 관리자 입력 점수</p>
+      <p className="text-center text-[10px] text-muted-foreground">{rankCategory} 카테고리 기준 · 관리자 입력 점수</p>
     </div>
   );
 }
