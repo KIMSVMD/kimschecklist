@@ -1292,16 +1292,15 @@ export default function GuideAdmin() {
 
         {/* Guide type filter — outside scroll so border spans full width */}
         {activeTab === 'guides' && (
-          <div className="flex border-b border-border px-4 md:px-[50px] shrink-0">
+          <div className="flex border-b border-border -mx-0 px-4 md:px-[50px] shrink-0">
             {([['vm', '진열'], ['ad', '광고(+셀링)'], ['quality', '품질']] as const).map(([val, label]) => (
               <button
                 key={val}
                 onClick={() => { setGuideTypeFilter(val); setShowAddForm(false); setEditingId(null); }}
-                className={`px-4 py-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 -mb-px ${
-                  guideTypeFilter === val
-                    ? 'text-secondary border-secondary'
-                    : 'text-muted-foreground border-transparent hover:text-secondary/70'
+                className={`flex-1 flex items-center justify-center px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                  guideTypeFilter === val ? 'border-black text-black' : 'border-transparent text-muted-foreground'
                 }`}
+                style={{ fontWeight: guideTypeFilter === val ? 700 : 500 }}
                 data-testid={`tab-guide-type-${val}`}
               >
                 {label}
