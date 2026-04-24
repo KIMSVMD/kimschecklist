@@ -278,7 +278,7 @@ export default function GuidesPage() {
         <div className="sticky top-0 z-40 bg-white" style={{ borderBottom: '1px solid #f0f0f0' }}>
 
           {/* Guide type tabs */}
-          <div className="flex border-b border-gray-100 px-4">
+          <div className="flex border-b border-gray-100 px-4 md:px-[50px]">
             {GUIDE_TYPE_TABS.map(tab => (
               <button
                 key={tab.key}
@@ -299,7 +299,7 @@ export default function GuidesPage() {
           </div>
 
           {/* Search */}
-          <div className="px-4 pt-3 pb-2">
+          <div className="px-4 md:px-[50px] pt-3 pb-2">
             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: '#F2F2F2' }}>
               <Search className="w-4 h-4 shrink-0" style={{ color: '#999' }} />
               <input
@@ -320,7 +320,7 @@ export default function GuidesPage() {
           </div>
 
           {/* Category chips */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-3 touch-pan-x">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 md:px-[50px] pb-3 touch-pan-x">
             {['전체', ...CAT_TABS].map(c => (
               <button
                 key={c}
@@ -346,7 +346,7 @@ export default function GuidesPage() {
         </div>
 
         {/* ── Content ── */}
-        <div className="flex-1 overflow-y-auto px-4 pt-3 pb-12">
+        <div className="flex-1 overflow-y-auto px-4 md:px-[50px] pt-3 pb-12">
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <p style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '14px', color: '#aaa' }}>불러오는 중...</p>
