@@ -298,7 +298,7 @@ export default function EditChecklist() {
             <div className="bg-secondary text-white rounded-3xl p-4 shadow-xl space-y-4">
               <div className="flex items-center gap-2">
                 <ImageIcon className="text-primary w-6 h-6" />
-                <h3 className="text-xl font-bold">표준 진열 가이드</h3>
+                <h3 className="text-xl font-bold">진열 가이드</h3>
               </div>
               {guideImage && (
                 <Dialog>

@@ -877,7 +877,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <ImageIcon className="text-primary w-6 h-6" />
-                <h3 className="text-xl font-bold">표준 진열 가이드</h3>
+                <h3 className="text-xl font-bold">진열 가이드</h3>
               </div>
               {hasStoreTypes && (
                 <div className="flex gap-1">
