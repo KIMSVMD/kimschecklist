@@ -499,10 +499,10 @@ export default function StaffDashboard() {
               </div>
 
               {/* Zone filter chips */}
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
+              <div className="flex gap-1 pb-3">
                 <button
                   onClick={() => setFilterZone('전체')}
-                  className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95 ${
+                  className={`flex-1 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
                     filterZone === '전체' ? 'bg-black text-white' : 'bg-white border border-border text-secondary hover:border-black/40'
                   }`}
                   style={{ fontFamily: "'Pretendard', sans-serif" }}
@@ -514,7 +514,7 @@ export default function StaffDashboard() {
                   <button
                     key={z}
                     onClick={() => setFilterZone(z)}
-                    className={`shrink-0 px-4 py-1.5 rounded-full text-sm transition-all active:scale-95 ${
+                    className={`flex-1 py-1.5 rounded-full text-xs transition-all active:scale-95 ${
                       filterZone === z ? 'bg-black text-white font-bold' : 'bg-white border border-border text-secondary hover:border-black/40'
                     }`}
                     style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: filterZone === z ? 700 : 500 }}
