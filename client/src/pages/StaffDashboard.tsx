@@ -1139,25 +1139,27 @@ export default function StaffDashboard() {
                 </div>
               ) : (<>
                 {/* ── 오늘의 청소 점검 현황 카드 ── */}
-                <div className="bg-secondary text-white rounded-3xl p-5 shadow-xl">
+                <div className="bg-white border border-border rounded-3xl p-5 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
-                    <Droplets className="w-6 h-6 text-emerald-400" />
-                    <h3 className="text-xl font-black">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+                      <Droplets className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <h3 className="text-base font-black text-secondary">
                       {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 청소 점검 현황
                     </h3>
                   </div>
-                  <div className="flex gap-3 mb-5">
-                    <div className="flex-1 bg-white/10 rounded-2xl p-3 text-center">
-                      <p className="text-2xl font-black text-emerald-400">{completedSlotCount}<span className="text-sm text-white/60">/{totalSlots}</span></p>
-                      <p className="text-xs text-white/70 font-medium mt-0.5">점검 완료</p>
+                  <div className="flex gap-2.5 mb-4">
+                    <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 text-center">
+                      <p className="text-2xl font-black text-emerald-600">{completedSlotCount}<span className="text-sm font-medium text-emerald-400">/{totalSlots}</span></p>
+                      <p className="text-xs text-emerald-600/70 font-semibold mt-0.5">점검 완료</p>
                     </div>
-                    <div className="flex-1 bg-white/10 rounded-2xl p-3 text-center">
-                      <p className="text-2xl font-black text-primary">{allIssues.length}</p>
-                      <p className="text-xs text-white/70 font-medium mt-0.5">문제 발생</p>
+                    <div className="flex-1 bg-red-50 border border-red-100 rounded-2xl p-3.5 text-center">
+                      <p className="text-2xl font-black text-red-500">{allIssues.length}</p>
+                      <p className="text-xs text-red-500/70 font-semibold mt-0.5">문제 발생</p>
                     </div>
-                    <div className="flex-1 bg-white/10 rounded-2xl p-3 text-center">
-                      <p className="text-2xl font-black text-white">{completionRate}<span className="text-sm text-white/60">%</span></p>
-                      <p className="text-xs text-white/70 font-medium mt-0.5">완료율</p>
+                    <div className="flex-1 bg-gray-50 border border-gray-100 rounded-2xl p-3.5 text-center">
+                      <p className="text-2xl font-black text-secondary">{completionRate}<span className="text-sm font-medium text-muted-foreground">%</span></p>
+                      <p className="text-xs text-muted-foreground font-semibold mt-0.5">완료율</p>
                     </div>
                   </div>
                   {/* Zone status grid */}
@@ -1169,25 +1171,23 @@ export default function StaffDashboard() {
                         <button
                           key={zone}
                           onClick={() => setFilterZone(zone === filterZone ? '전체' : zone)}
-                          className={`rounded-2xl p-2 text-center transition-all active:scale-95 border-2 ${
+                          className={`rounded-2xl p-2.5 text-center transition-all active:scale-95 border-2 ${
                             status === null
-                              ? 'bg-white/10 border-white/10'
+                              ? 'bg-gray-50 border-gray-200'
                               : status === 'ok'
-                                ? 'bg-emerald-500/90 border-emerald-400'
-                                : 'bg-primary/80 border-primary/60'
+                                ? 'bg-emerald-50 border-emerald-200'
+                                : 'bg-red-50 border-red-200'
                           } ${!isSelected ? 'opacity-40' : ''}`}
                           data-testid={`btn-staff-zone-grid-${zone}`}
                         >
-                          {status === 'ok' && <CheckCheck className="w-4 h-4 text-white mx-auto mb-0.5" />}
-                          {status === 'issue' && <XCircle className="w-4 h-4 text-white mx-auto mb-0.5" />}
+                          {status === 'ok' && <CheckCheck className="w-4 h-4 text-emerald-500 mx-auto mb-0.5" />}
+                          {status === 'issue' && <XCircle className="w-4 h-4 text-red-500 mx-auto mb-0.5" />}
                           {status === null && <div className="w-4 h-4 mx-auto mb-0.5" />}
-                          <p className="text-xs font-black text-white">{zone}</p>
-                          {status !== null && (
-                            <div className="flex items-center justify-center gap-0.5 mt-0.5">
-                              <Sun className="w-2.5 h-2.5 text-white/70" />
-                              <span className="text-[9px] text-white/70">오픈</span>
-                            </div>
-                          )}
+                          <p className={`text-xs font-black ${
+                            status === null ? 'text-gray-400'
+                            : status === 'ok' ? 'text-emerald-600'
+                            : 'text-red-500'
+                          }`}>{zone}</p>
                         </button>
                       );
                     })}
