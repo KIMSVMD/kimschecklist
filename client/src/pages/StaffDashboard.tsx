@@ -461,41 +461,39 @@ export default function StaffDashboard() {
 
           {/* Date navigator + time filter — cleaning tab */}
           {activeTab === 'cleaning' && (
-            <div className="space-y-3 pt-3">
-              <div className="flex items-center gap-2">
-                {/* Date navigator */}
-                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
-                  <button onClick={goBack} className="active:scale-95 transition-all" data-testid="btn-staff-date-prev">
-                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+            <div className="space-y-2 pt-3">
+              {/* Date navigator — full width */}
+              <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
+                <button onClick={goBack} className="active:scale-95 transition-all" data-testid="btn-staff-date-prev">
+                  <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                </button>
+                <p className="font-bold text-foreground text-sm whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em' }}>
+                  {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
+                </p>
+                <button onClick={goForward} disabled={isToday} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-date-next">
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+              {/* 오픈 / 마감 chips — own row, fills full width */}
+              <div className="flex gap-1.5">
+                {(['전체', '오픈', '마감'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setFilterTime(t)}
+                    className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                      filterTime === t
+                        ? t === '오픈' ? 'bg-amber-400 text-white'
+                          : t === '마감' ? 'bg-secondary text-white'
+                          : 'bg-black text-white'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                    data-testid={`btn-staff-filter-time-${t}`}
+                  >
+                    {t === '오픈' && <Sun className="w-3 h-3" />}
+                    {t === '마감' && <Moon className="w-3 h-3" />}
+                    {t}
                   </button>
-                  <p className="font-bold text-foreground text-sm whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em' }}>
-                    {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
-                  </p>
-                  <button onClick={goForward} disabled={isToday} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-date-next">
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                </div>
-                {/* 오픈 / 마감 chips */}
-                <div className="flex gap-1.5 shrink-0">
-                  {(['전체', '오픈', '마감'] as const).map(t => (
-                    <button
-                      key={t}
-                      onClick={() => setFilterTime(t)}
-                      className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                        filterTime === t
-                          ? t === '오픈' ? 'bg-amber-400 text-white'
-                            : t === '마감' ? 'bg-secondary text-white'
-                            : 'bg-black text-white'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                      data-testid={`btn-staff-filter-time-${t}`}
-                    >
-                      {t === '오픈' && <Sun className="w-3 h-3" />}
-                      {t === '마감' && <Moon className="w-3 h-3" />}
-                      {t}
-                    </button>
-                  ))}
-                </div>
+                ))}
               </div>
 
               {/* Zone filter chips */}
@@ -519,11 +517,11 @@ export default function StaffDashboard() {
                     }`}
                     style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: filterZone === z ? 700 : 500 }}
                     data-testid={`btn-staff-zone-${z}`}
-                >
-                  {z}
-                </button>
-              ))}
-            </div>
+                  >
+                    {z}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
