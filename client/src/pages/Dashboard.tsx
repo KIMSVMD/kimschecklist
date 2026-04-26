@@ -1784,18 +1784,18 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
                   {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 청소 점검 현황
                 </h3>
               </div>
-              <div className="flex gap-3 mb-4">
-                <div className="flex-1 bg-muted rounded-2xl p-4 text-center">
-                  <p className="text-3xl font-black text-emerald-500">{completedSlotCount}<span className="text-lg text-muted-foreground">/{totalSlots}</span></p>
-                  <p className="text-sm text-muted-foreground font-medium mt-1">점검 완료</p>
+              <div className="flex gap-2.5 mb-4">
+                <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 text-center">
+                  <p className="text-2xl font-black text-emerald-600">{completedSlotCount}<span className="text-sm font-medium text-emerald-400">/{totalSlots}</span></p>
+                  <p className="text-xs text-emerald-600/70 font-semibold mt-0.5">점검 완료</p>
                 </div>
-                <div className="flex-1 bg-muted rounded-2xl p-4 text-center">
-                  <p className="text-3xl font-black text-primary">{issues.length}</p>
-                  <p className="text-sm text-muted-foreground font-medium mt-1">문제 발생</p>
+                <div className="flex-1 bg-red-50 border border-red-100 rounded-2xl p-3.5 text-center">
+                  <p className="text-2xl font-black text-red-500">{issues.length}</p>
+                  <p className="text-xs text-red-500/70 font-semibold mt-0.5">문제 발생</p>
                 </div>
-                <div className="flex-1 bg-muted rounded-2xl p-4 text-center">
-                  <p className="text-3xl font-black text-secondary">{completionRate}<span className="text-lg text-muted-foreground">%</span></p>
-                  <p className="text-sm text-muted-foreground font-medium mt-1">완료율</p>
+                <div className="flex-1 bg-gray-50 border border-gray-100 rounded-2xl p-3.5 text-center">
+                  <p className="text-2xl font-black text-secondary">{completionRate}<span className="text-sm font-medium text-muted-foreground">%</span></p>
+                  <p className="text-xs text-muted-foreground font-semibold mt-0.5">완료율</p>
                 </div>
               </div>
 
@@ -1985,19 +1985,34 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
             )}
 
             {dayRecords.length === 0 && !isLoading && (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground space-y-3">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                  <Calendar className="w-8 h-8 opacity-40" />
+              isToday ? (
+                <div className="bg-white border border-border rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-5">
+                  <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center">
+                    <Droplets className="w-9 h-9 text-emerald-500" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xl font-black text-secondary">{filterBranch}</p>
+                    <p className="text-sm text-muted-foreground font-medium">오늘 청소 점검 기록이 없습니다</p>
+                  </div>
                 </div>
-                <p className="font-medium text-lg">
-                  {isToday ? '오늘은' : format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
-                </p>
-                {!isToday && (
-                  <button onClick={() => setSelectedDate(todayStr)} className="text-sm font-bold text-emerald-600 underline underline-offset-2">
+              ) : (
+                <div className="flex flex-col items-center justify-center py-14 text-muted-foreground space-y-3">
+                  <div className="w-14 h-14 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-gray-300" />
+                  </div>
+                  <p className="font-semibold text-base text-center text-muted-foreground">
+                    {format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
+                  </p>
+                  <button
+                    onClick={() => setSelectedDate(todayStr)}
+                    className="text-sm font-bold underline underline-offset-2"
+                    style={{ color: '#006341' }}
+                    data-testid="btn-admin-cleaning-back-today"
+                  >
                     오늘로 돌아가기
                   </button>
-                )}
-              </div>
+                </div>
+              )
             )}
           </>
         )}
