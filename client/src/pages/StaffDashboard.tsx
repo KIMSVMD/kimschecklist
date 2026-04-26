@@ -1196,26 +1196,44 @@ export default function StaffDashboard() {
 
                 {/* ── Record list ── */}
                 {dayFilteredRecords.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground space-y-3">
-                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                      <Calendar className="w-8 h-8 opacity-40" />
-                    </div>
-                    <p className="font-medium text-lg text-center">
-                      {isToday ? '오늘은' : format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
-                    </p>
-                    {!isToday && (
-                      <button onClick={() => setSelectedDate(todayStr)} className="text-sm font-bold text-emerald-600 underline underline-offset-2">
-                        오늘로 돌아가기
-                      </button>
-                    )}
-                    {isToday && (
-                      <Link href={`/cleaning/new?branch=${filterBranch}`}>
-                        <button className="px-6 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-base">
-                          청소 점검 시작하기
+                  isToday ? (
+                    <div className="bg-white border border-border rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-5">
+                      <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center">
+                        <Droplets className="w-9 h-9 text-emerald-500" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-xl font-black text-secondary">{filterBranch}</p>
+                        <p className="text-sm text-muted-foreground font-medium">매장 청소 점검을 시작하세요</p>
+                      </div>
+                      <Link href={`/cleaning/new?branch=${filterBranch}`} className="w-full">
+                        <button
+                          className="w-full py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-all"
+                          style={{ background: '#006341', color: '#fff' }}
+                          data-testid="btn-cleaning-start"
+                        >
+                          <Droplets className="w-5 h-5" />
+                          청소 점검 시작
                         </button>
                       </Link>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-14 text-muted-foreground space-y-3">
+                      <div className="w-14 h-14 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center">
+                        <Calendar className="w-6 h-6 text-gray-300" />
+                      </div>
+                      <p className="font-semibold text-base text-center text-muted-foreground">
+                        {format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
+                      </p>
+                      <button
+                        onClick={() => setSelectedDate(todayStr)}
+                        className="text-sm font-bold underline underline-offset-2"
+                        style={{ color: '#006341' }}
+                        data-testid="btn-back-to-today"
+                      >
+                        오늘로 돌아가기
+                      </button>
+                    </div>
+                  )
                 ) : (
                   dayFilteredRecords.map((record, i) => {
                     const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null }>) || {};
