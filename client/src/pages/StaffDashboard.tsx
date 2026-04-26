@@ -374,7 +374,7 @@ export default function StaffDashboard() {
           </div>
 
           {/* Tab switcher — underline style */}
-          <div className="flex -mx-4 px-4 md:-mx-[50px] md:px-[50px] border-b border-border">
+          <div className="flex px-4 md:px-[50px] border-b border-border">
             <button
               onClick={() => { setActiveTab('vm'); setFilterCategory('전체'); }}
               className={`relative flex-1 flex items-center justify-center gap-1.5 px-4 pb-3 pt-1 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
