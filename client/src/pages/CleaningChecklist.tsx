@@ -14,6 +14,7 @@ import {
   Sun,
   Moon,
   AlertCircle,
+  Droplets,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
@@ -46,22 +47,18 @@ type ItemData = {
   memo?: string | null;
 };
 
-// KST date string — if current KST time >= 23:59:59, returns tomorrow's date
-// so that drafts appear "reset" at exactly 23:59:59 KST every night
 function getKSTDraftDateStr() {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const iso = kst.toISOString(); // "YYYY-MM-DDTHH:MM:SS.mmmZ"
+  const iso = kst.toISOString();
   const [h, m, s] = iso.split("T")[1].split(":").map(Number);
   if (h === 23 && m === 59 && s >= 59) {
-    // Treat as next day → draft appears reset
     const nextDay = new Date(kst.getTime() + 24 * 60 * 60 * 1000);
     return nextDay.toISOString().split("T")[0];
   }
   return iso.split("T")[0];
 }
 
-// For "today" KST comparison (not draft-key related)
 function getKSTDateStr() {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -82,7 +79,6 @@ function loadDraftStore(branch: string, zone: string, time: string): DraftStore 
     const raw = localStorage.getItem(getDraftKey(branch, zone, time));
     if (!raw) return { items: {}, submitted: false };
     const parsed = JSON.parse(raw);
-    // Handle legacy format (plain items object without wrapper)
     if (parsed.items !== undefined) return parsed as DraftStore;
     return { items: parsed, submitted: false };
   } catch {
@@ -125,8 +121,7 @@ export default function CleaningChecklist() {
   const allChecked = currentItems.every(item => itemData[item]?.status != null);
   const issueCount = Object.values(itemData).filter(v => v.status === "issue").length;
 
-  // Today's zone scores for this branch — filtered by current inspectionTime
-  const today = new Date().toISOString().split("T")[0];
+  const today = getKSTDateStr();
   const { data: todayRecords = [] } = useCleaningInspections(branch ? { branch } : {});
   const zoneScores: Record<string, number | null> = {};
   ZONES.forEach(z => { zoneScores[z] = null; });
@@ -141,7 +136,6 @@ export default function CleaningChecklist() {
     }
   });
 
-  // Load draft when zone or inspectionTime changes
   useEffect(() => {
     if (step === "items" && selectedZone && branch) {
       const { items } = loadDraftStore(branch, selectedZone, inspectionTime);
@@ -149,8 +143,6 @@ export default function CleaningChecklist() {
     }
   }, [step, selectedZone, inspectionTime, branch]);
 
-  // Save draft whenever itemData changes (while in items step)
-  // Preserve existing submitted flag so "제출완료" badge stays correct
   useEffect(() => {
     if (step === "items" && selectedZone && branch && Object.keys(itemData).length > 0) {
       const existing = loadDraftStore(branch, selectedZone, inspectionTime);
@@ -164,16 +156,12 @@ export default function CleaningChecklist() {
   const handleZoneSelect = (zone: string) => {
     setSelectedZone(zone);
     setStep("items");
-    // Draft will be loaded via useEffect
   };
 
   const handleStatusSet = (item: string, status: "ok" | "issue") => {
     setItemData(prev => ({
       ...prev,
-      [item]: {
-        ...prev[item],
-        status,
-      },
+      [item]: { ...prev[item], status },
     }));
   };
 
@@ -209,7 +197,6 @@ export default function CleaningChecklist() {
         items,
         overallStatus: hasIssue ? "issue" : "ok",
       });
-      // Mark draft as submitted (don't clear — user should see their data if they return)
       saveDraftStore(branch, selectedZone, inspectionTime, {
         items: itemData,
         submitted: true,
@@ -222,30 +209,36 @@ export default function CleaningChecklist() {
 
   const getDraftInfo = (zone: string) => getDraftState(branch, zone, inspectionTime);
 
+  const progressWidth = step === "zone" ? "33%" : step === "items" ? "66%" : "100%";
+
   return (
     <Layout title="매장 청소 점검" showBack={true}>
       <div className="flex flex-col h-full bg-background">
         {/* Progress bar */}
-        <div className="w-full bg-muted h-2">
+        <div className="w-full bg-muted h-1.5">
           <motion.div
-            className="h-full bg-emerald-500"
-            animate={{ width: step === "zone" ? "33%" : step === "items" ? "66%" : "100%" }}
-            transition={{ duration: 0.3 }}
+            className="h-full"
+            style={{ background: "#006341" }}
+            animate={{ width: progressWidth }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto px-4 py-6 md:px-[50px] space-y-6 pb-10">
           <AnimatePresence mode="wait">
+
+            {/* ── ZONE SELECTION ── */}
             {step === "zone" && (
               <motion.div
                 key="zone"
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                 className="space-y-6"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                    <MapPin className="w-4 h-4" />
-                    {branch}점 청소 점검
+                {/* Header */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-sm font-bold" style={{ color: "#006341" }}>
+                    <MapPin className="w-3.5 h-3.5" />
+                    {branch} 청소 점검
                   </div>
                   <div className="flex items-center gap-3">
                     <h2 className="text-3xl font-black text-secondary">구역 선택</h2>
@@ -261,27 +254,37 @@ export default function CleaningChecklist() {
                       );
                     })()}
                   </div>
-                  <p className="text-muted-foreground text-lg">점검할 매장 구역을 선택하세요.</p>
+                  <p className="text-muted-foreground">점검할 매장 구역을 선택하세요.</p>
                 </div>
 
                 {/* Inspection time toggle */}
-                <div className="flex bg-muted p-1.5 rounded-2xl">
+                <div className="flex bg-muted p-1.5 rounded-2xl gap-1">
                   <button
                     onClick={() => setInspectionTime("오픈")}
-                    className={`flex-1 py-4 text-xl font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${inspectionTime === "오픈" ? "bg-white text-emerald-600 shadow-sm" : "text-muted-foreground"}`}
+                    className={`flex-1 py-3.5 text-base font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                      inspectionTime === "오픈"
+                        ? "bg-white shadow-sm"
+                        : "text-muted-foreground"
+                    }`}
+                    style={inspectionTime === "오픈" ? { color: "#006341" } : {}}
                     data-testid="btn-time-open"
                   >
-                    <Sun className="w-5 h-5" /> 오픈 전
+                    <Sun className="w-4 h-4" /> 오픈 전
                   </button>
                   <button
                     onClick={() => setInspectionTime("마감")}
-                    className={`flex-1 py-4 text-xl font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${inspectionTime === "마감" ? "bg-white text-secondary shadow-sm" : "text-muted-foreground"}`}
+                    className={`flex-1 py-3.5 text-base font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                      inspectionTime === "마감"
+                        ? "bg-white text-secondary shadow-sm"
+                        : "text-muted-foreground"
+                    }`}
                     data-testid="btn-time-close"
                   >
-                    <Moon className="w-5 h-5" /> 마감
+                    <Moon className="w-4 h-4" /> 마감
                   </button>
                 </div>
 
+                {/* Zone list */}
                 <div className="flex flex-col gap-3">
                   {ZONES.map(zone => {
                     const zs = zoneScores[zone];
@@ -290,21 +293,35 @@ export default function CleaningChecklist() {
                       <button
                         key={zone}
                         onClick={() => handleZoneSelect(zone)}
-                        className="flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-emerald-400 hover:bg-emerald-50 transition-all active:scale-[0.98] shadow-sm"
+                        className="flex items-center justify-between p-5 rounded-3xl border-2 border-border bg-white text-secondary transition-all active:scale-[0.98] shadow-sm"
+                        style={{}}
+                        onMouseEnter={e => {
+                          (e.currentTarget as HTMLElement).style.borderColor = "#006341";
+                          (e.currentTarget as HTMLElement).style.backgroundColor = "#f0faf5";
+                        }}
+                        onMouseLeave={e => {
+                          (e.currentTarget as HTMLElement).style.borderColor = "";
+                          (e.currentTarget as HTMLElement).style.backgroundColor = "";
+                        }}
                         data-testid={`btn-zone-${zone}`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl font-bold">{zone}</span>
-                          {draftInfo.hasData && draftInfo.submitted && (
-                            <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
-                              제출완료
-                            </span>
-                          )}
-                          {draftInfo.hasData && !draftInfo.submitted && (
-                            <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                              작성 중
-                            </span>
-                          )}
+                          <div className="w-10 h-10 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center">
+                            <Droplets className="w-5 h-5 text-gray-400" />
+                          </div>
+                          <div className="text-left">
+                            <span className="text-lg font-bold text-secondary block">{zone}</span>
+                            {draftInfo.hasData && draftInfo.submitted && (
+                              <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                                제출완료
+                              </span>
+                            )}
+                            {draftInfo.hasData && !draftInfo.submitted && (
+                              <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                                작성 중
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-3">
                           {zs !== null ? (
@@ -315,7 +332,7 @@ export default function CleaningChecklist() {
                           ) : (
                             <span className="text-sm text-muted-foreground">{ZONE_ITEMS[zone]?.length || 0}개</span>
                           )}
-                          <ChevronRight className="w-6 h-6 text-muted-foreground" />
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
                         </div>
                       </button>
                     );
@@ -324,26 +341,32 @@ export default function CleaningChecklist() {
               </motion.div>
             )}
 
+            {/* ── ITEM CHECKLIST ── */}
             {step === "items" && (
               <motion.div
                 key="items"
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                 className="space-y-5 pb-10"
               >
+                {/* Header */}
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                    <ClipboardList className="w-4 h-4" />
-                    {branch}점 · {selectedZone} · {inspectionTime} 점검
+                  <div className="flex items-center gap-1.5 text-sm font-bold" style={{ color: "#006341" }}>
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    {branch} · {selectedZone} · {inspectionTime} 점검
                   </div>
                   <h2 className="text-3xl font-black text-secondary">항목 점검</h2>
-                  <p className="text-muted-foreground">각 항목의 상태를 체크하세요.</p>
+                  <p className="text-muted-foreground text-sm">각 항목의 상태를 체크하세요.</p>
                 </div>
 
                 {/* Legend + Score */}
                 <div className="flex items-center justify-between">
                   <div className="flex gap-4 text-xs font-bold">
-                    <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="w-4 h-4" /> 이상없음</span>
-                    <span className="flex items-center gap-1 text-primary"><XCircle className="w-4 h-4" /> 문제있음</span>
+                    <span className="flex items-center gap-1 text-emerald-600">
+                      <CheckCircle2 className="w-4 h-4" /> 이상없음
+                    </span>
+                    <span className="flex items-center gap-1 text-primary">
+                      <XCircle className="w-4 h-4" /> 문제있음
+                    </span>
                   </div>
                   {(() => {
                     const scored: Record<string, { status: string }> = {};
@@ -361,7 +384,8 @@ export default function CleaningChecklist() {
                   })()}
                 </div>
 
-                <div className="space-y-4">
+                {/* Item cards */}
+                <div className="space-y-3">
                   {currentItems.map((item, idx) => {
                     const data = itemData[item];
                     const status = data?.status;
@@ -375,35 +399,35 @@ export default function CleaningChecklist() {
                           status === "ok"
                             ? "border-emerald-300 bg-emerald-50"
                             : status === "issue"
-                            ? "border-primary bg-red-50"
+                            ? "border-red-300 bg-red-50"
                             : "border-border bg-white"
                         }`}
                         data-testid={`card-item-${idx}`}
                       >
-                        <div className="flex items-center justify-between p-5">
-                          <span className="text-xl font-bold text-secondary">{item}</span>
-                          <div className="flex gap-3">
+                        <div className="flex items-center justify-between px-5 py-4">
+                          <span className="text-lg font-bold text-secondary flex-1">{item}</span>
+                          <div className="flex gap-2.5">
                             <button
                               onClick={() => handleStatusSet(item, "ok")}
-                              className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 border-2 transition-all active:scale-95 ${
+                              className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center border-2 transition-all active:scale-95 ${
                                 status === "ok"
                                   ? "bg-emerald-500 border-emerald-600 text-white shadow-md shadow-emerald-200"
-                                  : "bg-white border-border text-muted-foreground hover:border-emerald-300"
+                                  : "bg-white border-border text-muted-foreground"
                               }`}
                               data-testid={`btn-ok-${idx}`}
                             >
-                              <CheckCircle2 className="w-8 h-8" />
+                              <CheckCircle2 className="w-7 h-7" />
                             </button>
                             <button
                               onClick={() => handleStatusSet(item, "issue")}
-                              className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 border-2 transition-all active:scale-95 ${
+                              className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center border-2 transition-all active:scale-95 ${
                                 status === "issue"
                                   ? "bg-primary border-red-700 text-white shadow-md shadow-red-200"
-                                  : "bg-white border-border text-muted-foreground hover:border-red-300"
+                                  : "bg-white border-border text-muted-foreground"
                               }`}
                               data-testid={`btn-issue-${idx}`}
                             >
-                              <XCircle className="w-8 h-8" />
+                              <XCircle className="w-7 h-7" />
                             </button>
                           </div>
                         </div>
@@ -447,7 +471,7 @@ export default function CleaningChecklist() {
                                   ref={el => { fileRefs.current[item] = el; }}
                                   type="file"
                                   accept="image/*"
-                                 
+                                  capture="environment"
                                   className="hidden"
                                   onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, f); }}
                                 />
@@ -466,7 +490,6 @@ export default function CleaningChecklist() {
                                 <p className="text-sm font-bold text-primary pt-3 flex items-center gap-1.5">
                                   <AlertCircle className="w-4 h-4" /> 문제 상세 기록
                                 </p>
-
                                 <button
                                   onClick={() => fileRefs.current[item]?.click()}
                                   className={`w-full h-28 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all active:scale-[0.98] ${
@@ -493,11 +516,10 @@ export default function CleaningChecklist() {
                                   ref={el => { fileRefs.current[item] = el; }}
                                   type="file"
                                   accept="image/*"
-                                 
+                                  capture="environment"
                                   className="hidden"
                                   onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, f); }}
                                 />
-
                                 <textarea
                                   placeholder="문제 내용을 간략히 메모하세요..."
                                   value={data?.memo || ""}
@@ -514,7 +536,8 @@ export default function CleaningChecklist() {
                   })}
                 </div>
 
-                <div className="flex items-center justify-between text-sm text-muted-foreground font-medium pt-2">
+                {/* Progress count + submit */}
+                <div className="flex items-center justify-between text-sm text-muted-foreground font-medium pt-1">
                   <span>{Object.values(itemData).filter(v => v.status != null).length} / {currentItems.length} 완료</span>
                   {issueCount > 0 && (
                     <span className="text-primary font-bold flex items-center gap-1">
@@ -526,11 +549,12 @@ export default function CleaningChecklist() {
                 <button
                   onClick={handleSubmit}
                   disabled={!allChecked || createMutation.isPending}
-                  className="w-full py-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-black text-2xl shadow-xl shadow-emerald-200 active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-3"
+                  className="w-full py-5 rounded-2xl text-white font-black text-xl shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-3"
+                  style={{ background: "#006341" }}
                   data-testid="btn-submit-cleaning"
                 >
                   {createMutation.isPending ? (
-                    <Loader2 className="w-8 h-8 animate-spin" />
+                    <Loader2 className="w-7 h-7 animate-spin" />
                   ) : (
                     <>점검 완료 저장</>
                   )}
@@ -541,44 +565,52 @@ export default function CleaningChecklist() {
               </motion.div>
             )}
 
+            {/* ── DONE ── */}
             {step === "done" && (
               <motion.div
                 key="done"
-                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center py-20 space-y-6 text-center"
+                initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="flex flex-col items-center justify-center py-16 space-y-6 text-center"
               >
-                <div className="w-28 h-28 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-16 h-16 text-emerald-500" />
+                <div className="w-28 h-28 rounded-full flex items-center justify-center"
+                  style={{ background: "rgba(0,99,65,0.1)" }}>
+                  <CheckCircle2 className="w-14 h-14" style={{ color: "#006341" }} />
                 </div>
                 <div>
                   <h2 className="text-3xl font-black text-secondary mb-2">점검 완료!</h2>
-                  <p className="text-muted-foreground text-lg">
-                    <strong className="text-secondary">{branch}점 {selectedZone}</strong> 청소 점검이 저장되었습니다.
+                  <p className="text-muted-foreground">
+                    <strong className="text-secondary">{branch} {selectedZone}</strong> 청소 점검이 저장되었습니다.
                   </p>
                   {issueCount > 0 && (
-                    <div className="mt-3 inline-flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
+                    <div className="mt-3 inline-flex items-center gap-2 bg-red-50 border border-red-200 rounded-2xl px-4 py-2.5">
                       <AlertCircle className="w-5 h-5 text-primary" />
                       <span className="text-primary font-bold">문제 {issueCount}건 기록됨</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-col w-full gap-3 pt-4">
+                <div className="flex flex-col w-full gap-3 pt-2">
                   <button
                     onClick={() => { setStep("zone"); setSelectedZone(""); setItemData({}); }}
-                    className="w-full py-5 rounded-2xl bg-emerald-500 text-white font-black text-xl shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all"
+                    className="w-full py-5 rounded-2xl text-white font-black text-lg shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    style={{ background: "#006341" }}
+                    data-testid="btn-another-zone"
                   >
+                    <Droplets className="w-5 h-5" />
                     다른 구역 점검하기
                   </button>
                   <button
                     onClick={() => setLocation("/")}
-                    className="w-full py-5 rounded-2xl border-2 border-border bg-white text-secondary font-bold text-xl active:scale-[0.98] transition-all"
+                    className="w-full py-5 rounded-2xl border-2 border-border bg-white text-secondary font-bold text-lg active:scale-[0.98] transition-all"
+                    data-testid="btn-go-home"
                   >
                     홈으로 이동
                   </button>
                 </div>
               </motion.div>
             )}
+
           </AnimatePresence>
         </div>
       </div>
