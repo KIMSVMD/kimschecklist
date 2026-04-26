@@ -275,10 +275,10 @@ export default function NewChecklist() {
           </div>
 
           {/* Tab switcher — underline style */}
-          <div className="flex border-b border-border -mx-4 px-4 md:-mx-[50px] md:px-[50px]">
+          <div className="flex border-b border-border -mx-4 px-4 md:-mx-[50px] md:px-[50px] overflow-x-auto scrollbar-hide">
             <button
               onClick={() => handleTabChange('vm')}
-              className={`relative flex-1 flex items-center justify-center px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`relative shrink-0 flex items-center justify-center px-4 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'vm' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'vm' ? 700 : 500 }}
@@ -286,14 +286,14 @@ export default function NewChecklist() {
             >
               진열(+광고)
               {pendingGuideNotifs.length > 0 && (
-                <span className="absolute top-0 right-2 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
+                <span className="absolute top-0 right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
                   {pendingGuideNotifs.length}
                 </span>
               )}
             </button>
             <button
               onClick={() => handleTabChange('quality')}
-              className={`relative flex-1 flex items-center justify-center px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`relative shrink-0 flex items-center justify-center px-4 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'quality' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'quality' ? 700 : 500 }}
@@ -301,14 +301,14 @@ export default function NewChecklist() {
             >
               품질
               {pendingQualityGuideNotifs.length > 0 && (
-                <span className="absolute top-0 right-2 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
+                <span className="absolute top-0 right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
                   {pendingQualityGuideNotifs.length}
                 </span>
               )}
             </button>
             <button
               onClick={() => handleTabChange('cleaning')}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`shrink-0 flex items-center justify-center gap-1 px-4 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'cleaning' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'cleaning' ? 700 : 500 }}
