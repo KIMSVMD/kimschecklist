@@ -433,7 +433,7 @@ export default function StaffDashboard() {
                 </div>
               </div>
               {/* category chips — black filled active, white bordered inactive */}
-              <div className="-mx-4 px-4 md:-mx-[50px] md:px-[50px] flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
                 {(activeTab === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => {
                   const badge = catBadge(cat);
                   return (
@@ -499,7 +499,7 @@ export default function StaffDashboard() {
               </div>
 
               {/* Zone filter chips */}
-              <div className="-mx-4 px-4 md:-mx-[50px] md:px-[50px] flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
                 <button
                   onClick={() => setFilterZone('전체')}
                   className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-bold transition-all active:scale-95 ${
