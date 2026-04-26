@@ -2358,7 +2358,7 @@ export default function Dashboard() {
       />
       <div className="flex flex-col h-full bg-background">
         {/* Tab switcher */}
-        <div className="flex px-4 md:px-[50px] border-b border-border items-center overflow-x-auto scrollbar-hide">
+        <div className="flex px-4 md:px-[50px] border-b border-border items-center">
           {(['ranking', 'vm', 'cleaning', 'activity'] as const).map((tab) => {
             const cfg: Record<string, { label: string; icon: JSX.Element }> = {
               ranking: { label: '점별 순위', icon: <Trophy className="w-4 h-4" /> },
@@ -2371,7 +2371,7 @@ export default function Dashboard() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`shrink-0 flex items-center justify-center gap-1.5 px-4 pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                className={`flex-1 flex items-center justify-center gap-1.5 px-2 pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                   activeTab === tab ? 'border-black text-black' : 'border-transparent text-muted-foreground'
                 }`}
                 style={{ fontWeight: activeTab === tab ? 700 : 500 }}

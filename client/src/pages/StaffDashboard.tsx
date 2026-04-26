@@ -374,10 +374,10 @@ export default function StaffDashboard() {
           </div>
 
           {/* Tab switcher — underline style */}
-          <div className="flex -mx-4 px-4 md:-mx-[50px] md:px-[50px] border-b border-border overflow-x-auto scrollbar-hide">
+          <div className="flex -mx-4 px-4 md:-mx-[50px] md:px-[50px] border-b border-border">
             <button
               onClick={() => { setActiveTab('vm'); setFilterCategory('전체'); }}
-              className={`relative shrink-0 flex items-center justify-center gap-1.5 px-4 pb-3 pt-1 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 px-4 pb-3 pt-1 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'vm' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'vm' ? 700 : 500 }}
@@ -388,7 +388,7 @@ export default function StaffDashboard() {
             </button>
             <button
               onClick={() => { setActiveTab('quality'); setFilterCategory('전체'); }}
-              className={`relative shrink-0 flex items-center justify-center gap-1.5 px-4 pb-3 pt-1 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 px-4 pb-3 pt-1 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'quality' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'quality' ? 700 : 500 }}
@@ -399,7 +399,7 @@ export default function StaffDashboard() {
             </button>
             <button
               onClick={() => { setActiveTab('cleaning'); setFilterCategory('전체'); }}
-              className={`shrink-0 flex items-center justify-center gap-1.5 px-4 pb-3 pt-1 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`flex-1 flex items-center justify-center gap-1.5 px-4 pb-3 pt-1 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'cleaning' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'cleaning' ? 700 : 500 }}
