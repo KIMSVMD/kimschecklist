@@ -391,21 +391,22 @@ export default function NewChecklist() {
               /* Cleaning tab */
               <motion.div key="cleaning"
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                className="flex flex-col items-center justify-center py-20 px-6 text-center space-y-6"
+                className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-6"
               >
-                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center">
-                  <Droplets className="w-10 h-10 text-emerald-600" />
+                <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center">
+                  <Droplets className="w-11 h-11 text-emerald-500" />
                 </div>
-                <div>
+                <div className="space-y-1.5">
                   <p className="font-black text-2xl text-secondary">{branch}점</p>
-                  <p className="text-muted-foreground mt-1">매장 청소 점검을 시작하세요</p>
+                  <p className="text-muted-foreground text-sm">매장 청소 점검을 시작하세요</p>
                 </div>
                 <button
                   onClick={() => setLocation(`/cleaning/new?branch=${encodeURIComponent(branch)}`)}
-                  className="w-full max-w-xs py-5 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-black text-xl shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                  className="w-full py-4 rounded-2xl text-white font-black text-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2.5"
+                  style={{ background: '#006341' }}
                   data-testid="btn-start-cleaning"
                 >
-                  <Droplets className="w-7 h-7" /> 청소 점검 시작
+                  <Droplets className="w-5 h-5" /> 청소 점검 시작
                 </button>
               </motion.div>
             ) : (
