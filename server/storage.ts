@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "@shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "../shared/schema";
 import { desc, eq, asc, gte, and, sql, isNotNull } from "drizzle-orm";
 
 function filterGuidesByDate(rows: Guide[], year?: number, month?: number): Guide[] {

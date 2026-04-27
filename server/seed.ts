@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { products, guides } from "@shared/schema";
+import { products, guides } from "../shared/schema";
 import { count, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
