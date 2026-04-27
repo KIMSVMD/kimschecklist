@@ -1987,9 +1987,6 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
             {dayRecords.length === 0 && !isLoading && (
               isToday ? (
                 <div className="bg-white border border-border rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-5">
-                  <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center">
-                    <Droplets className="w-9 h-9 text-emerald-500" />
-                  </div>
                   <div className="space-y-1.5">
                     <p className="text-xl font-black text-secondary">{filterBranch}</p>
                     <p className="text-sm text-muted-foreground font-medium">오늘 청소 점검 기록이 없습니다</p>

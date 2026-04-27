@@ -393,9 +393,6 @@ export default function NewChecklist() {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                 className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-6"
               >
-                <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center">
-                  <Droplets className="w-11 h-11 text-emerald-500" />
-                </div>
                 <div className="space-y-1.5">
                   <p className="font-black text-2xl text-secondary">{branch}점</p>
                   <p className="text-muted-foreground text-sm">매장 청소 점검을 시작하세요</p>
