@@ -775,12 +775,12 @@ function ProductManager() {
   return (
     <div className="space-y-5">
       {/* Category tabs */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+      <div className="flex gap-1.5">
         {CATEGORIES.map(cat => (
           <button
             key={cat}
             onClick={() => { setActiveCategory(cat); resetForm(); }}
-            className={`shrink-0 px-5 py-3 rounded-2xl font-bold text-base transition-all active:scale-95 ${
+            className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
               activeCategory === cat ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
             }`}
           >
@@ -1315,12 +1315,12 @@ export default function GuideAdmin() {
           ) : (
             <>
               {/* Category filter */}
-              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
+              <div className="flex gap-1.5 pb-0.5">
                 {['전체', ...CATEGORIES].map(cat => (
                   <button
                     key={cat}
                     onClick={() => setGuideCategory(cat)}
-                    className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                    className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
                       guideCategory === cat ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
                     }`}
                     data-testid={`tab-guide-category-${cat}`}
