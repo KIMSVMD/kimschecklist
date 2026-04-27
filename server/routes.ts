@@ -11,8 +11,12 @@ import fs from "fs";
 import express from "express";
 // Keep /uploads/ static serving for any older records
 const uploadDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (_e) {
+  // read-only filesystem (e.g. Vercel) - skip
 }
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
