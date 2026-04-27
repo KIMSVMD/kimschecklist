@@ -1085,12 +1085,12 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
           <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
+            className="flex-1 min-w-0 bg-muted border-none rounded-xl px-2 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
             data-testid="select-filter-branch">
             {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
           </select>
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
+            className="flex-1 min-w-0 bg-muted border-none rounded-xl px-2 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
             data-testid="select-filter-category">
             <option value="전체">전체 카테고리</option>
             {(viewFilter === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
@@ -1098,7 +1098,7 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
           <select
             value={filterProduct}
             onChange={e => setFilterProduct(e.target.value)}
-            className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
+            className="flex-1 min-w-0 bg-muted border-none rounded-xl px-2 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
             data-testid="select-filter-product"
           >
             {availableProducts.map(p => (
@@ -2368,7 +2368,7 @@ export default function Dashboard() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-2 pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                className={`flex-1 flex items-center justify-center gap-1 pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                   activeTab === tab ? 'border-black text-black' : 'border-transparent text-muted-foreground'
                 }`}
                 style={{ fontWeight: activeTab === tab ? 700 : 500 }}

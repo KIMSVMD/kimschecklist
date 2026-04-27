@@ -278,7 +278,7 @@ export default function NewChecklist() {
           <div className="flex border-b border-border">
             <button
               onClick={() => handleTabChange('vm')}
-              className={`relative flex-1 flex items-center justify-center px-4 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`relative flex-1 flex items-center justify-center pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'vm' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'vm' ? 700 : 500 }}
@@ -293,7 +293,7 @@ export default function NewChecklist() {
             </button>
             <button
               onClick={() => handleTabChange('quality')}
-              className={`relative flex-1 flex items-center justify-center px-4 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`relative flex-1 flex items-center justify-center pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'quality' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'quality' ? 700 : 500 }}
@@ -308,7 +308,7 @@ export default function NewChecklist() {
             </button>
             <button
               onClick={() => handleTabChange('cleaning')}
-              className={`flex-1 flex items-center justify-center gap-1 px-4 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+              className={`flex-1 flex items-center justify-center gap-1 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
                 activeTab === 'cleaning' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
               }`}
               style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'cleaning' ? 700 : 500 }}
