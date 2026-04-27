@@ -2,7 +2,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "../server/routes";
-import { serveStatic } from "../server/static";
 import { seedProductsIfEmpty } from "../server/seed";
 import { createServer } from "http";
 import { pool } from "../server/db";
@@ -34,7 +33,8 @@ app.use(session({
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
+    sameSite: "none",
   },
 }));
 
@@ -50,7 +50,6 @@ app.use((req, res, next) => {
   next();
 });
 
-let initialized = false;
 const initPromise = (async () => {
   await seedProductsIfEmpty();
   await registerRoutes(httpServer, app);
@@ -60,8 +59,6 @@ const initPromise = (async () => {
     if (res.headersSent) return next(err);
     return res.status(status).json({ message });
   });
-  serveStatic(app);
-  initialized = true;
 })();
 
 export default async function handler(req: Request, res: Response) {

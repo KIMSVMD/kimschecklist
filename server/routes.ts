@@ -9,8 +9,6 @@ import { z } from "zod";
 import path from "path";
 import fs from "fs";
 import express from "express";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-
 // Keep /uploads/ static serving for any older records
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -29,9 +27,6 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   app.use("/uploads", express.static(uploadDir));
-
-  // Register Replit Object Storage routes (/api/uploads/request-url and /objects/*)
-  registerObjectStorageRoutes(app);
 
   // Admin auth routes
   app.post(api.admin.login.path, (req, res) => {
