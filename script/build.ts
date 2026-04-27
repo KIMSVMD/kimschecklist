@@ -59,6 +59,21 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  // Vercel 서버리스 함수용 번들 (api/index.ts → api/_handler.cjs)
+  console.log("building Vercel API handler...");
+  await esbuild({
+    entryPoints: ["api/index.ts"],
+    platform: "node",
+    bundle: true,
+    format: "cjs",
+    outfile: "api/_handler.cjs",
+    define: {
+      "process.env.NODE_ENV": '"production"',
+    },
+    external: ["pg-native"],
+    logLevel: "info",
+  });
 }
 
 buildAll().catch((err) => {
