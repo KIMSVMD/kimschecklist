@@ -4,3 +4,11 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+.vercel
+.local/
+.config/
+uploads/
+attached_assets/
+restore-neon.cjs
+restore-neon.mjs
+*.log
