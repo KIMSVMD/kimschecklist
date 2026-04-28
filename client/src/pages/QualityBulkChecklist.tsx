@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-import { useLocation } from "wouter";
 import { useCreateChecklist } from "@/hooks/use-checklists";
 import { useProducts } from "@/hooks/use-products";
 import { useQualityGuidesByProduct } from "@/hooks/use-guides";
@@ -225,11 +224,10 @@ type Props = {
 };
 
 export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
 
-  const [selectedCategory, setSelectedCategory] = useState<QualityCategory>('청과');
+  const [selectedCategory, setSelectedCategory] = useState<QualityCategory | null>(null);
   const [bulkData, setBulkData] = useState<BulkData>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -349,7 +347,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
         };
       }
 
-      const created = await createMutation.mutateAsync({
+      await createMutation.mutateAsync({
         branch,
         category: PARENT_CATEGORY[selectedCategory],
         product: selectedCategory,
@@ -364,7 +362,12 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
       } as any);
 
       toast({ title: "점검 완료 및 제출되었습니다!" });
-      setLocation(`/checklist/edit/${created.id}`);
+      setSelectedCategory(null);
+      setBulkData({});
+      setQualityPhotoUrls([]);
+      setQualityLocalPreviews([]);
+      setQualityNotes('');
+      setSearchQuery('');
     } catch (err) {
       toast({ title: "제출 실패", description: String(err), variant: "destructive" });
     } finally {
@@ -372,33 +375,50 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
     }
   }
 
-  const items = getItems(selectedCategory);
-  const criteria = CRITERIA_MAP[selectedCategory];
+  const items = selectedCategory ? getItems(selectedCategory) : [];
+  const criteria = selectedCategory ? CRITERIA_MAP[selectedCategory] : [];
 
-  // ── 품질 점검 1페이지 통합 ────────────────────────────────────────────────
+  // ── 카테고리 선택 화면 ────────────────────────────────────────────────────
+
+  if (!selectedCategory) {
+    return (
+      <div className="p-4 md:px-[50px] w-full max-w-3xl mx-auto space-y-3 pt-4">
+        <div className="mb-5">
+          <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · 품질 점검</p>
+          <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
+        </div>
+        {ALL_CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => { setSelectedCategory(cat); setSearchQuery(''); }}
+            className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
+          >
+            <span className="text-3xl font-bold">{cat}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{itemCount(cat)}개</span>
+              <ChevronRight className="w-6 h-6 text-muted-foreground" />
+            </div>
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // ── 품목 점검 화면 ────────────────────────────────────────────────────────
 
   return (
     <div className="p-4 md:px-[50px] w-full max-w-3xl mx-auto space-y-3 pt-4">
-      {/* 카테고리 탭 */}
-      <div>
-        <p className="text-xs font-bold text-primary mb-3">{selYear}년 {selMonth}월 · {branch}점 · 품질 점검</p>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-          {ALL_CATEGORIES.map(cat => (
-            <button
-              key={cat}
-              onClick={() => { setSelectedCategory(cat); setSearchQuery(''); }}
-              className={`shrink-0 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all border-2 ${
-                selectedCategory === cat
-                  ? 'text-white border-[#006341]'
-                  : 'bg-white text-secondary border-border hover:border-primary/40'
-              }`}
-              style={selectedCategory === cat ? { background: '#006341' } : {}}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* 뒤로가기 */}
+      <button
+        onClick={() => { setSelectedCategory(null); setBulkData({}); setQualityPhotoUrls([]); setQualityLocalPreviews([]); setQualityNotes(''); setSearchQuery(''); }}
+        className="flex items-center gap-1 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
+      >
+        <ChevronLeft className="w-4 h-4" /> 카테고리 선택으로
+      </button>
+
+      <p className="text-xs font-bold text-primary">
+        {selYear}년 {selMonth}월 · {branch}점 · {selectedCategory} 품질 점검
+      </p>
 
       {/* 가이드 사진 슬라이드 */}
       <GuideImageSlide images={guideImages} />
