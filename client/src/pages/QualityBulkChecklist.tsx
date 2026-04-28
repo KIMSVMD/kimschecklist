@@ -4,7 +4,7 @@ import { useCreateChecklist } from "@/hooks/use-checklists";
 import { useProducts } from "@/hooks/use-products";
 import { useQualityGuidesByProduct } from "@/hooks/use-guides";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Camera, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Camera, Loader2, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
@@ -232,6 +232,8 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<QualityCategory | null>(null);
   const [bulkData, setBulkData] = useState<BulkData>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // 품질 현장 사진 (수정 1: VM 사진 없음, 품질 사진만)
   const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
@@ -367,24 +369,24 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
 
   if (!selectedCategory) {
     return (
-      <div className="p-4 md:px-[50px] w-full max-w-3xl mx-auto space-y-4 pt-4">
-        <p className="text-xs font-bold text-primary">{selYear}년 {selMonth}월 · {branch}점 · 품질 점검</p>
-        <p className="text-base font-bold text-secondary">카테고리를 선택하세요</p>
-        <div className="space-y-3">
-          {ALL_CATEGORIES.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-white border border-border shadow-sm active:scale-[0.98] transition-all text-left"
-            >
-              <div>
-                <p className="font-bold text-base text-secondary">{cat}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{PARENT_CATEGORY[cat]}</p>
-              </div>
-              <span className="text-xs text-muted-foreground">{itemCount(cat)}개 품목 →</span>
-            </button>
-          ))}
+      <div className="p-4 md:px-[50px] w-full max-w-3xl mx-auto space-y-3 pt-4">
+        <div className="mb-5">
+          <p className="text-xs font-bold text-primary mb-1">{selYear}년 {selMonth}월 · {branch}점 · 품질 점검</p>
+          <h2 className="text-2xl font-black text-secondary">카테고리 선택</h2>
         </div>
+        {ALL_CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => { setSelectedCategory(cat); setSearchQuery(''); }}
+            className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
+          >
+            <span className="text-3xl font-bold">{cat}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{itemCount(cat)}개</span>
+              <ChevronRight className="w-6 h-6 text-muted-foreground" />
+            </div>
+          </button>
+        ))}
       </div>
     );
   }
@@ -395,7 +397,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
     <div className="p-4 md:px-[50px] w-full max-w-3xl mx-auto space-y-3 pt-4">
       {/* 뒤로가기 */}
       <button
-        onClick={() => { setSelectedCategory(null); setBulkData({}); setQualityPhotoUrls([]); setQualityLocalPreviews([]); setQualityNotes(''); }}
+        onClick={() => { setSelectedCategory(null); setBulkData({}); setQualityPhotoUrls([]); setQualityLocalPreviews([]); setQualityNotes(''); setSearchQuery(''); }}
         className="flex items-center gap-1 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
       >
         <ChevronLeft className="w-4 h-4" /> 카테고리 선택으로
@@ -410,17 +412,45 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
 
       <p className="text-sm text-muted-foreground">{items.length}개 품목 · 각 항목별 등급을 선택하세요</p>
 
+      {/* 품목 검색 */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => {
+            const q = e.target.value;
+            setSearchQuery(q);
+            if (!q.trim()) return;
+            const match = items.find(p => p.includes(q.trim()));
+            if (match && cardRefs.current[match]) {
+              cardRefs.current[match]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }}
+          placeholder="품목명 검색 (예: 사과)"
+          className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+      </div>
+
+      {/* 검색 결과 없음 */}
+      {searchQuery.trim() && !items.some(p => p.includes(searchQuery.trim())) && (
+        <div className="text-center py-6 text-muted-foreground text-sm font-medium">
+          해당 품목이 없습니다
+        </div>
+      )}
+
       {/* 품목 카드 목록 */}
       {items.map((product, idx) => (
-        <ProductCard
-          key={product}
-          product={product}
-          idx={idx}
-          criteria={criteria}
-          data={bulkData[product] ?? { grades: {}, expired: 0, moldy: 0 }}
-          onToggle={(criterion, grade) => toggleGrade(product, criterion, grade)}
-          onAdjust={(field, delta) => adjustCount(product, field, delta)}
-        />
+        <div key={product} ref={el => { cardRefs.current[product] = el; }}>
+          <ProductCard
+            product={product}
+            idx={idx}
+            criteria={criteria}
+            data={bulkData[product] ?? { grades: {}, expired: 0, moldy: 0 }}
+            onToggle={(criterion, grade) => toggleGrade(product, criterion, grade)}
+            onAdjust={(field, delta) => adjustCount(product, field, delta)}
+          />
+        </div>
       ))}
 
       {/* 품질 현장 사진 업로드 (수정 1: 품질 사진만, VM 사진 없음) */}
