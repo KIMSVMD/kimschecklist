@@ -6,6 +6,7 @@ import { useGuidesByProduct, useAdGuidesByProduct, useQualityGuidesByProduct, us
 import { useProducts, useProductByName } from "@/hooks/use-products";
 import { useGuideNotifications } from "@/hooks/use-notifications";
 import { motion, AnimatePresence } from "framer-motion";
+import { QualityBulkChecklist } from "@/pages/QualityBulkChecklist";
 import {
   MapPin, Package, Camera, CheckCircle2, XCircle,
   Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
@@ -361,32 +362,13 @@ export default function NewChecklist() {
                 <p className="text-base">점검을 등록할 지점을 먼저 선택하세요</p>
               </motion.div>
             ) : activeTab === 'quality' ? (
-              /* Quality tab */
-              <VMContent
+              /* Quality tab — 카테고리별 일괄 점검 */
+              <motion.div
                 key="quality"
-                adOnly={false}
-                qualityOnly={true}
-                branch={branch}
-                selYear={selYear}
-                selMonth={selMonth}
-                vmStage={vmStage}
-                setVmStage={setVmStage}
-                selCategory={selCategory}
-                setSelCategory={setSelCategory}
-                selGroup={selGroup}
-                setSelGroup={setSelGroup}
-                selProduct={selProduct}
-                setSelProduct={setSelProduct}
-                items={items}
-                setItems={setItems}
-                photoUrls={photoUrls}
-                setPhotoUrls={setPhotoUrls}
-                notes={notes}
-                setNotes={setNotes}
-                onReset={resetVm}
-                pendingGuideNotifs={pendingQualityGuideNotifs}
-                allGuideProducts={validGuideProducts.filter(g => g.guideType === 'quality')}
-              />
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              >
+                <QualityBulkChecklist branch={branch} selYear={selYear} selMonth={selMonth} />
+              </motion.div>
             ) : activeTab === 'cleaning' ? (
               /* Cleaning tab */
               <motion.div key="cleaning"
