@@ -1034,20 +1034,29 @@ export default function StaffDashboard() {
                           </>
                         )}
 
-                        {(item as any).qualityItems && Object.keys((item as any).qualityItems).length > 0 && (() => {
-                          const qItems = (item as any).qualityItems as Record<string, string>;
+                        {(
+                          ((item as any).qualityItems && Object.keys((item as any).qualityItems).length > 0) ||
+                          ((item as any).qualityPhotoUrls?.length > 0) ||
+                          (item as any).qualityNotes
+                        ) && (() => {
+                          const qItems = (item as any).qualityItems as Record<string, any> | null;
                           const qAdminItems = (item as any).qualityAdminItems as Record<string, 'ok' | 'notok'> | null;
                           const qAdminScore = (item as any).qualityAdminScore as number | null | undefined;
-                          const qEntries = Object.entries(qItems);
-                          const qChangedCount = qEntries.filter(([name, st]) => {
+                          const qPhotoUrls = (item as any).qualityPhotoUrls as string[] | null;
+                          const qNotes = (item as any).qualityNotes as string | null;
+                          const qEntries = qItems ? Object.entries(qItems).filter(([k]) => k !== '__expired' && k !== '__moldy' && k !== '__category') : [];
+                          const isBulkQ = !!(qItems && '__category' in qItems);
+                          const qChangedCount = !isBulkQ ? qEntries.filter(([name, st]) => {
                             const av = qAdminItems?.[name];
                             if (!av) return false;
                             return (av === 'ok') !== (st === 'ok');
-                          }).length;
+                          }).length : 0;
                           return (
-                            <div className="mb-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질</span>
+                            <div className="mb-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">
+                                  ⭐ 품질{isBulkQ && qItems?.__category ? ` (${qItems.__category})` : ''}
+                                </span>
                                 {qAdminScore != null && (
                                   <span className={`text-[10px] px-2 py-1 rounded-full font-black border inline-flex items-center gap-1 ${
                                     qAdminScore >= 80 ? 'bg-purple-50 border-purple-200 text-purple-700' :
@@ -1059,32 +1068,65 @@ export default function StaffDashboard() {
                                   <span className="text-[10px] px-2 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 font-black">관리자 수정 {qChangedCount}항목</span>
                                 )}
                               </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {qEntries.map(([name, st]) => {
-                                  const adminVal = qAdminItems?.[name];
-                                  const staffIsOk = st === 'ok';
-                                  const adminIsOk = adminVal === 'ok';
-                                  const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
-                                  return (
-                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                      wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
-                                      : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                      : 'bg-red-50 border-red-200 text-red-600'
-                                    }`}>
-                                      {name}:&nbsp;
-                                      {wasChanged ? (
-                                        <>
-                                          <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
-                                          <span>→ {adminIsOk ? '○' : '✗'}</span>
-                                          <span className="text-[9px] bg-purple-200 text-purple-800 px-1 rounded-full ml-0.5">수정</span>
-                                        </>
-                                      ) : (
-                                        <span>{staffIsOk ? '○' : '✗'}</span>
-                                      )}
-                                    </span>
-                                  );
-                                })}
-                              </div>
+                              {qEntries.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {isBulkQ ? (
+                                    qEntries.map(([product, d]: [string, any]) => {
+                                      if (typeof d !== 'object') return null;
+                                      const parts = ['선도','상해','규격','혼입율','색택','마블링'].filter(c => d[c]).map(c => `${c}${d[c]}`);
+                                      if (parts.length === 0) return null;
+                                      return (
+                                        <span key={product} className="text-[10px] px-2 py-1 rounded-full font-bold border bg-purple-50 border-purple-200 text-purple-700 inline-flex items-center gap-1">
+                                          {product}: {parts.join(' ')}
+                                        </span>
+                                      );
+                                    })
+                                  ) : (
+                                    qEntries.map(([name, st]) => {
+                                      const adminVal = qAdminItems?.[name];
+                                      const staffIsOk = st === 'ok';
+                                      const adminIsOk = adminVal === 'ok';
+                                      const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                      return (
+                                        <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                          wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
+                                          : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                          : 'bg-red-50 border-red-200 text-red-600'
+                                        }`}>
+                                          {name}:&nbsp;
+                                          {wasChanged ? (
+                                            <>
+                                              <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                              <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                              <span className="text-[9px] bg-purple-200 text-purple-800 px-1 rounded-full ml-0.5">수정</span>
+                                            </>
+                                          ) : (
+                                            <span>{staffIsOk ? '○' : '✗'}</span>
+                                          )}
+                                        </span>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              )}
+                              {qNotes && (
+                                <div className="p-2 bg-purple-50/80 rounded-xl border border-purple-200">
+                                  <strong className="block mb-0.5 text-[10px] text-purple-700 font-black">⭐ 품질 특이사항:</strong>
+                                  <p className="text-xs text-secondary">{qNotes}</p>
+                                </div>
+                              )}
+                              {qPhotoUrls && qPhotoUrls.length > 0 && (
+                                <div>
+                                  <strong className="block mb-1 text-[10px] text-purple-700 font-black">📸 품질 현장 사진:</strong>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {qPhotoUrls.map((url, pi) => (
+                                      <a key={pi} href={url} target="_blank" rel="noopener noreferrer">
+                                        <img src={url} alt={`품질사진 ${pi + 1}`} className="w-16 h-16 object-cover rounded-lg border border-purple-200 hover:opacity-80 transition-opacity" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
