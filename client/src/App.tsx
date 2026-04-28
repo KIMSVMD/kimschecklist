@@ -14,6 +14,7 @@ import StaffDashboard from "./pages/StaffDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import GuideAdmin from "./pages/GuideAdmin";
 import EditChecklist from "./pages/EditChecklist";
+import QualityBulkEdit from "./pages/QualityBulkEdit";
 import CleaningChecklist from "./pages/CleaningChecklist";
 import GuidesPage from "./pages/GuidesPage";
 
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/guides" component={GuidesPage} />
       <Route path="/checklist/new" component={NewChecklist} />
       <Route path="/checklist/edit/:id" component={EditChecklist} />
+      <Route path="/checklist/quality-edit/:id" component={QualityBulkEdit} />
       <Route path="/staff-dashboard" component={StaffDashboard} />
       <Route path="/cleaning/new" component={CleaningChecklist} />
       <Route path="/dashboard" component={Dashboard} />

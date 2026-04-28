@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { useCreateChecklist } from "@/hooks/use-checklists";
+import { useQuery } from "@tanstack/react-query";
+import { useCreateChecklist, useUpdateChecklist } from "@/hooks/use-checklists";
 import { useProducts } from "@/hooks/use-products";
 import { useQualityGuidesByProduct } from "@/hooks/use-guides";
 import { useToast } from "@/hooks/use-toast";
@@ -221,11 +222,24 @@ type Props = {
   branch: string;
   selYear: number;
   selMonth: number;
+  editId?: number;
 };
 
-export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
+export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Props) {
   const { toast } = useToast();
   const createMutation = useCreateChecklist();
+  const updateMutation = useUpdateChecklist();
+
+  // 기존 점검 데이터 로드 (수정 모드)
+  const { data: existingChecklist } = useQuery({
+    queryKey: ['/api/checklists', editId],
+    queryFn: async () => {
+      const res = await fetch(`/api/checklists/${editId}`, { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: (editId ?? 0) > 0,
+  });
 
   const [selectedCategory, setSelectedCategory] = useState<QualityCategory | null>(null);
   const [bulkData, setBulkData] = useState<BulkData>({});
@@ -331,6 +345,36 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
     setQualityLocalPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  // 수정 모드: 기존 데이터를 폼에 채우기
+  useEffect(() => {
+    if (!existingChecklist || !editId) return;
+    const rawQItems = (existingChecklist as any).qualityItems as Record<string, any> | null;
+    if (!rawQItems || !rawQItems.__category) return;
+    const cat = rawQItems.__category as QualityCategory;
+    if (!ALL_CATEGORIES.includes(cat)) return;
+    const criteria = CRITERIA_MAP[cat];
+    const newBulkData: BulkData = {};
+    for (const [key, val] of Object.entries(rawQItems)) {
+      if (key === '__category' || typeof val !== 'object' || val === null) continue;
+      const d = val as Record<string, any>;
+      const grades: Record<string, string> = {};
+      for (const c of criteria) {
+        if (d[c]) grades[c] = String(d[c]);
+      }
+      newBulkData[key] = {
+        grades,
+        expired: typeof d.__expired === 'number' ? d.__expired : 0,
+        moldy: typeof d.__moldy === 'number' ? d.__moldy : 0,
+      };
+    }
+    setSelectedCategory(cat);
+    setBulkData(newBulkData);
+    const existingPhotos: string[] = (existingChecklist as any).qualityPhotoUrls || [];
+    setQualityPhotoUrls(existingPhotos);
+    setQualityLocalPreviews(existingPhotos);
+    setQualityNotes((existingChecklist as any).qualityNotes || '');
+  }, [existingChecklist, editId]);
+
   async function handleSubmit() {
     if (!selectedCategory) return;
     setIsSubmitting(true);
@@ -347,29 +391,42 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
         };
       }
 
-      await createMutation.mutateAsync({
-        branch,
-        category: PARENT_CATEGORY[selectedCategory],
-        product: selectedCategory,
-        status: 'excellent',
-        checklistType: 'quality',
-        year: selYear,
-        month: selMonth,
-        qualityItems: qualityItemsPayload,
-        qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
-        qualityNotes: qualityNotes.trim() || null,
-        photoUrl: qualityPhotoUrls[0] || null,
-      } as any);
-
-      toast({ title: "점검 완료 및 제출되었습니다!" });
-      setSelectedCategory(null);
-      setBulkData({});
-      setQualityPhotoUrls([]);
-      setQualityLocalPreviews([]);
-      setQualityNotes('');
-      setSearchQuery('');
+      if (editId) {
+        await updateMutation.mutateAsync({
+          id: editId,
+          data: {
+            qualityItems: qualityItemsPayload,
+            qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
+            qualityNotes: qualityNotes.trim() || null,
+            photoUrl: qualityPhotoUrls[0] || null,
+          } as any,
+        });
+        toast({ title: "수정 완료!" });
+        window.history.back();
+      } else {
+        await createMutation.mutateAsync({
+          branch,
+          category: PARENT_CATEGORY[selectedCategory],
+          product: selectedCategory,
+          status: 'excellent',
+          checklistType: 'quality',
+          year: selYear,
+          month: selMonth,
+          qualityItems: qualityItemsPayload,
+          qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
+          qualityNotes: qualityNotes.trim() || null,
+          photoUrl: qualityPhotoUrls[0] || null,
+        } as any);
+        toast({ title: "점검 완료 및 제출되었습니다!" });
+        setSelectedCategory(null);
+        setBulkData({});
+        setQualityPhotoUrls([]);
+        setQualityLocalPreviews([]);
+        setQualityNotes('');
+        setSearchQuery('');
+      }
     } catch (err) {
-      toast({ title: "제출 실패", description: String(err), variant: "destructive" });
+      toast({ title: editId ? "수정 실패" : "제출 실패", description: String(err), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -398,6 +455,13 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
   // ── 카테고리 선택 화면 ────────────────────────────────────────────────────
 
   if (!selectedCategory) {
+    if (editId) {
+      return (
+        <div className="flex items-center justify-center min-h-[200px]">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      );
+    }
     return (
       <div className="p-4 md:px-[50px] w-full max-w-3xl mx-auto space-y-3 pt-4">
         <div className="mb-5">
@@ -425,13 +489,15 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
 
   return (
     <div className="p-4 md:px-[50px] w-full max-w-3xl mx-auto space-y-3 pt-4">
-      {/* 뒤로가기 */}
-      <button
-        onClick={() => { setSelectedCategory(null); setBulkData({}); setQualityPhotoUrls([]); setQualityLocalPreviews([]); setQualityNotes(''); setSearchQuery(''); }}
-        className="flex items-center gap-1 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
-      >
-        <ChevronLeft className="w-4 h-4" /> 카테고리 선택으로
-      </button>
+      {/* 뒤로가기 — 수정 모드에서는 숨김 */}
+      {!editId && (
+        <button
+          onClick={() => { setSelectedCategory(null); setBulkData({}); setQualityPhotoUrls([]); setQualityLocalPreviews([]); setQualityNotes(''); setSearchQuery(''); }}
+          className="flex items-center gap-1 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
+        >
+          <ChevronLeft className="w-4 h-4" /> 카테고리 선택으로
+        </button>
+      )}
 
       <p className="text-xs font-bold text-primary">
         {selYear}년 {selMonth}월 · {branch}점 · {selectedCategory} 품질 점검
@@ -537,7 +603,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
           className="w-full py-4 rounded-2xl text-white font-black text-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
           style={{ background: '#006341' }}
         >
-          {isSubmitting ? '제출 중...' : '점검 완료 및 제출'}
+          {isSubmitting ? (editId ? '저장 중...' : '제출 중...') : (editId ? '수정 완료 및 저장' : '점검 완료 및 제출')}
         </button>
       </div>
     </div>

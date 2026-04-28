@@ -1558,7 +1558,7 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                   )}
 
                   <div className="flex gap-3 mt-4">
-                    <Link href={`/checklist/edit/${item.id}`} className="flex-1">
+                    <Link href={(item as any).checklistType === 'quality' ? `/checklist/quality-edit/${item.id}` : `/checklist/edit/${item.id}`} className="flex-1">
                       <button
                         className="w-full py-3 rounded-2xl border-2 border-border bg-muted text-secondary font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:border-primary/40 hover:text-primary"
                         data-testid={`button-edit-checklist-${item.id}`}
