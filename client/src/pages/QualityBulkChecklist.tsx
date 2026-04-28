@@ -2,8 +2,11 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useCreateChecklist } from "@/hooks/use-checklists";
 import { useProducts } from "@/hooks/use-products";
+import { useQualityGuidesByProduct } from "@/hooks/use-guides";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 // ── 정적 품목 목록 ────────────────────────────────────────────────────────────
 
@@ -59,14 +62,177 @@ type ProductData = {
 
 type BulkData = Record<string, ProductData>;
 
+// 선택된 등급 색상 (초록 primary 계열)
 const GRADE_ACTIVE: Record<string, string> = {
-  A: 'bg-purple-600 text-white border-purple-600',
-  B: 'bg-purple-400 text-white border-purple-400',
-  C: 'bg-amber-400 text-white border-amber-400',
+  A: 'bg-[#006341] text-white border-[#006341]',
+  B: 'bg-[#2d8653] text-white border-[#2d8653]',
+  C: 'bg-amber-500 text-white border-amber-500',
   E: 'bg-red-500 text-white border-red-500',
 };
 
-// ── 컴포넌트 ──────────────────────────────────────────────────────────────────
+// ── 가이드 사진 슬라이드 ──────────────────────────────────────────────────────
+
+function GuideImageSlide({ images }: { images: string[] }) {
+  const [idx, setIdx] = useState(0);
+  if (images.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl overflow-hidden border border-border shadow-sm bg-muted/10 space-y-2 p-3">
+      <p className="text-xs font-bold text-primary">품질 가이드 사진</p>
+      <div className="relative">
+        <Dialog>
+          <DialogTrigger asChild>
+            <button className="w-full rounded-xl overflow-hidden aspect-video bg-muted/20 relative group active:scale-[0.98] transition-all">
+              <img src={images[idx]} alt="품질 가이드" className="w-full h-full object-contain bg-white" />
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="bg-white/90 text-secondary px-3 py-1.5 rounded-full font-bold text-xs">클릭하여 확대</span>
+              </div>
+            </button>
+          </DialogTrigger>
+          <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-transparent shadow-none">
+            <div className="w-full h-full flex items-center justify-center p-4">
+              <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit>
+                <TransformComponent wrapperStyle={{ width: "100%", height: "90vh" }}>
+                  <img src={images[idx]} alt="품질 가이드" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl bg-white mx-auto" />
+                </TransformComponent>
+              </TransformWrapper>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={() => setIdx(i => (i - 1 + images.length) % images.length)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setIdx(i => (i + 1) % images.length)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {images.length > 1 && (
+        <div className="flex justify-center items-center gap-1.5">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              className={`rounded-full transition-all ${i === idx ? 'w-4 h-2 bg-[#006341]' : 'w-2 h-2 bg-muted-foreground/30'}`}
+            />
+          ))}
+          <span className="text-xs text-muted-foreground ml-1">{idx + 1}/{images.length}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 품목 카드 (표 형태 등급 선택) ────────────────────────────────────────────
+
+function ProductCard({
+  product,
+  idx,
+  criteria,
+  data,
+  onToggle,
+  onAdjust,
+}: {
+  product: string;
+  idx: number;
+  criteria: string[];
+  data: ProductData;
+  onToggle: (criterion: string, grade: string) => void;
+  onAdjust: (field: 'expired' | 'moldy', delta: number) => void;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+      {/* 품목명 */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground font-mono w-6 shrink-0">
+          {String(idx + 1).padStart(2, '0')}
+        </span>
+        <span className="font-bold text-secondary text-base">{product}</span>
+      </div>
+
+      {/* 표 형태 등급 선택 (수정 3) */}
+      <div className="w-full overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              <th className="text-left text-xs text-muted-foreground font-semibold py-1.5 pr-3 w-16">항목</th>
+              {['A', 'B', 'C', 'E'].map(g => (
+                <th key={g} className="text-center text-xs font-bold py-1.5 w-10"
+                  style={{ color: g === 'A' ? '#006341' : g === 'B' ? '#2d8653' : g === 'C' ? '#b45309' : '#ef4444' }}>
+                  {g}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {criteria.map(criterion => (
+              <tr key={criterion} className="border-t border-border/30">
+                <td className="text-xs font-semibold text-secondary py-2 pr-3">{criterion}</td>
+                {['A', 'B', 'C', 'E'].map(grade => {
+                  const selected = data.grades[criterion] === grade;
+                  return (
+                    <td key={grade} className="text-center py-2">
+                      <button
+                        onClick={() => onToggle(criterion, grade)}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-full transition-all active:scale-90 border-2"
+                        style={selected ? {
+                          background: grade === 'A' ? '#006341' : grade === 'B' ? '#2d8653' : grade === 'C' ? '#f59e0b' : '#ef4444',
+                          borderColor: grade === 'A' ? '#006341' : grade === 'B' ? '#2d8653' : grade === 'C' ? '#f59e0b' : '#ef4444',
+                        } : {
+                          background: 'transparent',
+                          borderColor: '#d1d5db',
+                        }}
+                      >
+                        {selected && (
+                          <span className="block w-3 h-3 rounded-full bg-white" />
+                        )}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 진열기한경과 / 곰팡이 */}
+      <div className="flex gap-4 pt-1 border-t border-border/40">
+        {(['expired', 'moldy'] as const).map(field => (
+          <div key={field} className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground shrink-0">
+              {field === 'expired' ? '진열기한경과' : '곰팡이'}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onAdjust(field, -1)}
+                className="w-7 h-7 rounded-lg bg-muted text-muted-foreground font-bold active:scale-95 transition-all flex items-center justify-center"
+              >−</button>
+              <span className="w-6 text-center font-bold text-sm">{data[field]}</span>
+              <button
+                onClick={() => onAdjust(field, 1)}
+                className="w-7 h-7 rounded-lg bg-muted text-muted-foreground font-bold active:scale-95 transition-all flex items-center justify-center"
+              >+</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 
 type Props = {
   branch: string;
@@ -87,6 +253,20 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
   const sunsanItems = sunsanProducts.map(p =>
     p.productName ? `[${p.groupName}]${p.productName}` : `[${p.groupName}]`
   );
+
+  // 수정 2: 카테고리 품질 가이드 사진 fetch
+  const { data: qualityGuides = [] } = useQualityGuidesByProduct(
+    selectedCategory ?? '',
+    selYear,
+    selMonth
+  );
+  const guideImages: string[] = (() => {
+    const guide = qualityGuides[0];
+    if (!guide) return [];
+    const urls = (guide as any).imageUrls as string[] | null;
+    if (urls && urls.length > 0) return urls;
+    return guide.imageUrl ? [guide.imageUrl] : [];
+  })();
 
   function getItems(cat: QualityCategory): string[] {
     if (cat === '청과') return CHEONGWA_ITEMS;
@@ -203,74 +383,24 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
       <p className="text-xs font-bold text-primary">
         {selYear}년 {selMonth}월 · {branch}점 · {selectedCategory} 품질 점검
       </p>
+
+      {/* 수정 2: 가이드 사진 슬라이드 */}
+      <GuideImageSlide images={guideImages} />
+
       <p className="text-sm text-muted-foreground">{items.length}개 품목 · 각 항목별 등급을 선택하세요</p>
 
       {/* 품목 카드 목록 */}
-      {items.map((product, idx) => {
-        const data = bulkData[product] ?? { grades: {}, expired: 0, moldy: 0 };
-        return (
-          <div
-            key={product}
-            className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3"
-          >
-            {/* 품목명 */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground font-mono w-6 shrink-0">
-                {String(idx + 1).padStart(2, '0')}
-              </span>
-              <span className="font-bold text-secondary text-base">{product}</span>
-            </div>
-
-            {/* 등급 버튼 */}
-            {criteria.map(criterion => (
-              <div key={criterion} className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground w-14 shrink-0">{criterion}</span>
-                <div className="flex gap-2">
-                  {['A', 'B', 'C', 'E'].map(grade => (
-                    <button
-                      key={grade}
-                      onClick={() => toggleGrade(product, criterion, grade)}
-                      className={`w-10 h-9 rounded-xl text-sm font-black transition-all active:scale-95 border ${
-                        data.grades[criterion] === grade
-                          ? GRADE_ACTIVE[grade]
-                          : 'bg-muted text-muted-foreground border-border'
-                      }`}
-                    >
-                      {grade}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {/* 진열기한경과 / 곰팡이 */}
-            <div className="flex gap-4 pt-1 border-t border-border/40">
-              {(['expired', 'moldy'] as const).map(field => (
-                <div key={field} className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {field === 'expired' ? '진열기한경과' : '곰팡이'}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => adjustCount(product, field, -1)}
-                      className="w-7 h-7 rounded-lg bg-muted text-muted-foreground font-bold active:scale-95 transition-all flex items-center justify-center"
-                    >
-                      −
-                    </button>
-                    <span className="w-6 text-center font-bold text-sm">{data[field]}</span>
-                    <button
-                      onClick={() => adjustCount(product, field, 1)}
-                      className="w-7 h-7 rounded-lg bg-muted text-muted-foreground font-bold active:scale-95 transition-all flex items-center justify-center"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+      {items.map((product, idx) => (
+        <ProductCard
+          key={product}
+          product={product}
+          idx={idx}
+          criteria={criteria}
+          data={bulkData[product] ?? { grades: {}, expired: 0, moldy: 0 }}
+          onToggle={(criterion, grade) => toggleGrade(product, criterion, grade)}
+          onAdjust={(field, delta) => adjustCount(product, field, delta)}
+        />
+      ))}
 
       {/* 제출 버튼 */}
       <div className="pt-2 pb-10">

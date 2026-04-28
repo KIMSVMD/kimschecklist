@@ -543,7 +543,7 @@ function AdminQualityScoreInput({
   const qualityScoreMutation = useUpdateChecklistQualityScore();
   const [open, setOpen] = useState(existingScore == null);
   const [overrideScore, setOverrideScore] = useState<string>(existingScore != null ? String(existingScore) : '');
-  const itemKeys = Object.keys(staffQualityItems).filter(k => k !== '__expired' && k !== '__moldy');
+  const itemKeys = Object.keys(staffQualityItems).filter(k => k !== '__expired' && k !== '__moldy' && k !== '__category');
   const totalItems = itemKeys.length;
   const savedExpired = typeof staffQualityItems.__expired === 'number' ? staffQualityItems.__expired : 0;
   const savedMoldy = typeof staffQualityItems.__moldy === 'number' ? staffQualityItems.__moldy : 0;
@@ -689,17 +689,18 @@ function AdminQualityScoreInput({
                         <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{s}점</span>
                       </div>
                     </div>
-                    {(['선도','상해','규격','혼입율'] as const).map(c => {
-                      const grade = d[c]; const note = d[`${c}_note`];
-                      if (!grade && !note) return null;
-                      return (
-                        <div key={c} className="flex gap-1.5 items-start">
-                          <span className="shrink-0 font-black text-secondary/70 bg-secondary/10 px-1.5 py-0.5 rounded-md">{c}</span>
-                          {grade && <span className={`shrink-0 font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(grade)}`}>{grade}</span>}
-                          {note && <span className="text-muted-foreground leading-relaxed">{note}</span>}
-                        </div>
-                      );
-                    })}
+                    <div className="flex flex-wrap gap-2">
+                      {(['선도','상해','규격','혼입율','색택','마블링'] as const).map(c => {
+                        const grade = d[c];
+                        if (!grade) return null;
+                        return (
+                          <span key={c} className="inline-flex items-center gap-1 text-xs">
+                            <span className="font-semibold text-secondary/70">{c}</span>
+                            <span className={`font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(grade)}`}>{grade}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
                     {(d['expired'] > 0 || d['moldy'] > 0) && (
                       <div className="flex gap-2 pt-0.5">
                         {d['expired'] > 0 && <span className="text-orange-600 font-bold">진열기한 경과 {d['expired']}개</span>}
@@ -1453,49 +1454,69 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                     const hasQualityData = hasQualityItemsInner || hasQualityPhotos || qualityNotes;
                     if (!hasQualityData || viewFilter === 'vm' || (item as any).checklistType === 'ad') return null;
                     const qualityAdminItems = (item as any).qualityAdminItems as Record<string, any> | null;
+                    const isBulkQFormat = !!(qualityItems && '__category' in qualityItems);
                     const filteredQualityItems = qualityItems
-                      ? Object.fromEntries(Object.entries(qualityItems).filter(([k]) => k !== '__expired' && k !== '__moldy'))
+                      ? Object.fromEntries(Object.entries(qualityItems).filter(([k]) => k !== '__expired' && k !== '__moldy' && k !== '__category'))
                       : null;
                     const firstQVal = hasQualityItemsInner && filteredQualityItems ? Object.values(filteredQualityItems)[0] : null;
                     const isNewQFormat = firstQVal !== null && typeof firstQVal === 'object';
                     return (
                       <>
                         {hasQualityItemsInner && filteredQualityItems && (
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질</span>
-                            {isNewQFormat ? (
+                          <div className="mt-3 space-y-1">
+                            <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질 {isBulkQFormat && qualityItems!.__category ? `(${qualityItems!.__category})` : ''}</span>
+                            {isBulkQFormat ? (
+                              /* 일괄 형식: 품목별 기준 1행 표시 */
+                              <div className="flex flex-wrap gap-1.5 mt-0.5">
+                                {Object.entries(filteredQualityItems).map(([product, d]: [string, any]) => {
+                                  if (typeof d !== 'object') return null;
+                                  const CRIT_ORDER = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
+                                  const parts = CRIT_ORDER.filter(c => d[c]).map(c => `${c}${d[c]}`);
+                                  if (parts.length === 0) return null;
+                                  return (
+                                    <span key={product} className="text-[10px] px-2 py-1 rounded-full font-bold border bg-purple-50 border-purple-200 text-purple-700 inline-flex items-center gap-1">
+                                      {product}: {parts.join(' ')}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : isNewQFormat ? (
                               /* 새 형식: 항목명 + 등급 태그 */
-                              Object.entries(filteredQualityItems).map(([name, d]: [string, any]) => {
-                                const g = d?.grade || '';
-                                const s = gradeScoreDash(g);
-                                if (!g) return null;
-                                return (
-                                  <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                    s >= 85 ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                    : s >= 70 ? 'bg-amber-50 border-amber-200 text-amber-600'
-                                    : 'bg-red-50 border-red-200 text-red-600'
-                                  }`}>
-                                    {name}: {g}등급({s}점)
-                                  </span>
-                                );
-                              })
+                              <div className="flex flex-wrap gap-1.5 mt-0.5">
+                                {Object.entries(filteredQualityItems).map(([name, d]: [string, any]) => {
+                                  const g = d?.grade || '';
+                                  const s = gradeScoreDash(g);
+                                  if (!g) return null;
+                                  return (
+                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                      s >= 85 ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                      : s >= 70 ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                      : 'bg-red-50 border-red-200 text-red-600'
+                                    }`}>
+                                      {name}: {g}등급({s}점)
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             ) : (
                               /* 구 형식: ok/notok 태그 */
-                              Object.entries(qualityItems!).map(([name, status]: [string, any]) => {
-                                const adminVal = qualityAdminItems?.[name];
-                                const staffIsOk = status === 'ok';
-                                const adminIsOk = adminVal === 'ok';
-                                const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
-                                return (
-                                  <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                    wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
-                                    : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                    : 'bg-red-50 border-red-200 text-red-600'
-                                  }`}>
-                                    {name}: {wasChanged ? <>{staffIsOk ? '○' : '✗'} → {adminIsOk ? '○' : '✗'}</> : (staffIsOk ? '○' : '✗')}
-                                  </span>
-                                );
-                              })
+                              <div className="flex flex-wrap gap-1.5 mt-0.5">
+                                {Object.entries(qualityItems!).map(([name, status]: [string, any]) => {
+                                  const adminVal = qualityAdminItems?.[name];
+                                  const staffIsOk = status === 'ok';
+                                  const adminIsOk = adminVal === 'ok';
+                                  const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                  return (
+                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                      wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
+                                      : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                      : 'bg-red-50 border-red-200 text-red-600'
+                                    }`}>
+                                      {name}: {wasChanged ? <>{staffIsOk ? '○' : '✗'} → {adminIsOk ? '○' : '✗'}</> : (staffIsOk ? '○' : '✗')}
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
                         )}
