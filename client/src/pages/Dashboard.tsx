@@ -1258,32 +1258,25 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                       </h3>
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                      {adminScore != null ? (
-                        <div className={`px-3 py-1.5 rounded-xl border text-sm font-black flex items-center gap-1 ${
-                          adminScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
-                          adminScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                          'bg-red-50 border-red-200 text-primary'
-                        }`} data-testid={`text-admin-score-${item.id}`}>
-                          <Star className="w-3.5 h-3.5" />{adminScore}점
-                        </div>
-                      ) : (
-                        <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
-                      )}
-                      {hasAdItems && viewFilter !== 'quality' && (
-                        adAdminScore != null ? (
-                          <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
-                            adAdminScore >= 80 ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                            adAdminScore >= 60 ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                      {(() => {
+                        const hasAd = hasAdItems && viewFilter !== 'quality' && (item as any).checklistType !== 'ad';
+                        const displayScore = adminScore != null && adAdminScore != null && hasAd
+                          ? Math.round((adminScore + adAdminScore) / 2)
+                          : adminScore ?? (hasAd ? adAdminScore : null) ?? null;
+                        const isAvg = adminScore != null && adAdminScore != null && hasAd;
+                        return displayScore != null ? (
+                          <div className={`px-3 py-1.5 rounded-xl border text-sm font-black flex items-center gap-1 ${
+                            displayScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                            displayScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-700' :
                             'bg-red-50 border-red-200 text-primary'
-                          }`} data-testid={`text-ad-score-${item.id}`}>
-                            <span className="text-[11px]">📢</span>{adAdminScore}점
+                          }`} data-testid={`text-admin-score-${item.id}`}>
+                            <Star className="w-3.5 h-3.5" />{displayScore}점
+                            {isAvg && <span className="text-[10px] font-medium opacity-70 ml-0.5">평균</span>}
                           </div>
                         ) : (
-                          <div className="px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium flex items-center gap-1">
-                            <span className="text-[11px]">📢</span>광고미평가
-                          </div>
-                        )
-                      )}
+                          <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
+                        );
+                      })()}
                       {hasQualityItems && viewFilter !== 'vm' && (item as any).checklistType !== 'ad' && (
                         qualityAdminScore != null ? (
                           <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${

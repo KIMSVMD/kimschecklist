@@ -444,7 +444,7 @@ export default function StaffDashboard() {
                 </div>
               </div>
               {/* category chips — black filled active, white bordered inactive */}
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 touch-pan-x">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar py-3 touch-pan-x">
                 {(activeTab === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => {
                   const badge = catBadge(cat);
                   return (
@@ -821,25 +821,10 @@ export default function StaffDashboard() {
                   const adItemsRaw = (item as any).adItems as Record<string, string> | null;
                   const hasAdData = !!(adItemsRaw && Object.keys(adItemsRaw).length > 0) || !!((item as any).adNotes);
 
-                  // 진열+광고 항목 동그라미 합산 점수
-                  let combinedOk = 0, combinedTotal = 0;
-                  if (adminScore != null && vmItemsRaw && Object.keys(vmItemsRaw).length > 0) {
-                    const eff = adminItems
-                      ? adminItems
-                      : Object.fromEntries(Object.entries(vmItemsRaw).map(([k, v]) => [k, (v === 'ok' || v === 'excellent') ? 'ok' : 'notok']));
-                    combinedOk += Object.values(eff).filter(v => v === 'ok').length;
-                    combinedTotal += Object.keys(eff).length;
-                  }
-                  if (adAdminScore != null && adItemsRaw && Object.keys(adItemsRaw).length > 0) {
-                    const eff = adAdminItems
-                      ? adAdminItems
-                      : Object.fromEntries(Object.entries(adItemsRaw).map(([k, v]) => [k, v === 'ok' ? 'ok' : 'notok']));
-                    combinedOk += Object.values(eff).filter(v => v === 'ok').length;
-                    combinedTotal += Object.keys(eff).length;
-                  }
-                  const displayScore = combinedTotal > 0
-                    ? Math.round((combinedOk / combinedTotal) * 100)
-                    : (adminScore ?? adAdminScore ?? null);
+                  // 진열+광고 평균 점수
+                  const displayScore = adminScore != null && adAdminScore != null
+                    ? Math.round((adminScore + adAdminScore) / 2)
+                    : adminScore ?? adAdminScore ?? null;
                   return (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -912,8 +897,8 @@ export default function StaffDashboard() {
                                 'bg-red-50 border-red-200 text-primary'
                               }`} data-testid={`text-admin-score-${item.id}`}>
                                 <Star className="w-3.5 h-3.5" /> {displayScore}점
-                                {hasAdData && combinedTotal > 0 && (
-                                  <span className="text-[10px] font-medium opacity-70 ml-0.5">({combinedOk}/{combinedTotal})</span>
+                                {hasAdData && adminScore != null && adAdminScore != null && (
+                                  <span className="text-[10px] font-medium opacity-70 ml-0.5">평균</span>
                                 )}
                               </div>
                             ) : (

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useCreateChecklist } from "@/hooks/use-checklists";
 import { useProducts } from "@/hooks/use-products";
 import { useQualityGuidesByProduct } from "@/hooks/use-guides";
@@ -375,6 +375,23 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
     }
   }
 
+  // 수정 2: 모바일 뒤로가기 버튼 — 카테고리 선택 화면으로 복귀
+  useEffect(() => {
+    if (selectedCategory) {
+      (window as any).__appBack = () => {
+        setSelectedCategory(null);
+        setBulkData({});
+        setQualityPhotoUrls([]);
+        setQualityLocalPreviews([]);
+        setQualityNotes('');
+        setSearchQuery('');
+      };
+    } else {
+      (window as any).__appBack = null;
+    }
+    return () => { (window as any).__appBack = null; };
+  }, [selectedCategory]);
+
   const items = selectedCategory ? getItems(selectedCategory) : [];
   const criteria = selectedCategory ? CRITERIA_MAP[selectedCategory] : [];
 
@@ -438,6 +455,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
             const match = items.find(p => p.includes(q.trim()));
             if (match && cardRefs.current[match]) {
               cardRefs.current[match]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              e.target.blur();
             }
           }}
           placeholder="품목명 검색 (예: 사과)"
