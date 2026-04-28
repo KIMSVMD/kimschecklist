@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useCreateChecklist } from "@/hooks/use-checklists";
 import { useProducts } from "@/hooks/use-products";
 import { useQualityGuidesByProduct } from "@/hooks/use-guides";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Camera, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
@@ -61,14 +61,6 @@ type ProductData = {
 };
 
 type BulkData = Record<string, ProductData>;
-
-// 선택된 등급 색상 (초록 primary 계열)
-const GRADE_ACTIVE: Record<string, string> = {
-  A: 'bg-[#006341] text-white border-[#006341]',
-  B: 'bg-[#2d8653] text-white border-[#2d8653]',
-  C: 'bg-amber-500 text-white border-amber-500',
-  E: 'bg-red-500 text-white border-red-500',
-};
 
 // ── 가이드 사진 슬라이드 ──────────────────────────────────────────────────────
 
@@ -137,12 +129,7 @@ function GuideImageSlide({ images }: { images: string[] }) {
 // ── 품목 카드 (표 형태 등급 선택) ────────────────────────────────────────────
 
 function ProductCard({
-  product,
-  idx,
-  criteria,
-  data,
-  onToggle,
-  onAdjust,
+  product, idx, criteria, data, onToggle, onAdjust,
 }: {
   product: string;
   idx: number;
@@ -153,7 +140,6 @@ function ProductCard({
 }) {
   return (
     <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
-      {/* 품목명 */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground font-mono w-6 shrink-0">
           {String(idx + 1).padStart(2, '0')}
@@ -161,7 +147,7 @@ function ProductCard({
         <span className="font-bold text-secondary text-base">{product}</span>
       </div>
 
-      {/* 표 형태 등급 선택 (수정 3) */}
+      {/* 표 형태 등급 선택 */}
       <div className="w-full overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
@@ -194,9 +180,7 @@ function ProductCard({
                           borderColor: '#d1d5db',
                         }}
                       >
-                        {selected && (
-                          <span className="block w-3 h-3 rounded-full bg-white" />
-                        )}
+                        {selected && <span className="block w-3 h-3 rounded-full bg-white" />}
                       </button>
                     </td>
                   );
@@ -249,12 +233,23 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
   const [bulkData, setBulkData] = useState<BulkData>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 품질 현장 사진 (수정 1: VM 사진 없음, 품질 사진만)
+  const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
+  const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
+  const [qualityUploadingCount, setQualityUploadingCount] = useState(0);
+  const qualityPhotoUrlsRef = useRef<string[]>([]);
+  qualityPhotoUrlsRef.current = qualityPhotoUrls;
+  const qualityFileInputRef = useRef<HTMLInputElement>(null);
+
+  // 품질 특이사항 (수정 1: VM 특이사항 없음, 품질 특이사항만)
+  const [qualityNotes, setQualityNotes] = useState('');
+
   const { data: sunsanProducts = [] } = useProducts('수산');
   const sunsanItems = sunsanProducts.map(p =>
     p.productName ? `[${p.groupName}]${p.productName}` : `[${p.groupName}]`
   );
 
-  // 수정 2: 카테고리 품질 가이드 사진 fetch
+  // 가이드 사진 fetch
   const { data: qualityGuides = [] } = useQualityGuidesByProduct(
     selectedCategory ?? '',
     selYear,
@@ -306,6 +301,29 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
     });
   }
 
+  const handleQualityFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = '';
+    const previews = files.map(f => URL.createObjectURL(f));
+    setQualityLocalPreviews(prev => [...prev, ...previews]);
+    setQualityUploadingCount(c => c + files.length);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      const uploaded: string[] = [];
+      results.forEach(r => { if (r.status === 'fulfilled') uploaded.push(r.value); });
+      if (uploaded.length > 0) setQualityPhotoUrls([...qualityPhotoUrlsRef.current, ...uploaded]);
+    } finally {
+      setQualityUploadingCount(0);
+    }
+  };
+
+  const removeQualityPhoto = (index: number) => {
+    setQualityPhotoUrls(prev => prev.filter((_, i) => i !== index));
+    setQualityLocalPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   async function handleSubmit() {
     if (!selectedCategory) return;
     setIsSubmitting(true);
@@ -328,6 +346,9 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
         year: selYear,
         month: selMonth,
         qualityItems: qualityItemsPayload,
+        qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
+        qualityNotes: qualityNotes.trim() || null,
+        photoUrl: qualityPhotoUrls[0] || null,
       } as any);
 
       toast({ title: "점검 완료 및 제출되었습니다!" });
@@ -368,13 +389,13 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
     );
   }
 
-  // ── 품목 일괄 점검 화면 ───────────────────────────────────────────────────
+  // ── 품목 일괄 점검 화면 (1페이지 통합, 수정 3) ────────────────────────────
 
   return (
     <div className="p-4 md:px-[50px] w-full max-w-3xl mx-auto space-y-3 pt-4">
       {/* 뒤로가기 */}
       <button
-        onClick={() => { setSelectedCategory(null); setBulkData({}); }}
+        onClick={() => { setSelectedCategory(null); setBulkData({}); setQualityPhotoUrls([]); setQualityLocalPreviews([]); setQualityNotes(''); }}
         className="flex items-center gap-1 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
       >
         <ChevronLeft className="w-4 h-4" /> 카테고리 선택으로
@@ -384,7 +405,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
         {selYear}년 {selMonth}월 · {branch}점 · {selectedCategory} 품질 점검
       </p>
 
-      {/* 수정 2: 가이드 사진 슬라이드 */}
+      {/* 가이드 사진 슬라이드 */}
       <GuideImageSlide images={guideImages} />
 
       <p className="text-sm text-muted-foreground">{items.length}개 품목 · 각 항목별 등급을 선택하세요</p>
@@ -402,7 +423,52 @@ export function QualityBulkChecklist({ branch, selYear, selMonth }: Props) {
         />
       ))}
 
-      {/* 제출 버튼 */}
+      {/* 품질 현장 사진 업로드 (수정 1: 품질 사진만, VM 사진 없음) */}
+      <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+        <h3 className="font-bold text-secondary">품질 현장 사진</h3>
+        {qualityLocalPreviews.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {qualityLocalPreviews.map((preview, i) => (
+              <div key={i} className="relative aspect-square rounded-xl overflow-hidden border-2 border-[#006341]/40 bg-muted">
+                <img src={preview} alt={`품질 사진 ${i + 1}`} className="w-full h-full object-cover" />
+                <button
+                  onClick={() => removeQualityPhoto(i)}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all z-10 text-xs font-bold"
+                >✕</button>
+                {i >= qualityPhotoUrls.length && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                    <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => qualityFileInputRef.current?.click()}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-dashed border-[#006341]/40 bg-[#006341]/5 active:scale-[0.98] transition-all"
+        >
+          {qualityUploadingCount > 0
+            ? <><Loader2 className="w-5 h-5 text-[#006341] animate-spin" /><span className="font-bold text-[#006341]">업로드 중...</span></>
+            : <><Camera className="w-5 h-5 text-[#006341]" /><span className="font-bold text-[#006341]">{qualityLocalPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
+          }
+        </button>
+        <input ref={qualityFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleQualityFile} />
+      </div>
+
+      {/* 품질 특이사항 (수정 1: 품질 특이사항만, VM 특이사항 없음) */}
+      <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-2">
+        <h3 className="font-bold text-secondary">품질 특이사항 <span className="text-xs font-normal text-muted-foreground">(선택)</span></h3>
+        <textarea
+          value={qualityNotes}
+          onChange={e => setQualityNotes(e.target.value)}
+          placeholder="품질 관련 특이사항을 입력하세요..."
+          className="w-full rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#006341]/30"
+          rows={3}
+        />
+      </div>
+
+      {/* 점검 완료 및 제출 버튼 */}
       <div className="pt-2 pb-10">
         <button
           onClick={handleSubmit}

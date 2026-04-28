@@ -1526,6 +1526,22 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                             <p className="text-sm text-secondary">{qualityNotes}</p>
                           </div>
                         )}
+                        {hasQualityPhotos && (
+                          <div className="mt-3">
+                            <strong className="block mb-2 text-[11px] text-purple-700 font-black">📸 품질 현장 사진:</strong>
+                            <div className="flex flex-wrap gap-2">
+                              {qualityPhotoUrls!.map((url, idx) => (
+                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
+                                  <img
+                                    src={url}
+                                    alt={`품질사진 ${idx + 1}`}
+                                    className="w-20 h-20 object-cover rounded-xl border border-purple-200 hover:opacity-80 transition-opacity"
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <AdminQualityScoreInput
                           id={item.id}
                           existingScore={(item as any).qualityAdminScore}
