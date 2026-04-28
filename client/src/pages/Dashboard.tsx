@@ -24,6 +24,7 @@ import { useSaveCleaningComment } from "@/hooks/use-cleaning";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { useAdminNotifications } from "@/hooks/use-notifications";
 import { NotificationPanel } from "@/components/NotificationPanel";
+import { QualityPhotoSlider } from "@/components/QualityPhotoSlider";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const BRANCHES = ['전체', '강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정', '부산대', '인천', '고잔', '중계', '김포', '청주'];
@@ -1529,17 +1530,7 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                         {hasQualityPhotos && (
                           <div className="mt-3">
                             <strong className="block mb-2 text-[11px] text-purple-700 font-black">📸 품질 현장 사진:</strong>
-                            <div className="flex flex-wrap gap-2">
-                              {qualityPhotoUrls!.map((url, idx) => (
-                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                                  <img
-                                    src={url}
-                                    alt={`품질사진 ${idx + 1}`}
-                                    className="w-20 h-20 object-cover rounded-xl border border-purple-200 hover:opacity-80 transition-opacity"
-                                  />
-                                </a>
-                              ))}
-                            </div>
+                            <QualityPhotoSlider urls={qualityPhotoUrls!} />
                           </div>
                         )}
                         <AdminQualityScoreInput

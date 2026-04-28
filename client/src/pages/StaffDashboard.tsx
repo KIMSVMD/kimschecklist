@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { calcCleaningScore, scoreColor, getGrade, gradeColor } from "@/lib/scoring";
 import { useStaffNotifications, useGuideNotifications, type StaffNotification } from "@/hooks/use-notifications";
+import { QualityPhotoSlider } from "@/components/QualityPhotoSlider";
 
 const REGIONS: Record<string, string[]> = {
   '대형점': ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로'],
@@ -36,7 +37,13 @@ export default function StaffDashboard() {
 
   const [filterBranch, setFilterBranch] = useState('');
   const [filterCategory, setFilterCategory] = useState('전체');
-  const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>('vm');
+  const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>(() => {
+    try {
+      const s = sessionStorage.getItem('staffActiveTab');
+      if (s === 'vm' || s === 'quality' || s === 'cleaning') return s;
+    } catch {}
+    return 'vm';
+  });
   const nowDate = new Date();
   const [vmFilterYear, setVmFilterYear] = useState(nowDate.getFullYear());
   const [vmFilterMonth, setVmFilterMonth] = useState(nowDate.getMonth() + 1);
@@ -45,6 +52,10 @@ export default function StaffDashboard() {
   const [filterZone, setFilterZone] = useState('전체');
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifTab, setNotifTab] = useState<'comment_reply' | 'score_change' | 'guide_update'>('comment_reply');
+  useEffect(() => {
+    try { sessionStorage.setItem('staffActiveTab', activeTab); } catch {}
+  }, [activeTab]);
+
   const { toast } = useToast();
   const { notifications, unreadCount, dismiss, dismissAll, staffNotifKey } = useStaffNotifications(filterBranch);
   const { notifications: guideNotifs, unreadCount: guideUnread, dismiss: dismissGuide, dismissAll: dismissAllGuide } = useGuideNotifications();
@@ -1076,7 +1087,7 @@ export default function StaffDashboard() {
                                       const parts = ['선도','상해','규격','혼입율','색택','마블링'].filter(c => d[c]).map(c => `${c}${d[c]}`);
                                       if (parts.length === 0) return null;
                                       return (
-                                        <span key={product} className="text-[10px] px-2 py-1 rounded-full font-bold border bg-purple-50 border-purple-200 text-purple-700 inline-flex items-center gap-1">
+                                        <span key={product} className="text-xs px-3 py-1.5 rounded-xl font-bold border bg-purple-50 border-purple-200 text-purple-700 inline-flex items-center gap-1">
                                           {product}: {parts.join(' ')}
                                         </span>
                                       );
@@ -1118,13 +1129,7 @@ export default function StaffDashboard() {
                               {qPhotoUrls && qPhotoUrls.length > 0 && (
                                 <div>
                                   <strong className="block mb-1 text-[10px] text-purple-700 font-black">📸 품질 현장 사진:</strong>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {qPhotoUrls.map((url, pi) => (
-                                      <a key={pi} href={url} target="_blank" rel="noopener noreferrer">
-                                        <img src={url} alt={`품질사진 ${pi + 1}`} className="w-16 h-16 object-cover rounded-lg border border-purple-200 hover:opacity-80 transition-opacity" />
-                                      </a>
-                                    ))}
-                                  </div>
+                                  <QualityPhotoSlider urls={qPhotoUrls} />
                                 </div>
                               )}
                             </div>
