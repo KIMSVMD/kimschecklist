@@ -8,32 +8,6 @@ import { ChevronLeft, ChevronRight, Camera, Loader2, Search } from "lucide-react
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
-// ── 정적 품목 목록 ────────────────────────────────────────────────────────────
-
-const CHEONGWA_ITEMS = [
-  '사과', '배', '딸기', '참외', '밤', '수박', '바나나', '오렌지', '키위', '블루베리',
-  '수입포도', '용과', '파인애플', '아보카도', '자몽', '레몬', '망고', '감귤', '한라봉',
-  '레드향', '샤인머스켓', '방울토마토', '토마토',
-];
-
-const CHAESO_ITEMS = [
-  '콜라비', '블로컬리', '양배추', '적채', '비트', '바타비아', '샐러리', '유러피안채소',
-  '샐러드', '양상추', '애호박', '오이', '파프리카', '청양고추', '풋고추', '꽈리고추',
-  '오이맛고추', '홍고추', '피망', '가지', '단호박', '허브채소', '양파', '대파', '깐마늘',
-  '생강', '팽이버섯', '새송이버섯', '느타리버섯', '표고버섯', '양송이버섯', '머쉬멜로버섯',
-  '시금치', '미나리', '모둠쌈', '상추', '깻잎', '청경채', '열무', '얼갈이', '쪽파',
-  '고구마', '감자', '당근', '연근', '무', '배추', '부추', '아스파라거스',
-];
-
-const CHUKSAN_ITEMS = [
-  '삼겹살(냉장)', '목심(냉장)', '앞다리(냉장)', '등갈비(냉장)', '갈비찜(냉장)',
-  '보쌈/수육(냉장)', '항정살(냉장)', '한우불고기(냉장)', '한우국거리(냉장)', '한우등심(냉장)',
-  '한우안심(냉장)', '한우채끝(냉장)', '한우부채살(냉장)', '척아이롤_미국', '부채살_미국',
-  '살치살_미국', '갈비찜용_미국', '국거리_미국', '부채살(와규)_호주', '치마살(와규)_호주',
-  '삼각살(와규)_호주', '스테이크(와규)_호주', '국거리(와규)_호주', '불고기(와규)_호주',
-  '갈비찜용_호주', '부채살_호주', '살치살_호주', '척아이롤_호주', '립캡(와규)_호주', '치마살_호주',
-];
-
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
 type QualityCategory = '청과' | '채소' | '수산' | '축산';
@@ -359,10 +333,17 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
   // 품질 특이사항 (수정 1: VM 특이사항 없음, 품질 특이사항만)
   const [qualityNotes, setQualityNotes] = useState('');
 
-  const { data: sunsanProducts = [] } = useProducts('수산');
-  const sunsanItems = sunsanProducts.map(p =>
-    p.productName ? `[${p.groupName}]${p.productName}` : `[${p.groupName}]`
-  );
+  // 품질 상품 목록 — DB에서 동적으로 로드 (q_ 접두어 카테고리)
+  const { data: qCheongwaProds = [], isLoading: loadingCheongwa } = useProducts('q_청과');
+  const { data: qChaesoProds = [], isLoading: loadingChaeso } = useProducts('q_채소');
+  const { data: qSunsanProds = [], isLoading: loadingSunsan } = useProducts('q_수산');
+  const { data: qChuksanProds = [], isLoading: loadingChuksan } = useProducts('q_축산');
+  const productsLoading = loadingCheongwa || loadingChaeso || loadingSunsan || loadingChuksan;
+
+  const qCheongwaItems = qCheongwaProds.map(p => p.groupName);
+  const qChaesoItems = qChaesoProds.map(p => p.groupName);
+  const qSunsanItems = qSunsanProds.map(p => p.groupName);
+  const qChuksanItems = qChuksanProds.map(p => p.groupName);
 
   // 가이드 사진 fetch
   const { data: qualityGuides = [] } = useQualityGuidesByProduct(
@@ -379,17 +360,17 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
   })();
 
   function getItems(cat: QualityCategory): string[] {
-    if (cat === '청과') return CHEONGWA_ITEMS;
-    if (cat === '채소') return CHAESO_ITEMS;
-    if (cat === '수산') return sunsanItems;
-    return CHUKSAN_ITEMS;
+    if (cat === '청과') return qCheongwaItems;
+    if (cat === '채소') return qChaesoItems;
+    if (cat === '수산') return qSunsanItems;
+    return qChuksanItems;
   }
 
   function itemCount(cat: QualityCategory) {
-    if (cat === '청과') return CHEONGWA_ITEMS.length;
-    if (cat === '채소') return CHAESO_ITEMS.length;
-    if (cat === '수산') return sunsanItems.length;
-    return CHUKSAN_ITEMS.length;
+    if (cat === '청과') return qCheongwaItems.length;
+    if (cat === '채소') return qChaesoItems.length;
+    if (cat === '수산') return qSunsanItems.length;
+    return qChuksanItems.length;
   }
 
   function toggleGrade(product: string, criterion: string, grade: string) {
@@ -556,7 +537,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
   // ── 카테고리 선택 화면 ────────────────────────────────────────────────────
 
   if (!selectedCategory) {
-    if (editId) {
+    if (editId || productsLoading) {
       return (
         <div className="flex items-center justify-center min-h-[200px]">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />

@@ -151,20 +151,19 @@ function GuideForm({
   const videoRef = useRef<HTMLInputElement>(null);
   const attachFileRef = useRef<HTMLInputElement>(null);
 
-  const { data: dbProducts = [] } = useProducts(form.category);
+  // 진열/광고 가이드용: 선택된 대분류의 DB 상품
+  const { data: dbProducts = [] } = useProducts(form.guideType !== 'quality' ? form.category : '');
 
   const groups = [...new Set(dbProducts.map(p => p.groupName))];
   const subProducts = dbProducts.filter(p => p.groupName === selectedGroup && p.productName);
 
-  // 품질 가이드용: 대분류별 세부상품 목록 (수산/공산은 DB에서)
-  const qualityProductList = (() => {
-    if (form.guideType !== 'quality') return [];
-    if (form.category === '청과') return QUALITY_CHEONGWA_ITEMS;
-    if (form.category === '채소') return QUALITY_CHAESO_ITEMS;
-    if (form.category === '축산') return QUALITY_CHUKSAN_ITEMS;
-    // 수산/공산: DB 상품을 [그룹]상품 형식으로
-    return dbProducts.map(p => p.productName ? `[${p.groupName}]${p.productName}` : `[${p.groupName}]`);
-  })();
+  // 품질 가이드용: 'q_' 접두어 카테고리로 DB에서 상품 로드
+  const { data: qualityDbProducts = [] } = useProducts(
+    form.guideType === 'quality' ? 'q_' + form.category : ''
+  );
+  const qualityProductList = form.guideType === 'quality'
+    ? qualityDbProducts.map(p => p.groupName)
+    : [];
 
   const handleGroupChange = (group: string) => {
     setSelectedGroup(group);
@@ -1215,6 +1214,140 @@ function ProductManager() {
   );
 }
 
+// ── 품질 상품관리 컴포넌트 ─────────────────────────────────────────────────────
+
+const QUALITY_DISPLAY_CATEGORIES = ['청과', '채소', '수산', '축산', '공산'] as const;
+type QualityDisplayCategory = typeof QUALITY_DISPLAY_CATEGORIES[number];
+
+function QualityProductManager() {
+  const { toast } = useToast();
+  const [activeCategory, setActiveCategory] = useState<QualityDisplayCategory>('청과');
+  const [newName, setNewName] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+
+  const dbKey = 'q_' + activeCategory;
+  const { data: products = [], isLoading } = useProducts(dbKey);
+  const createMutation = useCreateProduct();
+  const deleteMutation = useDeleteProduct();
+
+  const handleAdd = async () => {
+    const name = newName.trim();
+    if (!name) { toast({ title: '상품명을 입력해주세요', variant: 'destructive' }); return; }
+    try {
+      await createMutation.mutateAsync({ category: dbKey, groupName: name, productName: null });
+      toast({ title: '상품 추가 완료!' });
+      setNewName('');
+      setShowAdd(false);
+    } catch {
+      toast({ title: '추가 실패', variant: 'destructive' });
+    }
+  };
+
+  const handleDelete = async (id: number, name: string) => {
+    if (!confirm(`"${name}" 상품을 삭제하시겠습니까?`)) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: '삭제 완료' });
+    } catch {
+      toast({ title: '삭제 실패', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Category tabs */}
+      <div className="flex gap-1.5 flex-wrap">
+        {QUALITY_DISPLAY_CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => { setActiveCategory(cat); setShowAdd(false); setNewName(''); }}
+            className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 min-w-[60px] ${
+              activeCategory === cat ? 'bg-purple-600 text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Add button / form */}
+      {!showAdd ? (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="w-full py-4 rounded-xl border-2 border-dashed border-purple-400/50 text-purple-600 font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-purple-50"
+        >
+          <Plus className="w-5 h-5" /> 상품 추가
+        </button>
+      ) : (
+        <div className="bg-purple-50 rounded-2xl border border-purple-200 p-4 space-y-3">
+          <p className="text-sm font-bold text-purple-800">{activeCategory} 상품 추가</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setShowAdd(false); setNewName(''); } }}
+              placeholder="상품명 입력"
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-purple-300 text-sm font-bold focus:outline-none focus:border-purple-500 bg-white"
+              autoFocus
+            />
+            <button
+              onClick={handleAdd}
+              disabled={createMutation.isPending}
+              className="px-5 py-3 rounded-xl bg-purple-600 text-white font-bold text-sm disabled:opacity-50 flex items-center gap-1"
+            >
+              {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : '추가'}
+            </button>
+            <button
+              onClick={() => { setShowAdd(false); setNewName(''); }}
+              className="px-4 py-3 rounded-xl bg-muted text-secondary font-bold text-sm"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Product list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+        </div>
+      ) : products.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground text-sm">
+          등록된 {activeCategory} 상품이 없습니다.
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
+          <div className="px-4 py-3 bg-purple-50 border-b border-border flex items-center justify-between">
+            <span className="font-black text-purple-700 text-base">{activeCategory}</span>
+            <span className="text-xs text-muted-foreground font-medium">{products.length}개</span>
+          </div>
+          <div className="divide-y divide-border/50">
+            {products.map((p, i) => (
+              <div key={p.id} className="flex items-center justify-between px-4 py-3 gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-xs text-muted-foreground font-mono w-6 shrink-0">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span className="text-sm font-bold text-secondary truncate">{p.groupName}</span>
+                </div>
+                <button
+                  onClick={() => handleDelete(p.id, p.groupName)}
+                  disabled={deleteMutation.isPending}
+                  className="p-2 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors shrink-0 disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GuideAdmin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -1226,6 +1359,7 @@ export default function GuideAdmin() {
   const deleteMutation = useDeleteGuide();
 
   const [activeTab, setActiveTab] = useState<'guides' | 'products'>('guides');
+  const [productSubTab, setProductSubTab] = useState<'vm' | 'quality'>('vm');
   const [guideCategory, setGuideCategory] = useState<string>('전체');
   const [guideTypeFilter, setGuideTypeFilter] = useState<'vm' | 'ad' | 'quality'>('vm');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1399,7 +1533,32 @@ export default function GuideAdmin() {
 
         <div className="flex-1 overflow-y-auto px-4 md:px-[50px] pt-4 pb-6 space-y-4 w-full">
           {activeTab === 'products' ? (
-            <ProductManager />
+            <div className="space-y-4">
+              {/* 상품관리 서브탭: 진열(+광고) / 품질 */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setProductSubTab('vm')}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                    productSubTab === 'vm' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+                  }`}
+                >
+                  진열(+광고) 상품관리
+                </button>
+                <button
+                  onClick={() => setProductSubTab('quality')}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                    productSubTab === 'quality' ? 'bg-purple-600 text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+                  }`}
+                >
+                  품질 상품관리
+                </button>
+              </div>
+              {productSubTab === 'vm' ? (
+                <ProductManager />
+              ) : (
+                <QualityProductManager />
+              )}
+            </div>
           ) : (
             <>
               {/* Category filter */}

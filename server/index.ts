@@ -3,7 +3,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
-import { seedProductsIfEmpty } from "./seed";
+import { seedProductsIfEmpty, seedQualityProductsIfEmpty } from "./seed";
 import { createServer } from "http";
 
 const app = express();
@@ -84,6 +84,7 @@ app.use((req, res, next) => {
 
 (async () => {
   await seedProductsIfEmpty();
+  await seedQualityProductsIfEmpty();
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
