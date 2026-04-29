@@ -116,6 +116,19 @@ function ProductGuideModal({
   const [imgIdx, setImgIdx] = useState(0);
   const { data: guides = [], isLoading } = useQualityGuidesByProduct(product, year, month);
 
+  // 브라우저 뒤로가기/스와이프 제스처로 홈 화면 이동되는 오류 방지
+  useEffect(() => {
+    window.history.pushState(null, '');
+    const handlePopState = () => {
+      window.history.pushState(null, '');
+      onClose();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   const images: string[] = (() => {
     if (!guides.length) return [];
     const guide = guides[0];
@@ -126,71 +139,83 @@ function ProductGuideModal({
 
   return (
     <Dialog open={true} onOpenChange={open => { if (!open) onClose(); }}>
-      {/* 너비를 이미지 콘텐츠에 맞게 축소, 모바일 94vw / 데스크탑 440px */}
-      <DialogContent className="max-w-[94vw] sm:max-w-[440px] w-full p-0 gap-0 overflow-hidden">
-        {/* 헤더 (닫기 버튼 공간 확보: pr-12) */}
-        <div className="px-4 pt-4 pb-3 pr-12 border-b border-border/40 shrink-0">
-          <p className="text-xs font-bold text-primary mb-0.5">품질 가이드</p>
-          <h3 className="font-black text-secondary text-base leading-tight">{product}</h3>
-        </div>
+      {/* 모바일 94vw / 데스크탑 680px */}
+      <DialogContent
+        className="max-w-[94vw] sm:max-w-[680px] w-full p-0 gap-0 overflow-hidden"
+        onPointerDownOutside={e => e.preventDefault()}
+        onInteractOutside={e => e.preventDefault()}
+        onEscapeKeyDown={e => e.preventDefault()}
+      >
+        {/* 터치 이벤트가 배경으로 전달되지 않도록 차단 */}
+        <div
+          onTouchStart={e => e.stopPropagation()}
+          onTouchMove={e => e.stopPropagation()}
+          onTouchEnd={e => e.stopPropagation()}
+        >
+          {/* 헤더 (닫기 버튼 공간 확보: pr-12) */}
+          <div className="px-4 pt-4 pb-3 pr-12 border-b border-border/40 shrink-0">
+            <p className="text-xs font-bold text-primary mb-0.5">품질 가이드</p>
+            <h3 className="font-black text-secondary text-base leading-tight">{product}</h3>
+          </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : images.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground text-sm px-4">
-            가이드 사진이 없습니다.
-          </div>
-        ) : (
-          <>
-            {/* 이미지 영역: pinch zoom 지원 */}
-            <div className="relative bg-black/5">
-              <TransformWrapper initialScale={1} minScale={0.5} maxScale={5} centerOnInit>
-                <TransformComponent
-                  wrapperStyle={{ width: "100%", height: "65vh" }}
-                  contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
-                >
-                  <img
-                    src={images[imgIdx]}
-                    alt={`${product} 품질 가이드 ${imgIdx + 1}`}
-                    style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain" }}
-                  />
-                </TransformComponent>
-              </TransformWrapper>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : images.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground text-sm px-4">
+              가이드 사진이 없습니다.
+            </div>
+          ) : (
+            <>
+              {/* 이미지 영역: 반응형 높이(모바일 65vh / 데스크탑 75vh) + pinch zoom */}
+              <div className="h-[65vh] sm:h-[75vh] relative bg-black/5">
+                <TransformWrapper initialScale={1} minScale={0.5} maxScale={5} centerOnInit>
+                  <TransformComponent
+                    wrapperStyle={{ width: "100%", height: "100%" }}
+                    contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <img
+                      src={images[imgIdx]}
+                      alt={`${product} 품질 가이드 ${imgIdx + 1}`}
+                      style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                    />
+                  </TransformComponent>
+                </TransformWrapper>
+
+                {images.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setImgIdx(i => (i + 1) % images.length)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+              </div>
 
               {images.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setImgIdx(i => (i + 1) % images.length)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </>
+                <div className="flex justify-center items-center gap-1.5 py-3 border-t border-border/40">
+                  {images.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setImgIdx(i)}
+                      className={`rounded-full transition-all ${i === imgIdx ? 'w-4 h-2 bg-[#006341]' : 'w-2 h-2 bg-muted-foreground/30'}`}
+                    />
+                  ))}
+                  <span className="text-xs text-muted-foreground ml-1">{imgIdx + 1}/{images.length}</span>
+                </div>
               )}
-            </div>
-
-            {images.length > 1 && (
-              <div className="flex justify-center items-center gap-1.5 py-3 border-t border-border/40">
-                {images.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setImgIdx(i)}
-                    className={`rounded-full transition-all ${i === imgIdx ? 'w-4 h-2 bg-[#006341]' : 'w-2 h-2 bg-muted-foreground/30'}`}
-                  />
-                ))}
-                <span className="text-xs text-muted-foreground ml-1">{imgIdx + 1}/{images.length}</span>
-              </div>
-            )}
-          </>
-        )}
+            </>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -325,6 +350,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
   const [bulkData, setBulkData] = useState<BulkData>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [committedSearch, setCommittedSearch] = useState('');
   const [guideModalProduct, setGuideModalProduct] = useState<string | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -517,6 +543,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
         setQualityLocalPreviews([]);
         setQualityNotes('');
         setSearchQuery('');
+        setCommittedSearch('');
       }
     } catch (err) {
       toast({ title: editId ? "수정 실패" : "제출 실패", description: String(err), variant: "destructive" });
@@ -535,6 +562,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
         setQualityLocalPreviews([]);
         setQualityNotes('');
         setSearchQuery('');
+        setCommittedSearch('');
       };
     } else {
       (window as any).__appBack = null;
@@ -544,6 +572,15 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
 
   const items = selectedCategory ? getItems(selectedCategory) : [];
   const criteria = selectedCategory ? CRITERIA_MAP[selectedCategory] : [];
+
+  function doSearch() {
+    if (!searchQuery.trim()) return;
+    setCommittedSearch(searchQuery);
+    const match = items.find(p => p.includes(searchQuery.trim()));
+    if (match && cardRefs.current[match]) {
+      cardRefs.current[match]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
 
   // ── 카테고리 선택 화면 ────────────────────────────────────────────────────
 
@@ -564,7 +601,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
         {ALL_CATEGORIES.map(cat => (
           <button
             key={cat}
-            onClick={() => { setSelectedCategory(cat); setSearchQuery(''); }}
+            onClick={() => { setSelectedCategory(cat); setSearchQuery(''); setCommittedSearch(''); }}
             className="w-full flex items-center justify-between p-6 rounded-3xl border-2 border-border bg-white text-secondary hover:border-primary/50 shadow-sm active:scale-[0.98] transition-all"
           >
             <span className="text-3xl font-bold">{cat}</span>
@@ -585,7 +622,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
       {/* 뒤로가기 — 수정 모드에서는 숨김 */}
       {!editId && (
         <button
-          onClick={() => { setSelectedCategory(null); setBulkData({}); setQualityPhotoUrls([]); setQualityLocalPreviews([]); setQualityNotes(''); setSearchQuery(''); }}
+          onClick={() => { setSelectedCategory(null); setBulkData({}); setQualityPhotoUrls([]); setQualityLocalPreviews([]); setQualityNotes(''); setSearchQuery(''); setCommittedSearch(''); }}
           className="flex items-center gap-1 text-sm font-bold text-muted-foreground active:scale-95 transition-all py-1"
         >
           <ChevronLeft className="w-4 h-4" /> 카테고리 선택으로
@@ -601,8 +638,8 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
 
       <p className="text-sm text-muted-foreground">{items.length}개 품목 · 각 항목별 등급을 선택하세요</p>
 
-      {/* 품목 검색 */}
-      <div className="relative">
+      {/* 품목 검색 — 엔터 또는 검색 버튼으로만 스크롤 이동 */}
+      <div className="relative flex items-center">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
         <input
           type="text"
@@ -610,20 +647,22 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
           onChange={e => {
             const q = e.target.value;
             setSearchQuery(q);
-            if (!q.trim()) return;
-            const match = items.find(p => p.includes(q.trim()));
-            if (match && cardRefs.current[match]) {
-              cardRefs.current[match]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              e.target.blur();
-            }
+            if (!q.trim()) setCommittedSearch('');
           }}
+          onKeyDown={e => { if (e.key === 'Enter') { doSearch(); e.currentTarget.blur(); } }}
           placeholder="품목명 검색 (예: 사과)"
-          className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="w-full pl-9 pr-16 py-2.5 rounded-2xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
+        <button
+          onClick={() => doSearch()}
+          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-xl bg-[#006341] text-white text-xs font-bold active:scale-95 transition-all"
+        >
+          검색
+        </button>
       </div>
 
-      {/* 검색 결과 없음 */}
-      {searchQuery.trim() && !items.some(p => p.includes(searchQuery.trim())) && (
+      {/* 검색 결과 없음 — 검색 버튼/엔터 후에만 표시 */}
+      {committedSearch.trim() && !items.some(p => p.includes(committedSearch.trim())) && (
         <div className="text-center py-6 text-muted-foreground text-sm font-medium">
           해당 품목이 없습니다
         </div>
