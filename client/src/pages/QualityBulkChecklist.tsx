@@ -126,60 +126,71 @@ function ProductGuideModal({
 
   return (
     <Dialog open={true} onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-[95vw] w-full max-h-[90vh] overflow-y-auto">
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs font-bold text-primary mb-0.5">품질 가이드</p>
-            <h3 className="font-black text-secondary text-lg leading-tight">{product}</h3>
+      {/* 너비를 이미지 콘텐츠에 맞게 축소, 모바일 94vw / 데스크탑 440px */}
+      <DialogContent className="max-w-[94vw] sm:max-w-[440px] w-full p-0 gap-0 overflow-hidden">
+        {/* 헤더 (닫기 버튼 공간 확보: pr-12) */}
+        <div className="px-4 pt-4 pb-3 pr-12 border-b border-border/40 shrink-0">
+          <p className="text-xs font-bold text-primary mb-0.5">품질 가이드</p>
+          <h3 className="font-black text-secondary text-base leading-tight">{product}</h3>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : images.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground text-sm">
-              가이드 사진이 없습니다.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="relative rounded-2xl overflow-hidden bg-white border border-border">
-                <img
-                  src={images[imgIdx]}
-                  alt={`${product} 품질 가이드 ${imgIdx + 1}`}
-                  className="w-full object-contain max-h-[60vh]"
-                />
-                {images.length > 1 && (
-                  <>
-                    <button
-                      onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => setImgIdx(i => (i + 1) % images.length)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </>
-                )}
-              </div>
+        ) : images.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground text-sm px-4">
+            가이드 사진이 없습니다.
+          </div>
+        ) : (
+          <>
+            {/* 이미지 영역: pinch zoom 지원 */}
+            <div className="relative bg-black/5">
+              <TransformWrapper initialScale={1} minScale={0.5} maxScale={5} centerOnInit>
+                <TransformComponent
+                  wrapperStyle={{ width: "100%", height: "65vh" }}
+                  contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  <img
+                    src={images[imgIdx]}
+                    alt={`${product} 품질 가이드 ${imgIdx + 1}`}
+                    style={{ maxWidth: "100%", maxHeight: "65vh", objectFit: "contain" }}
+                  />
+                </TransformComponent>
+              </TransformWrapper>
+
               {images.length > 1 && (
-                <div className="flex justify-center items-center gap-1.5">
-                  {images.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setImgIdx(i)}
-                      className={`rounded-full transition-all ${i === imgIdx ? 'w-4 h-2 bg-[#006341]' : 'w-2 h-2 bg-muted-foreground/30'}`}
-                    />
-                  ))}
-                  <span className="text-xs text-muted-foreground ml-1">{imgIdx + 1}/{images.length}</span>
-                </div>
+                <>
+                  <button
+                    onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setImgIdx(i => (i + 1) % images.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
               )}
             </div>
-          )}
-        </div>
+
+            {images.length > 1 && (
+              <div className="flex justify-center items-center gap-1.5 py-3 border-t border-border/40">
+                {images.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setImgIdx(i)}
+                    className={`rounded-full transition-all ${i === imgIdx ? 'w-4 h-2 bg-[#006341]' : 'w-2 h-2 bg-muted-foreground/30'}`}
+                  />
+                ))}
+                <span className="text-xs text-muted-foreground ml-1">{imgIdx + 1}/{images.length}</span>
+              </div>
+            )}
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
