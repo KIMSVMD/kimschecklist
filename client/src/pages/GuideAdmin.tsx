@@ -38,6 +38,34 @@ import {
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 
+// ── 품질 가이드 전용 정적 데이터 ───────────────────────────────────────────────
+
+const QUALITY_CATEGORIES = ['청과', '채소', '수산', '축산', '공산'] as const;
+
+const QUALITY_CHEONGWA_ITEMS = [
+  '사과', '배', '딸기', '참외', '밤', '수박', '바나나', '오렌지', '키위', '블루베리',
+  '수입포도', '용과', '파인애플', '아보카도', '자몽', '레몬', '망고', '감귤', '한라봉',
+  '레드향', '샤인머스켓', '방울토마토', '토마토',
+];
+
+const QUALITY_CHAESO_ITEMS = [
+  '콜라비', '블로컬리', '양배추', '적채', '비트', '바타비아', '샐러리', '유러피안채소',
+  '샐러드', '양상추', '애호박', '오이', '파프리카', '청양고추', '풋고추', '꽈리고추',
+  '오이맛고추', '홍고추', '피망', '가지', '단호박', '허브채소', '양파', '대파', '깐마늘',
+  '생강', '팽이버섯', '새송이버섯', '느타리버섯', '표고버섯', '양송이버섯', '머쉬멜로버섯',
+  '시금치', '미나리', '모둠쌈', '상추', '깻잎', '청경채', '열무', '얼갈이', '쪽파',
+  '고구마', '감자', '당근', '연근', '무', '배추', '부추', '아스파라거스',
+];
+
+const QUALITY_CHUKSAN_ITEMS = [
+  '삼겹살(냉장)', '목심(냉장)', '앞다리(냉장)', '등갈비(냉장)', '갈비찜(냉장)',
+  '보쌈/수육(냉장)', '항정살(냉장)', '한우불고기(냉장)', '한우국거리(냉장)', '한우등심(냉장)',
+  '한우안심(냉장)', '한우채끝(냉장)', '한우부채살(냉장)', '척아이롤_미국', '부채살_미국',
+  '살치살_미국', '갈비찜용_미국', '국거리_미국', '부채살(와규)_호주', '치마살(와규)_호주',
+  '삼각살(와규)_호주', '스테이크(와규)_호주', '국거리(와규)_호주', '불고기(와규)_호주',
+  '갈비찜용_호주', '부채살_호주', '살치살_호주', '척아이롤_호주', '립캡(와규)_호주', '치마살_호주',
+];
+
 type GuideFormData = {
   category: string;
   product: string;
@@ -82,11 +110,17 @@ function GuideForm({
     return urls && urls.length > 0 ? urls : [];
   };
 
+  const initialGuideType = (initial as any)?.guideType || 'vm';
+  const initialCategory = (() => {
+    if (initial?.category) return initial.category;
+    return initialGuideType === 'quality' ? '청과' : '농산';
+  })();
+
   const [form, setForm] = useState<GuideFormData>({
-    category: initial?.category || '농산',
+    category: initialCategory,
     product: initial?.product || '',
     storeType: initial?.storeType ?? null,
-    guideType: (initial as any)?.guideType || 'vm',
+    guideType: initialGuideType,
     points: initial?.points || [''],
     items: initial?.items || [''],
     itemWeights: (initial as any)?.itemWeights || {},
@@ -121,6 +155,16 @@ function GuideForm({
 
   const groups = [...new Set(dbProducts.map(p => p.groupName))];
   const subProducts = dbProducts.filter(p => p.groupName === selectedGroup && p.productName);
+
+  // 품질 가이드용: 대분류별 세부상품 목록 (수산/공산은 DB에서)
+  const qualityProductList = (() => {
+    if (form.guideType !== 'quality') return [];
+    if (form.category === '청과') return QUALITY_CHEONGWA_ITEMS;
+    if (form.category === '채소') return QUALITY_CHAESO_ITEMS;
+    if (form.category === '축산') return QUALITY_CHUKSAN_ITEMS;
+    // 수산/공산: DB 상품을 [그룹]상품 형식으로
+    return dbProducts.map(p => p.productName ? `[${p.groupName}]${p.productName}` : `[${p.groupName}]`);
+  })();
 
   const handleGroupChange = (group: string) => {
     setSelectedGroup(group);
@@ -217,54 +261,93 @@ function GuideForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 p-4 bg-muted/30 rounded-3xl border border-border">
-      <div className="space-y-2">
-        <label className="text-sm font-bold text-secondary">대분류</label>
-        <select
-          value={form.category}
-          onChange={e => { setForm(f => ({ ...f, category: e.target.value, product: '' })); setSelectedGroup(''); }}
-          className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
-          data-testid="select-guide-category"
-        >
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-secondary">그룹</label>
-          <select
-            value={selectedGroup}
-            onChange={e => handleGroupChange(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
-          >
-            <option value="">그룹 선택</option>
-            {groups.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-secondary">세부상품</label>
-          {subProducts.length > 0 ? (
+      {form.guideType === 'quality' ? (
+        /* ── 품질 가이드: 대분류 + 세부상품 (그룹 없음) ── */
+        <>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-secondary">대분류</label>
             <select
-              value={currentProductName}
-              onChange={e => handleProductChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
+              value={form.category}
+              onChange={e => setForm(f => ({ ...f, category: e.target.value, product: '' }))}
+              className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-purple-500"
+              data-testid="select-guide-category"
+            >
+              {QUALITY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-secondary">세부상품</label>
+            <select
+              value={form.product}
+              onChange={e => setForm(f => ({ ...f, product: e.target.value }))}
+              className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-purple-500"
               data-testid="select-guide-product"
             >
               <option value="">상품 선택</option>
-              {subProducts.map(p => <option key={p.id} value={p.productName!}>{p.productName}</option>)}
+              {qualityProductList.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
-          ) : (
-            <div className="w-full px-4 py-3 rounded-xl border-2 border-border/50 bg-muted text-muted-foreground text-base">
-              {selectedGroup ? '단일 상품' : '그룹 먼저 선택'}
+          </div>
+
+          {form.product && (
+            <div className="px-4 py-2 bg-purple-50 rounded-xl text-purple-700 font-bold text-sm border border-purple-200">
+              선택된 상품: <span className="font-black">{form.product}</span>
             </div>
           )}
-        </div>
-      </div>
+        </>
+      ) : (
+        /* ── 진열/광고 가이드: 기존 대분류 + 그룹 + 세부상품 ── */
+        <>
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-secondary">대분류</label>
+            <select
+              value={form.category}
+              onChange={e => { setForm(f => ({ ...f, category: e.target.value, product: '' })); setSelectedGroup(''); }}
+              className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
+              data-testid="select-guide-category"
+            >
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
 
-      {form.product && (
-        <div className="px-4 py-2 bg-primary/10 rounded-xl text-primary font-bold text-sm">
-          선택된 상품: <span className="font-black">{form.product}</span>
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-secondary">그룹</label>
+              <select
+                value={selectedGroup}
+                onChange={e => handleGroupChange(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
+              >
+                <option value="">그룹 선택</option>
+                {groups.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-secondary">세부상품</label>
+              {subProducts.length > 0 ? (
+                <select
+                  value={currentProductName}
+                  onChange={e => handleProductChange(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary"
+                  data-testid="select-guide-product"
+                >
+                  <option value="">상품 선택</option>
+                  {subProducts.map(p => <option key={p.id} value={p.productName!}>{p.productName}</option>)}
+                </select>
+              ) : (
+                <div className="w-full px-4 py-3 rounded-xl border-2 border-border/50 bg-muted text-muted-foreground text-base">
+                  {selectedGroup ? '단일 상품' : '그룹 먼저 선택'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {form.product && (
+            <div className="px-4 py-2 bg-primary/10 rounded-xl text-primary font-bold text-sm">
+              선택된 상품: <span className="font-black">{form.product}</span>
+            </div>
+          )}
+        </>
       )}
 
       <div className="space-y-2">
@@ -274,7 +357,12 @@ function GuideForm({
             <button
               key={val}
               type="button"
-              onClick={() => setForm(f => ({ ...f, guideType: val }))}
+              onClick={() => {
+                if (form.guideType === val) return;
+                const newCat = val === 'quality' ? '청과' : '농산';
+                setForm(f => ({ ...f, guideType: val, category: newCat, product: '' }));
+                setSelectedGroup('');
+              }}
               className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 border-2 ${
                 form.guideType === val
                   ? val === 'ad' ? 'bg-amber-500 text-white border-amber-500' : val === 'quality' ? 'bg-purple-600 text-white border-purple-600' : 'bg-primary text-white border-primary'
@@ -452,7 +540,7 @@ function GuideForm({
         </div>
       )}
 
-      {(['points', 'items'] as const).map((field) => (
+      {form.guideType !== 'quality' && (['points', 'items'] as const).map((field) => (
         <div key={field} className="space-y-3">
           <label className="text-sm font-bold text-secondary">
             {field === 'points' ? '진열 핵심 포인트'

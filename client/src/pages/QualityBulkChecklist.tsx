@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCreateChecklist, useUpdateChecklist } from "@/hooks/use-checklists";
 import { useProducts } from "@/hooks/use-products";
-import { useQualityGuidesByProduct } from "@/hooks/use-guides";
+import { useQualityGuidesByProduct, useValidGuideProducts } from "@/hooks/use-guides";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Camera, Loader2, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -126,10 +126,95 @@ function GuideImageSlide({ images }: { images: string[] }) {
   );
 }
 
+// ── 상품별 품질 가이드 모달 ──────────────────────────────────────────────────
+
+function ProductGuideModal({
+  product,
+  year,
+  month,
+  onClose,
+}: {
+  product: string;
+  year: number;
+  month: number;
+  onClose: () => void;
+}) {
+  const [imgIdx, setImgIdx] = useState(0);
+  const { data: guides = [], isLoading } = useQualityGuidesByProduct(product, year, month);
+
+  const images: string[] = (() => {
+    if (!guides.length) return [];
+    const guide = guides[0];
+    const urls = (guide as any).imageUrls as string[] | null;
+    if (urls && urls.length > 0) return urls;
+    return guide.imageUrl ? [guide.imageUrl] : [];
+  })();
+
+  return (
+    <Dialog open={true} onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-[95vw] w-full max-h-[90vh] overflow-y-auto">
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-bold text-primary mb-0.5">품질 가이드</p>
+            <h3 className="font-black text-secondary text-lg leading-tight">{product}</h3>
+          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : images.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground text-sm">
+              가이드 사진이 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="relative rounded-2xl overflow-hidden bg-white border border-border">
+                <img
+                  src={images[imgIdx]}
+                  alt={`${product} 품질 가이드 ${imgIdx + 1}`}
+                  className="w-full object-contain max-h-[60vh]"
+                />
+                {images.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setImgIdx(i => (i + 1) % images.length)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+              {images.length > 1 && (
+                <div className="flex justify-center items-center gap-1.5">
+                  {images.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setImgIdx(i)}
+                      className={`rounded-full transition-all ${i === imgIdx ? 'w-4 h-2 bg-[#006341]' : 'w-2 h-2 bg-muted-foreground/30'}`}
+                    />
+                  ))}
+                  <span className="text-xs text-muted-foreground ml-1">{imgIdx + 1}/{images.length}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── 품목 카드 (표 형태 등급 선택) ────────────────────────────────────────────
 
 function ProductCard({
-  product, idx, criteria, data, onToggle, onAdjust,
+  product, idx, criteria, data, onToggle, onAdjust, hasGuide, onGuideClick,
 }: {
   product: string;
   idx: number;
@@ -137,14 +222,24 @@ function ProductCard({
   data: ProductData;
   onToggle: (criterion: string, grade: string) => void;
   onAdjust: (field: 'expired' | 'moldy', delta: number) => void;
+  hasGuide: boolean;
+  onGuideClick: () => void;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-muted-foreground font-mono w-6 shrink-0">
           {String(idx + 1).padStart(2, '0')}
         </span>
         <span className="font-bold text-secondary text-base">{product}</span>
+        {hasGuide && (
+          <button
+            onClick={onGuideClick}
+            className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#006341]/10 text-[#006341] border border-[#006341]/30 active:scale-95 transition-all shrink-0"
+          >
+            가이드보기
+          </button>
+        )}
       </div>
 
       {/* 표 형태 등급 선택 */}
@@ -245,7 +340,13 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
   const [bulkData, setBulkData] = useState<BulkData>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [guideModalProduct, setGuideModalProduct] = useState<string | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const { data: validGuideProducts = [] } = useValidGuideProducts(selYear, selMonth);
+  const qualityGuideSet = new Set(
+    validGuideProducts.filter(g => g.guideType === 'quality').map(g => g.product)
+  );
 
   // 품질 현장 사진 (수정 1: VM 사진 없음, 품질 사진만)
   const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
@@ -546,9 +647,21 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
             data={bulkData[product] ?? { grades: {}, expired: 0, moldy: 0 }}
             onToggle={(criterion, grade) => toggleGrade(product, criterion, grade)}
             onAdjust={(field, delta) => adjustCount(product, field, delta)}
+            hasGuide={qualityGuideSet.has(product)}
+            onGuideClick={() => setGuideModalProduct(product)}
           />
         </div>
       ))}
+
+      {/* 상품 품질 가이드 모달 */}
+      {guideModalProduct && (
+        <ProductGuideModal
+          product={guideModalProduct}
+          year={selYear}
+          month={selMonth}
+          onClose={() => setGuideModalProduct(null)}
+        />
+      )}
 
       {/* 품질 현장 사진 업로드 (수정 1: 품질 사진만, VM 사진 없음) */}
       <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
