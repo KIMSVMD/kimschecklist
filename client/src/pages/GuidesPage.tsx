@@ -87,12 +87,6 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
     return `등록일: ${dt.getFullYear()}. ${dt.getMonth() + 1}. ${dt.getDate()}.`;
   })();
 
-  const hasValidity = !!(guide.validFromYear || guide.validToYear);
-  const validityStr = [
-    guide.validFromYear ? `${guide.validFromYear}년 ${guide.validFromMonth}월` : '',
-    guide.validToYear ? `${guide.validToYear}년 ${guide.validToMonth}월` : '',
-  ].filter(Boolean).join(' ~ ');
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -201,14 +195,6 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
           )}
 
           <div className="px-5 pt-4 space-y-3">
-            {hasValidity && (
-              <div className="rounded-xl px-4 py-3.5 flex items-center gap-3" style={{ background: '#F5F5F5' }}>
-                <span className="text-[13px] font-bold text-gray-700" style={{ fontFamily: "'Pretendard', sans-serif" }}>유효 기간</span>
-                <div className="w-px h-4 bg-gray-300 shrink-0" />
-                <span className="text-[13px] text-gray-600" style={{ fontFamily: "'Pretendard', sans-serif" }}>{validityStr}</span>
-              </div>
-            )}
-
             {guide.points?.length > 0 && (
               <div className="rounded-xl px-4 py-3.5" style={{ background: '#F5F5F5' }}>
                 <p className="text-[11px] font-bold text-gray-400 mb-2.5" style={{ fontFamily: "'Pretendard', sans-serif" }}>점검가이드</p>

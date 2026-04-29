@@ -4,9 +4,10 @@ import { useCreateChecklist, useUpdateChecklist } from "@/hooks/use-checklists";
 import { useProducts } from "@/hooks/use-products";
 import { useQualityGuidesByProduct, useValidGuideProducts } from "@/hooks/use-guides";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Camera, Loader2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Camera, Loader2, Search, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ function GuideImageSlide({ images }: { images: string[] }) {
   );
 }
 
-// ── 상품별 품질 가이드 모달 ──────────────────────────────────────────────────
+// ── 상품별 품질 가이드 모달 (매장 가이드 팝업과 동일 디자인) ──────────────────
 
 function ProductGuideModal({
   product,
@@ -137,25 +138,66 @@ function ProductGuideModal({
     return guide.imageUrl ? [guide.imageUrl] : [];
   })();
 
+  const guide = guides[0];
+  const categoryStr = (guide as any)?.category ?? '품질';
+  const dateStr = (() => {
+    const raw = (guide as any)?.updatedAt;
+    if (!raw) return '';
+    const dt = new Date(raw as string);
+    return `등록일: ${dt.getFullYear()}. ${dt.getMonth() + 1}. ${dt.getDate()}.`;
+  })();
+
   return (
-    <Dialog open={true} onOpenChange={open => { if (!open) onClose(); }}>
-      {/* 모바일 94vw / 데스크탑 680px */}
-      <DialogContent
-        className="max-w-[94vw] sm:max-w-[680px] w-full p-0 gap-0 overflow-hidden"
-        onPointerDownOutside={e => e.preventDefault()}
-        onInteractOutside={e => e.preventDefault()}
-        onEscapeKeyDown={e => e.preventDefault()}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4"
+      onTouchStart={e => e.stopPropagation()}
+      onTouchMove={e => e.stopPropagation()}
+      onTouchEnd={e => e.stopPropagation()}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        className="w-full bg-white rounded-3xl flex flex-col"
+        style={{ maxHeight: '90vh', maxWidth: '640px' }}
+        onClick={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
       >
-        {/* 터치 이벤트가 배경으로 전달되지 않도록 차단 */}
-        <div
-          onTouchStart={e => e.stopPropagation()}
-          onTouchMove={e => e.stopPropagation()}
-          onTouchEnd={e => e.stopPropagation()}
-        >
-          {/* 헤더 (닫기 버튼 공간 확보: pr-12) */}
-          <div className="px-4 pt-4 pb-3 pr-12 border-b border-border/40 shrink-0">
-            <p className="text-xs font-bold text-primary mb-0.5">품질 가이드</p>
-            <h3 className="font-black text-secondary text-base leading-tight">{product}</h3>
+        {/* 상단 바: 카테고리 태그 · 등록일 · X 버튼 */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-0 shrink-0">
+          <span
+            className="inline-flex items-center gap-1 text-[12px] font-bold px-3 py-1 rounded-full"
+            style={{ background: '#000', color: '#fff', fontFamily: "'Pretendard', sans-serif" }}
+          >
+            {categoryStr}
+          </span>
+          <div className="flex items-center gap-3">
+            {dateStr && (
+              <span className="text-[12px] text-gray-400" style={{ fontFamily: "'Pretendard', sans-serif" }}>
+                {dateStr}
+              </span>
+            )}
+            <button onClick={onClose} className="flex items-center justify-center active:scale-95 shrink-0">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+
+        {/* 스크롤 가능 본문 */}
+        <div className="overflow-y-auto flex-1 pb-10">
+          <div className="px-5 pt-4 pb-3">
+            <h2
+              className="font-black text-gray-900 leading-tight"
+              style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '22px', letterSpacing: '-0.04em' }}
+            >
+              {product}
+            </h2>
           </div>
 
           {isLoading ? (
@@ -167,18 +209,22 @@ function ProductGuideModal({
               가이드 사진이 없습니다.
             </div>
           ) : (
-            <>
-              {/* 이미지 영역: 반응형 높이(모바일 65vh / 데스크탑 75vh) + pinch zoom */}
-              <div className="h-[65vh] sm:h-[75vh] relative bg-black/5">
+            <div className="px-4 pb-1">
+              <div
+                className="relative w-full rounded-2xl overflow-hidden"
+                style={{ background: '#fff', border: '1.5px solid rgba(0,0,0,0.08)' }}
+              >
+                {/* pinch zoom 지원 */}
                 <TransformWrapper initialScale={1} minScale={0.5} maxScale={5} centerOnInit>
                   <TransformComponent
-                    wrapperStyle={{ width: "100%", height: "100%" }}
-                    contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    wrapperStyle={{ width: "100%", display: "block" }}
+                    contentStyle={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
                     <img
                       src={images[imgIdx]}
                       alt={`${product} 품질 가이드 ${imgIdx + 1}`}
-                      style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                      className="w-full object-contain"
+                      style={{ maxHeight: '440px' }}
                     />
                   </TransformComponent>
                 </TransformWrapper>
@@ -187,37 +233,33 @@ function ProductGuideModal({
                   <>
                     <button
                       onClick={() => setImgIdx(i => (i - 1 + images.length) % images.length)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center active:scale-95"
                     >
-                      <ChevronLeft className="w-5 h-5" />
+                      <ChevronLeft className="w-4 h-4 text-gray-600" />
                     </button>
                     <button
                       onClick={() => setImgIdx(i => (i + 1) % images.length)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center active:scale-95"
                     >
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="w-4 h-4 text-gray-600" />
                     </button>
+                    <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+                      {images.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setImgIdx(i)}
+                          className={`w-1.5 h-1.5 rounded-full transition-all ${i === imgIdx ? 'bg-black' : 'bg-black/25'}`}
+                        />
+                      ))}
+                    </div>
                   </>
                 )}
               </div>
-
-              {images.length > 1 && (
-                <div className="flex justify-center items-center gap-1.5 py-3 border-t border-border/40">
-                  {images.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setImgIdx(i)}
-                      className={`rounded-full transition-all ${i === imgIdx ? 'w-4 h-2 bg-[#006341]' : 'w-2 h-2 bg-muted-foreground/30'}`}
-                    />
-                  ))}
-                  <span className="text-xs text-muted-foreground ml-1">{imgIdx + 1}/{images.length}</span>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -685,14 +727,16 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
       ))}
 
       {/* 상품 품질 가이드 모달 */}
-      {guideModalProduct && (
-        <ProductGuideModal
-          product={guideModalProduct}
-          year={selYear}
-          month={selMonth}
-          onClose={() => setGuideModalProduct(null)}
-        />
-      )}
+      <AnimatePresence>
+        {guideModalProduct && (
+          <ProductGuideModal
+            product={guideModalProduct}
+            year={selYear}
+            month={selMonth}
+            onClose={() => setGuideModalProduct(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* 품질 현장 사진 업로드 (수정 1: 품질 사진만, VM 사진 없음) */}
       <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
