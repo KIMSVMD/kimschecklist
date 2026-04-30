@@ -9,6 +9,34 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { motion, AnimatePresence } from "framer-motion";
 
+// ── 품질 점수 계산 ─────────────────────────────────────────────────────────────
+const BULK_GRADE_SCORES: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
+const BULK_CRITERIA_MAP: Record<string, string[]> = {
+  청과: ['선도', '상해', '규격', '혼입율'],
+  채소: ['선도', '상해', '규격', '혼입율'],
+  수산: ['선도', '상해', '규격', '혼입율'],
+  축산: ['색택', '마블링', '선도'],
+};
+
+function calcBulkQualityScore(qualityItems: Record<string, any>): number {
+  const category = qualityItems.__category as string | undefined;
+  const criteria = category ? (BULK_CRITERIA_MAP[category] ?? []) : [];
+  const products = Object.keys(qualityItems).filter(k => k !== '__category');
+  const productScores: number[] = [];
+  for (const product of products) {
+    const d = qualityItems[product];
+    if (!d || typeof d !== 'object') continue;
+    const expired = typeof d.__expired === 'number' ? d.__expired : 0;
+    const moldy = typeof d.__moldy === 'number' ? d.__moldy : 0;
+    const graded = criteria.filter(c => BULK_GRADE_SCORES[d[c]] !== undefined);
+    if (graded.length === 0) continue;
+    const avg = graded.reduce((s, c) => s + BULK_GRADE_SCORES[d[c]], 0) / graded.length;
+    productScores.push(Math.max(0, Math.round(avg) - expired * 2 - moldy * 5));
+  }
+  if (productScores.length === 0) return 0;
+  return Math.round(productScores.reduce((a, b) => a + b, 0) / productScores.length);
+}
+
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
 type QualityCategory = '청과' | '채소' | '수산' | '축산';
@@ -551,6 +579,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
           __moldy: data.moldy,
         };
       }
+      const calculatedScore = calcBulkQualityScore(qualityItemsPayload);
 
       if (editId) {
         await updateMutation.mutateAsync({
@@ -560,6 +589,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
             qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
             qualityNotes: qualityNotes.trim() || null,
             photoUrl: qualityPhotoUrls[0] || null,
+            qualityWeightedScore: String(calculatedScore),
           } as any,
         });
         toast({ title: "수정 완료!" });
@@ -577,6 +607,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
           qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
           qualityNotes: qualityNotes.trim() || null,
           photoUrl: qualityPhotoUrls[0] || null,
+          qualityWeightedScore: String(calculatedScore),
         } as any);
         toast({ title: "점검 완료 및 제출되었습니다!" });
         setSelectedCategory(null);

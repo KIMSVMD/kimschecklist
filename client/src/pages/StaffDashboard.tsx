@@ -1038,10 +1038,17 @@ export default function StaffDashboard() {
                           const qItems = (item as any).qualityItems as Record<string, any> | null;
                           const qAdminItems = (item as any).qualityAdminItems as Record<string, 'ok' | 'notok'> | null;
                           const qAdminScore = (item as any).qualityAdminScore as number | null | undefined;
+                          const qWeightedScore = (item as any).qualityWeightedScore as string | null | undefined;
                           const qPhotoUrls = (item as any).qualityPhotoUrls as string[] | null;
                           const qNotes = (item as any).qualityNotes as string | null;
                           const qEntries = qItems ? Object.entries(qItems).filter(([k]) => k !== '__expired' && k !== '__moldy' && k !== '__category') : [];
                           const isBulkQ = !!(qItems && '__category' in qItems);
+                          const autoScore = isBulkQ && qWeightedScore ? parseInt(qWeightedScore) : null;
+                          const displayScore = qAdminScore != null ? qAdminScore : autoScore;
+                          const isAutoScore = qAdminScore == null && displayScore != null;
+                          const displayGrade = displayScore != null
+                            ? (displayScore >= 90 ? 'A' : displayScore >= 80 ? 'B' : displayScore >= 70 ? 'C' : 'E')
+                            : null;
                           const qChangedCount = !isBulkQ ? qEntries.filter(([name, st]) => {
                             const av = qAdminItems?.[name];
                             if (!av) return false;
@@ -1049,16 +1056,28 @@ export default function StaffDashboard() {
                           }).length : 0;
                           return (
                             <div className="mb-3 space-y-2">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">
                                   ⭐ 품질{isBulkQ && qItems?.__category ? ` (${qItems.__category})` : ''}
                                 </span>
-                                {qAdminScore != null && (
+                                {displayScore != null && (
                                   <span className={`text-[10px] px-2 py-1 rounded-full font-black border inline-flex items-center gap-1 ${
-                                    qAdminScore >= 80 ? 'bg-purple-50 border-purple-200 text-purple-700' :
-                                    qAdminScore >= 60 ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                                    displayScore >= 90 ? 'bg-purple-50 border-purple-200 text-purple-700' :
+                                    displayScore >= 80 ? 'bg-purple-50 border-purple-200 text-purple-700' :
+                                    displayScore >= 70 ? 'bg-orange-50 border-orange-200 text-orange-700' :
                                     'bg-red-50 border-red-200 text-red-600'
-                                  }`}>{qAdminScore}점</span>
+                                  }`}>
+                                    {displayScore}점
+                                    {isAutoScore && <span className="text-[9px] font-medium opacity-60 ml-0.5">자동</span>}
+                                  </span>
+                                )}
+                                {displayGrade != null && (
+                                  <span className={`text-[10px] px-2 py-1 rounded-full font-black inline-flex items-center ${
+                                    displayGrade === 'A' ? 'bg-purple-600 text-white' :
+                                    displayGrade === 'B' ? 'bg-purple-400 text-white' :
+                                    displayGrade === 'C' ? 'bg-amber-400 text-white' :
+                                    'bg-red-500 text-white'
+                                  }`}>{displayGrade}등급</span>
                                 )}
                                 {qChangedCount > 0 && (
                                   <span className="text-[10px] px-2 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 font-black">관리자 수정 {qChangedCount}항목</span>
