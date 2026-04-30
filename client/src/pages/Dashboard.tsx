@@ -1460,12 +1460,14 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                             )}
                           </>
                         )}
-                        <AdminAdScoreInput
-                          id={item.id}
-                          existingScore={(item as any).adAdminScore}
-                          staffAdItems={adItems || {}}
-                          existingAdminItems={adAdminItems}
-                        />
+                        {(adGuideSet.seasonal.has(item.product) || adGuideSet.regular.has(item.product)) && (
+                          <AdminAdScoreInput
+                            id={item.id}
+                            existingScore={(item as any).adAdminScore}
+                            staffAdItems={adItems || {}}
+                            existingAdminItems={adAdminItems}
+                          />
+                        )}
                       </>
                     );
                   })()}
