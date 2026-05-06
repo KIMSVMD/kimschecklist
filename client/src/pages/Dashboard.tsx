@@ -460,6 +460,7 @@ const BULK_CRIT_MAP_DASH: Record<string, string[]> = {
 function calcOverallQualityScoreDash(items: Record<string, any>): number {
   // 새 일괄 품질 형식: __category + 품목별 기준 등급
   if ('__category' in items) {
+    const category = items.__category as string;
     const products = Object.keys(items).filter(k => k !== '__category');
     const storeScores: number[] = [];
 
@@ -470,15 +471,27 @@ function calcOverallQualityScoreDash(items: Record<string, any>): number {
       const expired = typeof d.__expired === 'number' ? d.__expired : 0;
       const moldy = typeof d.__moldy === 'number' ? d.__moldy : 0;
 
-      // 매장점수 = (선도 + 상해) / 2 - (진열기한경과×2 + 곰팡이×5)
-      const mainScores = ['선도', '상해']
-        .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
-        .filter((s): s is number => s !== undefined);
-      if (mainScores.length === 0) continue;
+      let storeScore: number;
 
-      const storeScore = Math.max(0, Math.round(
-        mainScores.reduce((a, b) => a + b, 0) / mainScores.length - expired * 2 - moldy * 5
-      ));
+      if (category === '축산') {
+        // 점수총계 = (색택 + 마블링 + 선도) / 3 - 감점
+        const criteriaScores = ['색택', '마블링', '선도']
+          .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
+          .filter((s): s is number => s !== undefined);
+        if (criteriaScores.length === 0) continue;
+        storeScore = Math.max(0, Math.round(
+          criteriaScores.reduce((a, b) => a + b, 0) / 3 - expired * 2 - moldy * 5
+        ));
+      } else {
+        // 청과/채소/수산: 점수총계 = (선도 + 상해 + 규격 + 혼입율) / 2 - 감점
+        const criteriaScores = ['선도', '상해', '규격', '혼입율']
+          .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
+          .filter((s): s is number => s !== undefined);
+        if (criteriaScores.length === 0) continue;
+        storeScore = Math.max(0, Math.round(
+          criteriaScores.reduce((a, b) => a + b, 0) / 2 - expired * 2 - moldy * 5
+        ));
+      }
 
       // 환산비율합계: 매장점수 0인 품목 제외 (AVERAGEIF <> 0)
       if (storeScore > 0) storeScores.push(storeScore);
@@ -507,7 +520,14 @@ function calcOverallQualityScoreDash(items: Record<string, any>): number {
   return 0;
 }
 
-function getQualityGradeDash(score: number): string {
+function getQualityGradeDash(score: number, category?: string): string {
+  if (category === '축산') {
+    if (score >= 100) return 'A';
+    if (score >= 85) return 'B';
+    if (score >= 70) return 'C';
+    if (score > 55) return 'D';
+    return 'E';
+  }
   if (score >= 90) return 'A';
   if (score >= 80) return 'B';
   if (score >= 70) return 'C';
@@ -538,6 +558,7 @@ function AdminQualityScoreInput({
   const [overrideScore, setOverrideScore] = useState<string>(existingScore != null ? String(existingScore) : '');
   const itemKeys = Object.keys(staffQualityItems).filter(k => k !== '__expired' && k !== '__moldy' && k !== '__category');
   const totalItems = itemKeys.length;
+  const category = staffQualityItems.__category as string | undefined;
   const savedExpired = typeof staffQualityItems.__expired === 'number' ? staffQualityItems.__expired : 0;
   const savedMoldy = typeof staffQualityItems.__moldy === 'number' ? staffQualityItems.__moldy : 0;
 
@@ -617,7 +638,7 @@ function AdminQualityScoreInput({
         <div className="flex items-center gap-2">
           <span className="text-sm">⭐</span>
           {score != null
-            ? <span>품질 {score}점 ({getQualityGradeDash(score)}등급) {open ? '(수정 중)' : '(확정)'}</span>
+            ? <span>품질 {score}점 ({getQualityGradeDash(score, category)}등급) {open ? '(수정 중)' : '(확정)'}</span>
             : <span>품질 평가 확정 필요</span>}
         </div>
         <span className="text-[11px] opacity-50">{open ? '▲' : '▼'}</span>
@@ -634,7 +655,7 @@ function AdminQualityScoreInput({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColorDash(getQualityGradeDash(autoScore))}`}>{getQualityGradeDash(autoScore)}등급</span>
+              <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColorDash(getQualityGradeDash(autoScore, category))}`}>{getQualityGradeDash(autoScore, category)}등급</span>
               <span className="text-2xl font-black">{autoScore}점</span>
             </div>
           </div>
@@ -674,7 +695,7 @@ function AdminQualityScoreInput({
                 const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
                 const avg = graded.length > 0 ? graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / graded.length : 0;
                 const s = graded.length > 0 ? Math.max(0, Math.round(avg) - exp * 2 - mld * 5) : 0;
-                const g = getQualityGradeDash(s);
+                const g = getQualityGradeDash(s, category);
                 return (
                   <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1.5">
                     <div className="flex items-center justify-between">
