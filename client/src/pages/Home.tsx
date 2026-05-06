@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import logoKimsClub from "@assets/대지_1_1776987037351.png";
+import logoKimsClub from "@assets/logo-danji.png";
 import {
   ClipboardCheck, ClipboardList,
   BookOpen, X, ChevronDown, ChevronUp,

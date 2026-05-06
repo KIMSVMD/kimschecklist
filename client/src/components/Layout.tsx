@@ -1,7 +1,7 @@
 import { ReactNode, useRef, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, Home, RotateCcw } from "lucide-react";
-import logoKimsClub from "@assets/대지_1_1776987037351.png";
+import logoKimsClub from "@assets/logo-danji.png";
 
 interface LayoutProps {
   children: ReactNode;
