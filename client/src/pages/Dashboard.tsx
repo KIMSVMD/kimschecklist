@@ -149,10 +149,9 @@ function AdminScoreInput({
 }) {
   const { toast } = useToast();
   const scoreMutation = useUpdateChecklistScore();
-  const [open, setOpen] = useState(existingScore == null);
-  const [manualScore, setManualScore] = useState<string>(existingScore != null ? String(existingScore) : '');
   const itemKeys = Object.keys(staffItems);
   const totalItems = itemKeys.length;
+  const [open, setOpen] = useState(existingScore == null && totalItems > 0);
 
   const initSel = () => Object.fromEntries(
     itemKeys.map(k => {
@@ -272,40 +271,9 @@ function AdminScoreInput({
         </div>
       )}
 
-      {open && totalItems === 0 && (
-        <div className="mt-2 space-y-2">
-          <p className="text-xs text-muted-foreground px-1">항목이 없는 가이드입니다. 사진 확인 후 직접 점수를 입력하세요.</p>
-          <div className="flex gap-2 items-center">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={manualScore}
-              onChange={e => setManualScore(e.target.value)}
-              placeholder="0–100"
-              className="flex-1 px-4 py-3 rounded-xl border-2 border-border text-base font-bold focus:outline-none focus:border-primary text-center"
-              data-testid={`input-manual-score-${id}`}
-            />
-            <span className="font-bold text-muted-foreground text-lg">점</span>
-            <button
-              onClick={async () => {
-                const s = Math.min(100, Math.max(0, parseInt(manualScore) || 0));
-                try {
-                  await scoreMutation.mutateAsync({ id, adminScore: s, adminItems: {} });
-                  toast({ title: `${s}점으로 확정` });
-                  setOpen(false);
-                } catch {
-                  toast({ title: "저장 실패", variant: "destructive" });
-                }
-              }}
-              disabled={scoreMutation.isPending || manualScore === ''}
-              className="px-4 py-3 rounded-xl bg-primary text-white font-black text-sm flex items-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
-              data-testid={`btn-manual-score-save-${id}`}
-            >
-              {scoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
-              확정
-            </button>
-          </div>
+      {totalItems === 0 && (
+        <div className="mt-2 px-3 py-2 rounded-xl bg-muted/40 text-xs text-muted-foreground">
+          항목 없음 — 자동 계산 점수: <span className="font-black">0점</span>
         </div>
       )}
     </div>
