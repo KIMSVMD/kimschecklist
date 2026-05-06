@@ -8,7 +8,6 @@ vite.config.ts.*
 .local/
 .config/
 uploads/
-attached_assets/
 restore-neon.cjs
 restore-neon.mjs
 *.log
