@@ -1,5 +1,4 @@
 import express, { type Request, Response, NextFunction } from "express";
-import cors from "cors";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
@@ -11,11 +10,6 @@ const app = express();
 const httpServer = createServer(app);
 
 app.set("trust proxy", 1);
-
-app.use(cors({
-  origin: process.env.CLIENT_URL || "https://jingyeong01-cc.noavibe.app",
-  credentials: true,
-}));
 
 declare module "http" {
   interface IncomingMessage {
@@ -46,8 +40,7 @@ app.use(session({
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    secure: process.env.NODE_ENV === "production",
   },
 }));
 
