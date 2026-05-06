@@ -9,7 +9,7 @@ export function useChecklists(filters?: { branch?: string; category?: string }) 
   if (filters?.category) queryParams.append("category", filters.category);
   
   const queryString = queryParams.toString();
-  const url = `${api.checklists.list.path}${queryString ? `?${queryString}` : ""}`;
+  const url = `https://kimschecklist.onrender.com${api.checklists.list.path}${queryString ? `?${queryString}` : ""}`;
 
   return useQuery({
     queryKey: [api.checklists.list.path, filters?.branch, filters?.category],
@@ -26,7 +26,7 @@ export function useChecklist(id: number) {
   return useQuery({
     queryKey: [api.checklists.get.path, id],
     queryFn: async () => {
-      const url = buildUrl(api.checklists.get.path, { id });
+      const url = `https://kimschecklist.onrender.com${buildUrl(api.checklists.get.path, { id })}`;
       const res = await fetch(url, { credentials: "include" });
       if (res.status === 404) return null;
       if (!res.ok) throw new Error("Failed to fetch checklist");
@@ -42,7 +42,7 @@ export function useCreateChecklist() {
   return useMutation({
     mutationFn: async (data: z.infer<typeof api.checklists.create.input>) => {
       const validated = api.checklists.create.input.parse(data);
-      const res = await fetch(api.checklists.create.path, {
+      const res = await fetch(`https://kimschecklist.onrender.com${api.checklists.create.path}`, {
         method: api.checklists.create.method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(validated),
