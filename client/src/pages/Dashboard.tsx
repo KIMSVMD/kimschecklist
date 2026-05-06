@@ -460,30 +460,41 @@ const BULK_CRIT_MAP_DASH: Record<string, string[]> = {
 function calcOverallQualityScoreDash(items: Record<string, any>): number {
   // 새 일괄 품질 형식: __category + 품목별 기준 등급
   if ('__category' in items) {
-    const criteria = BULK_CRIT_MAP_DASH[items.__category as string] ?? [];
     const products = Object.keys(items).filter(k => k !== '__category');
-    const productScores: number[] = [];
+    const storeScores: number[] = [];
+
     for (const product of products) {
       const d = items[product];
       if (!d || typeof d !== 'object') continue;
+
       const expired = typeof d.__expired === 'number' ? d.__expired : 0;
       const moldy = typeof d.__moldy === 'number' ? d.__moldy : 0;
-      const graded = criteria.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
-      if (graded.length === 0) continue;
-      const avg = graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / graded.length;
-      productScores.push(Math.max(0, Math.round(avg) - expired * 2 - moldy * 5));
+
+      // 매장점수 = (선도 + 상해) / 2 - (진열기한경과×2 + 곰팡이×5)
+      const mainScores = ['선도', '상해']
+        .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
+        .filter((s): s is number => s !== undefined);
+      if (mainScores.length === 0) continue;
+
+      const storeScore = Math.max(0, Math.round(
+        mainScores.reduce((a, b) => a + b, 0) / mainScores.length - expired * 2 - moldy * 5
+      ));
+
+      // 환산비율합계: 매장점수 0인 품목 제외 (AVERAGEIF <> 0)
+      if (storeScore > 0) storeScores.push(storeScore);
     }
-    if (productScores.length === 0) return 0;
-    return Math.round(productScores.reduce((a, b) => a + b, 0) / productScores.length);
+
+    if (storeScores.length === 0) return 0;
+    return Math.round(storeScores.reduce((a, b) => a + b, 0) / storeScores.length);
   }
 
+  // 구형 형식: {grade, note} per item
   const expired = typeof items.__expired === 'number' ? items.__expired : 0;
   const moldy = typeof items.__moldy === 'number' ? items.__moldy : 0;
   const guideItems = Object.keys(items).filter(k => k !== '__expired' && k !== '__moldy');
   const vals = guideItems.map(k => items[k]).filter(v => v !== null && v !== undefined);
   if (vals.length === 0) return 0;
 
-  /* New format: {grade, note} per item */
   const isNewFmt = vals.some(v => typeof v === 'object' && v !== null && 'grade' in v);
 
   if (isNewFmt) {
