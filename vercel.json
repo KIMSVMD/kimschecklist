@@ -2,14 +2,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/public",
   "rewrites": [
-    { "source": "/api/health", "destination": "/api/health" },
-    { "source": "/api/dbtest", "destination": "/api/dbtest" },
-    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/api/(.*)", "destination": "/api/_handler" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "functions": {
-    "api/index.ts": { "maxDuration": 30 },
-    "api/health.ts": { "maxDuration": 10 },
-    "api/dbtest.ts": { "maxDuration": 10 }
+    "api/_handler.cjs": { "maxDuration": 30 }
   }
 }
