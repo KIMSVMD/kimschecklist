@@ -10,7 +10,7 @@ export function useCleaningInspections(filters?: { branch?: string; date?: strin
   return useQuery<CleaningInspection[]>({
     queryKey: ["/api/cleaning", filters?.branch, filters?.date],
     queryFn: async () => {
-      const res = await fetch(`/api/cleaning${qs ? `?${qs}` : ""}`, { credentials: "include" });
+      const res = await fetch(`https://kimschecklist.onrender.com/api/cleaning${qs ? `?${qs}` : ""}`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
@@ -40,7 +40,7 @@ export function useDeleteCleaning() {
 export function useSaveCleaningComment() {
   return useMutation({
     mutationFn: async ({ id, adminComment }: { id: number; adminComment: string }) => {
-      const res = await fetch(`/api/cleaning/${id}/comment`, {
+      const res = await fetch(`https://kimschecklist.onrender.com/api/cleaning/${id}/comment`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminComment }),
@@ -58,7 +58,7 @@ export function useSaveCleaningComment() {
 export function useConfirmCleaningComment() {
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/cleaning/${id}/confirm`, {
+      const res = await fetch(`https://kimschecklist.onrender.com/api/cleaning/${id}/confirm`, {
         method: 'PATCH',
         credentials: 'include',
       });
@@ -75,7 +75,7 @@ export function useCleaningReplies(cleaningId: number | null) {
   return useQuery<CleaningReply[]>({
     queryKey: ["/api/cleaning", cleaningId, "replies"],
     queryFn: async () => {
-      const res = await fetch(`/api/cleaning/${cleaningId}/replies`, { credentials: "include" });
+      const res = await fetch(`https://kimschecklist.onrender.com/api/cleaning/${cleaningId}/replies`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
@@ -86,7 +86,7 @@ export function useCleaningReplies(cleaningId: number | null) {
 export function useAddCleaningReply() {
   return useMutation({
     mutationFn: async ({ id, content, authorType, photoUrl, photoUrls }: { id: number; content: string; authorType: 'admin' | 'staff'; photoUrl?: string | null; photoUrls?: string[] | null }) => {
-      const res = await fetch(`/api/cleaning/${id}/replies`, {
+      const res = await fetch(`https://kimschecklist.onrender.com/api/cleaning/${id}/replies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, authorType, photoUrl: photoUrl ?? null, photoUrls: photoUrls ?? null }),
@@ -104,7 +104,7 @@ export function useAddCleaningReply() {
 export function useUpdateCleaningItemStatus() {
   return useMutation({
     mutationFn: async ({ id, itemName, newStatus }: { id: number; itemName: string; newStatus: 'ok' | 'issue' }) => {
-      const res = await fetch(`/api/cleaning/${id}/item-status`, {
+      const res = await fetch(`https://kimschecklist.onrender.com/api/cleaning/${id}/item-status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itemName, newStatus }),
