@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
-import { seedProductsIfEmpty } from "../server/seed";
 import { createServer } from "http";
 import { pool, db } from "../server/db";
 import { storage } from "../server/storage";
@@ -76,9 +75,6 @@ let initError: Error | null = null;
 const initPromise = (async () => {
   try {
     console.log("[init] DB_URL exists:", !!process.env.DATABASE_URL);
-    await seedProductsIfEmpty();
-    console.log("[init] seed done");
-
     app.use("/uploads", express.static(uploadDir));
 
     // Admin auth routes
