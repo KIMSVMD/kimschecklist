@@ -130,17 +130,17 @@ export default function Home() {
 
       {/* Top bar — responsive */}
       <header
-        className="flex items-center justify-between bg-white shrink-0 md:h-[85px] h-[60px] md:px-[50px] px-4"
+        className="flex items-center justify-between bg-white shrink-0 md:h-[76px] h-[60px] md:px-[45px] px-4"
         style={{ boxShadow: '0px 2px 3px rgba(0,0,0,0.1)' }}
       >
         <img
           src={logoKimsClub}
           alt="KIM'S CLUB"
-          className="md:w-[198px] md:h-[31px] h-[20px] w-auto object-contain"
+          className="md:w-[178px] md:h-[28px] h-[20px] w-auto object-contain"
         />
         <Link href="/admin/login">
           <button
-            className="active:scale-95 transition-transform font-semibold text-[#EAEAEA] bg-black rounded-full md:text-lg text-[13px] md:px-[35px] md:py-[13px] px-[18px] py-[8px] whitespace-nowrap border-none cursor-pointer"
+            className="active:scale-95 transition-transform font-semibold text-[#EAEAEA] bg-black rounded-full md:text-base text-[13px] md:px-[31px] md:py-[11px] px-[18px] py-[8px] whitespace-nowrap border-none cursor-pointer"
             style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em' }}
             data-testid="btn-admin-mode"
           >
@@ -154,9 +154,9 @@ export default function Home() {
         <div className="flex flex-col items-center w-full md:w-auto">
 
           {/* Title block */}
-          <div className="flex flex-col items-center mb-8 md:mb-[50px] gap-2">
+          <div className="flex flex-col items-center mb-8 md:mb-[45px] gap-2">
             <h1
-              className="text-center md:text-[50px] md:leading-[60px] text-[32px] leading-[40px]"
+              className="text-center md:text-[45px] md:leading-[54px] text-[32px] leading-[40px]"
               style={{
                 fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
                 fontWeight: 700,
@@ -168,7 +168,7 @@ export default function Home() {
               매장 점검 <span style={{ color: '#006341' }}>체크리스트</span>
             </h1>
             <p
-              className="text-center md:text-[24px] md:leading-[29px] text-[15px] leading-[22px]"
+              className="text-center md:text-[22px] md:leading-[26px] text-[15px] leading-[22px]"
               style={{
                 fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
                 fontWeight: 500,
@@ -182,12 +182,12 @@ export default function Home() {
           </div>
 
           {/* Cards row */}
-          <div className="flex flex-row gap-[15px] mb-[20px] md:mb-[30px] w-full md:w-auto justify-center">
+          <div className="flex flex-row gap-[15px] mb-[20px] md:mb-[27px] w-full md:w-auto justify-center">
             {/* Green card */}
             <Link href="/checklist/new" data-testid="link-new-checklist" className="flex-1 md:flex-none">
               <motion.div
                 whileTap={{ scale: 0.97 }}
-                className="flex flex-col items-center justify-center cursor-pointer w-full md:w-[220px] md:h-[220px] h-[170px]"
+                className="flex flex-col items-center justify-center cursor-pointer w-full md:w-[198px] md:h-[198px] h-[170px]"
                 style={{
                   background: '#006341',
                   borderRadius: '20px',
@@ -196,10 +196,10 @@ export default function Home() {
                   boxSizing: 'border-box',
                 }}
               >
-                <ClipboardCheck className="md:w-[40px] md:h-[40px] w-8 h-8" style={{ color: '#FFFFFF' }} strokeWidth={2} />
+                <ClipboardCheck className="md:w-[36px] md:h-[36px] w-8 h-8" style={{ color: '#FFFFFF' }} strokeWidth={2} />
                 <div className="flex flex-col items-center" style={{ gap: '3px' }}>
-                  <p className="md:text-[28px] md:leading-[33px] text-[20px] leading-[26px] text-center text-white font-bold" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em', margin: 0 }}>새 점검 등록</p>
-                  <p className="md:text-[18px] md:leading-[21px] text-[13px] leading-[17px] text-center text-white" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: '-0.04em', margin: 0 }}>현장 점검 시작하기</p>
+                  <p className="md:text-[25px] md:leading-[30px] text-[20px] leading-[26px] text-center text-white font-bold" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em', margin: 0 }}>새 점검 등록</p>
+                  <p className="md:text-[16px] md:leading-[19px] text-[13px] leading-[17px] text-center text-white" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: '-0.04em', margin: 0 }}>현장 점검 시작하기</p>
                 </div>
               </motion.div>
             </Link>
@@ -208,7 +208,7 @@ export default function Home() {
             <Link href="/staff-dashboard" data-testid="link-staff-dashboard" className="flex-1 md:flex-none">
               <motion.div
                 whileTap={{ scale: 0.97 }}
-                className="flex flex-col items-center justify-center cursor-pointer w-full md:w-[220px] md:h-[220px] h-[170px]"
+                className="flex flex-col items-center justify-center cursor-pointer w-full md:w-[198px] md:h-[198px] h-[170px]"
                 style={{
                   background: '#FFFFFF',
                   borderRadius: '20px',
@@ -218,20 +218,20 @@ export default function Home() {
                   filter: 'drop-shadow(0px 0px 6px rgba(0,0,0,0.25))',
                 }}
               >
-                <ClipboardList className="md:w-[40px] md:h-[40px] w-8 h-8" style={{ color: '#006341' }} strokeWidth={2} />
+                <ClipboardList className="md:w-[36px] md:h-[36px] w-8 h-8" style={{ color: '#006341' }} strokeWidth={2} />
                 <div className="flex flex-col items-center" style={{ gap: '3px' }}>
-                  <p className="md:text-[28px] md:leading-[33px] text-[20px] leading-[26px] text-center font-bold" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em', color: '#006341', margin: 0 }}>점검 월별<br className="md:hidden" /> 피드백</p>
-                  <p className="md:text-[18px] md:leading-[21px] text-[13px] leading-[17px] text-center" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: '-0.04em', color: '#000000', margin: 0 }}>수정 및 삭제 가능</p>
+                  <p className="md:text-[25px] md:leading-[30px] text-[20px] leading-[26px] text-center font-bold" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em', color: '#006341', margin: 0 }}>점검 월별<br className="md:hidden" /> 피드백</p>
+                  <p className="md:text-[16px] md:leading-[19px] text-[13px] leading-[17px] text-center" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: '-0.04em', color: '#000000', margin: 0 }}>수정 및 삭제 가능</p>
                 </div>
               </motion.div>
             </Link>
           </div>
 
           {/* Guide button */}
-          <Link href="/guides" className="w-full md:w-[455px] block mb-3">
+          <Link href="/guides" className="w-full md:w-[410px] block mb-3">
             <motion.div
               whileTap={{ scale: 0.98 }}
-              className="w-full flex items-center justify-center md:h-[70px] h-[56px] md:text-[26px] text-[20px]"
+              className="w-full flex items-center justify-center md:h-[63px] h-[56px] md:text-[23px] text-[20px]"
               style={{
                 background: '#006341',
                 borderRadius: '15px',
@@ -252,7 +252,7 @@ export default function Home() {
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => setManualOpen(true)}
-            className="w-full md:w-[455px] md:h-[70px] h-[56px] md:text-[26px] text-[20px]"
+            className="w-full md:w-[410px] md:h-[63px] h-[56px] md:text-[23px] text-[20px]"
             style={{
               background: '#EAEAEA',
               borderRadius: '15px',
