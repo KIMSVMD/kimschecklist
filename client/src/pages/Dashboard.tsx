@@ -1223,13 +1223,15 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                     );
                   })()}
 
-                  <VMCommentThread
-                    checklistId={item.id}
-                    adminComment={(item as any).adminComment}
-                    confirmed={(item as any).commentConfirmed}
-                    isAdmin={true}
-                    forceShow={true}
-                  />
+                  <div className="mt-3">
+                    <VMCommentThread
+                      checklistId={item.id}
+                      adminComment={(item as any).adminComment}
+                      confirmed={(item as any).commentConfirmed}
+                      isAdmin={true}
+                      forceShow={true}
+                    />
+                  </div>
 
                   <div className="flex gap-3 mt-4">
                     <Link href={(item as any).checklistType === 'quality' ? `/checklist/quality-edit/${item.id}` : `/checklist/edit/${item.id}`} className="flex-1">
