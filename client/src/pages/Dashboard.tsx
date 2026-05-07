@@ -24,6 +24,7 @@ import { NotificationPanel } from "@/components/NotificationPanel";
 import { QualityPhotoSlider } from "@/components/QualityPhotoSlider";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
+const QUALITY_CATEGORIES = ['채소', '청과', '수산', '축산'];
 const BRANCHES = ['전체', '강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정', '부산대', '인천', '고잔', '중계', '김포', '청주'];
 const ZONES = ['입구', '농산', '축산', '수산', '공산'];
 
@@ -836,7 +837,7 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
             className="flex-1 min-w-0 bg-muted border-none rounded-xl px-2 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
             data-testid="select-filter-category">
             <option value="전체">전체 카테고리</option>
-            {(viewFilter === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
+            {(viewFilter === 'quality' ? QUALITY_CATEGORIES : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <select
             value={filterProduct}
@@ -1809,7 +1810,7 @@ function RankingTab() {
         <select value={rankType} onChange={e => {
           const v = e.target.value as 'vm' | 'ad' | 'quality';
           setRankType(v);
-          if (v === 'quality' && rankCategory === '공산') setRankCategory('농산');
+          if (v === 'quality' && !QUALITY_CATEGORIES.includes(rankCategory)) setRankCategory('채소');
         }}
           className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
           <option value="vm">진열(+광고)</option>
@@ -1818,7 +1819,7 @@ function RankingTab() {
         <select value={rankCategory} onChange={e => { setRankCategory(e.target.value); setRankProduct('전체'); }}
           className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium text-sm outline-none text-secondary min-w-[120px]"
           data-testid="select-rank-category">
-          {(rankType === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(c => (
+          {(rankType === 'quality' ? QUALITY_CATEGORIES : CATEGORIES).map(c => (
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
