@@ -770,61 +770,8 @@ export default function EditChecklist() {
           </div>
         )}
 
-        {/* Admin comment section */}
-        {isAdmin ? (
-          <div className="space-y-3">
-            <h3 className="text-xl font-bold text-secondary flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-primary" /> 관리자 코멘트
-            </h3>
-            {!commentOpen ? (
-              <button
-                onClick={() => setCommentOpen(true)}
-                className={`w-full flex items-center justify-between py-3 px-4 rounded-2xl border-2 text-base font-bold transition-all active:scale-[0.98] ${
-                  adminComment
-                    ? 'border-amber-200 bg-amber-50 text-amber-700'
-                    : 'border-border bg-muted text-muted-foreground hover:text-secondary'
-                }`}
-                data-testid={`btn-comment-open-${id}`}
-              >
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  <span className="truncate">{adminComment || '현장 직원에게 피드백 남기기'}</span>
-                </div>
-                {commentConfirmed && <CheckCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
-              </button>
-            ) : (
-              <div className="space-y-2">
-                <textarea
-                  value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
-                  placeholder="현장 직원에게 전달할 피드백을 입력하세요..."
-                  className="w-full rounded-2xl border-2 border-border bg-white p-4 text-base text-secondary resize-none focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all min-h-[7rem]"
-                  autoFocus
-                  data-testid={`input-comment-${id}`}
-                />
-                {commentConfirmed && (
-                  <p className="text-xs text-emerald-600 font-bold flex items-center gap-1.5 px-1">
-                    <CheckCheck className="w-3.5 h-3.5" /> 현장 직원이 이미 확인했습니다
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSaveComment}
-                    disabled={saveCommentMutation.isPending}
-                    className="flex-1 py-3 rounded-2xl bg-primary text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
-                    data-testid={`btn-comment-save-${id}`}
-                  >
-                    {saveCommentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    저장
-                  </button>
-                  <button onClick={() => setCommentOpen(false)} className="px-5 py-3 rounded-2xl bg-muted text-muted-foreground font-bold active:scale-[0.98]">
-                    취소
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : adminComment ? (
+        {/* 직원용: 관리자 코멘트 확인/답글 (관리자 입력 UI 없음) */}
+        {!isAdmin && adminComment && (
           <div className={`rounded-2xl border-2 overflow-hidden ${commentConfirmed ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
             <div className="flex items-center gap-2 px-4 pt-3 pb-1">
               <MessageSquare className={`w-4 h-4 ${commentConfirmed ? 'text-emerald-600' : 'text-amber-600'}`} />
@@ -851,7 +798,6 @@ export default function EditChecklist() {
                 </button>
               </div>
             )}
-
             {commentConfirmed && (
               <div className="px-4 pb-4 border-t border-emerald-200 pt-3">
                 {(checklist as any)?.staffReply && !replyOpen ? (
@@ -907,7 +853,7 @@ export default function EditChecklist() {
               </div>
             )}
           </div>
-        ) : null}
+        )}
 
         {lastSaved && (
           <motion.div
