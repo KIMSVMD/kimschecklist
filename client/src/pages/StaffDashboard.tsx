@@ -964,7 +964,7 @@ export default function StaffDashboard() {
                         {/* 진열 특이사항 — vm 항목 바로 다음 */}
                         {item.notes && (
                           <div className="mb-3 p-3 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
-                            <strong className="block mb-1 text-xs text-muted-foreground">특이사항:</strong>
+                            <strong className="block mb-1 text-xs text-muted-foreground">진열 특이사항:</strong>
                             {item.notes}
                           </div>
                         )}
@@ -1023,7 +1023,7 @@ export default function StaffDashboard() {
                             {/* 광고 특이사항 — 광고 항목 바로 다음 */}
                             {(item as any).adNotes && (
                               <div className="mb-3 p-3 bg-amber-50 rounded-2xl text-secondary text-sm border border-amber-200">
-                                <strong className="block mb-1 text-[11px] text-amber-700 font-black">📢 광고 특이사항:</strong>
+                                <strong className="block mb-1 text-[11px] text-amber-700 font-black">📢 광고(+셀링) 특이사항:</strong>
                                 {(item as any).adNotes}
                               </div>
                             )}
