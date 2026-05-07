@@ -762,6 +762,10 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
 
   const submitForm = async () => {
     const isQuality = effectiveInspectionType === 'quality';
+    if (!isQuality && photoUrls.length === 0) {
+      toast({ title: "현장 사진을 1장 이상 업로드해주세요", variant: "destructive" });
+      return;
+    }
     const qualityPenalty = selCategory === '축산' ? qualityBloodspot * 2 : qualityExpired * 2 + qualityMoldy * 5;
     const overallQualityScore = isQuality ? calcOverallQualityScore(qualityItems, qualityGuideItems, qualityPenalty) : 0;
     const hasNotok = isQuality
