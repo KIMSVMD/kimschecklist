@@ -97,7 +97,7 @@ export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin,
   };
 
   const isConfirmed = !!confirmed;
-  const canReply = isAdmin;
+  const canReply = isAdmin || isConfirmed;
 
   return (
     <div className={`rounded-2xl border-2 overflow-hidden ${isConfirmed ? "border-emerald-200 bg-emerald-50" : "border-[#006341]/30 bg-[#006341]/5"}`}>
