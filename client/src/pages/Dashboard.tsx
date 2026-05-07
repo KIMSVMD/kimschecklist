@@ -1086,20 +1086,18 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                     <div className="flex items-center gap-1.5 flex-wrap justify-end">
                       {(item as any).checklistType === 'quality' ? (() => {
                         const qItems = (item as any).qualityItems as Record<string, any> | null;
-                        const qWeighted = (item as any).qualityWeightedScore as string | null | undefined;
                         const isBulkQ = !!(qItems && '__category' in qItems);
-                        const autoScore = isBulkQ && qWeighted ? parseInt(qWeighted) : null;
-                        const qScore = qualityAdminScore != null ? qualityAdminScore : autoScore;
-                        if (qScore == null) return null;
-                        const category = qItems?.__category as string | undefined;
-                        const grade = getQualityGradeDash(qScore, category);
+                        if (!isBulkQ || !qItems) return null;
+                        const liveScore = Math.min(100, Math.max(0, calcOverallQualityScoreDash(qItems)));
+                        const qScore = qualityAdminScore != null ? Math.min(100, Math.max(0, qualityAdminScore)) : liveScore;
+                        if (qScore === 0) return null;
                         return (
                           <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
                             qScore >= 90 ? 'bg-purple-50 border-purple-200 text-purple-700' :
                             qScore >= 70 ? 'bg-orange-50 border-orange-200 text-orange-700' :
                             'bg-red-50 border-red-200 text-primary'
                           }`} data-testid={`text-quality-score-${item.id}`}>
-                            <span>⭐</span>{grade}등급 {qScore}점
+                            <span>⭐</span>{qScore}점
                           </div>
                         );
                       })() : (() => {
