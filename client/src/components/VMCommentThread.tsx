@@ -31,7 +31,8 @@ export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin,
   const replyPhotosRef = useRef<string[]>([]);
   replyPhotosRef.current = replyPhotos;
 
-  if (!adminComment && !forceShow) return null;
+  if (!isAdmin && !adminComment) return null;
+  if (isAdmin && !adminComment && !forceShow) return null;
 
   const handleConfirm = async () => {
     try {
@@ -96,7 +97,7 @@ export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin,
   };
 
   const isConfirmed = !!confirmed;
-  const canReply = isAdmin || isConfirmed || forceShow;
+  const canReply = isAdmin;
 
   return (
     <div className={`rounded-2xl border-2 overflow-hidden ${isConfirmed ? "border-emerald-200 bg-emerald-50" : "border-[#006341]/30 bg-[#006341]/5"}`}>

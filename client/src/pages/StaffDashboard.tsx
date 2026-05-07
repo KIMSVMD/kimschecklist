@@ -1216,7 +1216,6 @@ export default function StaffDashboard() {
                           adminComment={(item as any).adminComment}
                           confirmed={(item as any).commentConfirmed}
                           isAdmin={false}
-                          forceShow={true}
                         />
 
                         <div className="flex gap-3 mt-4">
