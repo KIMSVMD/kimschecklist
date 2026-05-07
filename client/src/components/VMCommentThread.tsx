@@ -271,7 +271,7 @@ export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin,
               data-testid={`btn-open-vm-reply-${checklistId}`}
             >
               {isAdmin ? (
-                <><CornerDownRight className="w-4 h-4" /> 관리자 답글 남기기</>
+                <><CornerDownRight className="w-4 h-4" /> {replies.length > 0 ? "관리자 답글 남기기" : "관리자 코멘트 남기기"}</>
               ) : (
                 <><Camera className="w-4 h-4" /> 답글 / 사진 첨부</>
               )}
