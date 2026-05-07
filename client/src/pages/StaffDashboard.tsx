@@ -1211,14 +1211,12 @@ export default function StaffDashboard() {
                           {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                         </p>
 
-                        {!!(item as any).adminComment && (
-                          <VMCommentThread
-                            checklistId={item.id}
-                            adminComment={(item as any).adminComment ?? ''}
-                            confirmed={(item as any).commentConfirmed ?? false}
-                            isAdmin={false}
-                          />
-                        )}
+                        <VMCommentThread
+                          checklistId={item.id}
+                          adminComment={(item as any).adminComment}
+                          confirmed={(item as any).commentConfirmed ?? false}
+                          isAdmin={false}
+                        />
 
                         <div className="flex gap-3 mt-4">
                           <Link href={(item as any).checklistType === 'quality' ? `/checklist/quality-edit/${item.id}` : `/checklist/edit/${item.id}`} className="flex-1">

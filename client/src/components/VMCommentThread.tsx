@@ -18,7 +18,7 @@ interface Props {
 
 export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin, hideComment = false, forceShow = false }: Props) {
   const { toast } = useToast();
-  const { data: replies = [], isLoading } = useChecklistReplies((adminComment || forceShow) ? checklistId : null);
+  const { data: replies = [], isLoading } = useChecklistReplies(checklistId);
   const addReplyMutation = useAddChecklistReply();
   const confirmMutation = useConfirmChecklistComment();
 
@@ -31,7 +31,9 @@ export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin,
   const replyPhotosRef = useRef<string[]>([]);
   replyPhotosRef.current = replyPhotos;
 
-  if (!isAdmin && !adminComment?.trim()) return null;
+  if (!isAdmin && !adminComment?.trim()) {
+    if (isLoading || replies.length === 0) return null;
+  }
   if (isAdmin && !adminComment?.trim() && !forceShow) return null;
 
   const handleConfirm = async () => {
