@@ -55,13 +55,12 @@ function calcGradeScore(grade?: string): number {
 function calcOverallQualityScore(
   items: Record<string, QualityItemData>,
   guideItems: string[],
-  expired: number,
-  moldy: number
+  penalty: number
 ): number {
   const gradedItems = guideItems.filter(i => items[i]?.grade && items[i]?.grade !== '');
   if (gradedItems.length === 0) return 0;
   const sum = gradedItems.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0);
-  return Math.max(0, Math.round(sum / 2) - expired * 2 - moldy * 5);
+  return Math.max(0, Math.round(sum / 2) - penalty);
 }
 
 function getQualityGrade(score: number): string {
@@ -669,6 +668,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
   const [qualityItems, setQualityItems] = useState<Record<string, QualityItemData>>({});
   const [qualityExpired, setQualityExpired] = useState<number>(0);
   const [qualityMoldy, setQualityMoldy] = useState<number>(0);
+  const [qualityBloodspot, setQualityBloodspot] = useState<number>(0);
   const [qualityPhotoUrls, setQualityPhotoUrls] = useState<string[]>([]);
   const [qualityLocalPreviews, setQualityLocalPreviews] = useState<string[]>([]);
   const [qualityUploadingCount, setQualityUploadingCount] = useState(0);
@@ -762,7 +762,8 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
 
   const submitForm = async () => {
     const isQuality = effectiveInspectionType === 'quality';
-    const overallQualityScore = isQuality ? calcOverallQualityScore(qualityItems, qualityGuideItems, qualityExpired, qualityMoldy) : 0;
+    const qualityPenalty = selCategory === '축산' ? qualityBloodspot * 2 : qualityExpired * 2 + qualityMoldy * 5;
+    const overallQualityScore = isQuality ? calcOverallQualityScore(qualityItems, qualityGuideItems, qualityPenalty) : 0;
     const hasNotok = isQuality
       ? overallQualityScore < 90
       : Object.values(items).includes('notok') || Object.values(adItems).includes('notok');
@@ -787,7 +788,9 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
         }),
         ...(isQuality && {
           qualityItems: Object.keys(qualityItems).length > 0
-            ? { ...qualityItems, __expired: qualityExpired, __moldy: qualityMoldy }
+            ? selCategory === '축산'
+              ? { ...qualityItems, __bloodspot: qualityBloodspot }
+              : { ...qualityItems, __expired: qualityExpired, __moldy: qualityMoldy }
             : null,
           qualityPhotoUrls: qualityPhotoUrls.length > 0 ? qualityPhotoUrls : null,
           qualityNotes: qualityNotes.trim() || null,
@@ -1387,7 +1390,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                   <p className="text-sm text-muted-foreground mt-0.5">각 항목의 등급을 선택하세요 (A/B/C/E)</p>
                 </div>
                 {(() => {
-                  const avg = calcOverallQualityScore(qualityItems, qualityGuideItems, qualityExpired, qualityMoldy);
+                  const avg = calcOverallQualityScore(qualityItems, qualityGuideItems, selCategory === '축산' ? qualityBloodspot * 2 : qualityExpired * 2 + qualityMoldy * 5);
                   const g = getQualityGrade(avg);
                   const anyGraded = qualityGuideItems.some(i => qualityItems[i]?.grade);
                   if (!anyGraded) return null;
@@ -1495,46 +1498,54 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
                 );
               })}
 
-              {/* 감점 항목 (상품 전체 기준) */}
+              {/* 감점 항목 */}
               <div className="space-y-2 pt-1 border-t border-border/50">
                 <p className="text-xs font-bold text-muted-foreground px-1">감점 항목</p>
-                <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-white bg-orange-500 px-2.5 py-0.5 rounded-full">진열기한 경과</span>
-                    <span className="text-[10px] text-orange-600 font-bold">× -2점/개</span>
+                {selCategory === '축산' ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-white bg-red-500 px-2.5 py-0.5 rounded-full">갈색/암적색/녹색/핏물</span>
+                      <span className="text-[10px] text-red-600 font-bold">× -2점/개</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-4">
+                      <button onClick={() => setQualityBloodspot(v => Math.max(0, v - 1))} className="w-10 h-10 rounded-xl bg-white border border-red-200 text-red-500 font-black text-lg active:scale-95 transition-all">−</button>
+                      <span className="text-2xl font-black text-red-600 w-10 text-center">{qualityBloodspot}</span>
+                      <button onClick={() => setQualityBloodspot(v => v + 1)} className="w-10 h-10 rounded-xl bg-white border border-red-200 text-red-500 font-black text-lg active:scale-95 transition-all">+</button>
+                    </div>
                   </div>
-                  <input
-                    type="number"
-                    min={0}
-                    value={qualityExpired || ''}
-                    onChange={e => setQualityExpired(Math.max(0, parseInt(e.target.value) || 0))}
-                    placeholder="0개"
-                    className="w-full px-3 py-2 rounded-xl border border-orange-200 text-sm font-bold text-center focus:outline-none focus:border-orange-400 bg-white"
-                    data-testid="input-quality-expired"
-                  />
-                </div>
-                <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-white bg-red-500 px-2.5 py-0.5 rounded-full">곰팡이</span>
-                    <span className="text-[10px] text-red-600 font-bold">× -5점/개</span>
-                  </div>
-                  <input
-                    type="number"
-                    min={0}
-                    value={qualityMoldy || ''}
-                    onChange={e => setQualityMoldy(Math.max(0, parseInt(e.target.value) || 0))}
-                    placeholder="0개"
-                    className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-bold text-center focus:outline-none focus:border-red-400 bg-white"
-                    data-testid="input-quality-moldy"
-                  />
-                </div>
+                ) : (
+                  <>
+                    <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-white bg-orange-500 px-2.5 py-0.5 rounded-full">진열기한 경과</span>
+                        <span className="text-[10px] text-orange-600 font-bold">× -2점/개</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-4">
+                        <button onClick={() => setQualityExpired(v => Math.max(0, v - 1))} className="w-10 h-10 rounded-xl bg-white border border-orange-200 text-orange-500 font-black text-lg active:scale-95 transition-all">−</button>
+                        <span className="text-2xl font-black text-orange-600 w-10 text-center">{qualityExpired}</span>
+                        <button onClick={() => setQualityExpired(v => v + 1)} className="w-10 h-10 rounded-xl bg-white border border-orange-200 text-orange-500 font-black text-lg active:scale-95 transition-all">+</button>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-white bg-red-500 px-2.5 py-0.5 rounded-full">곰팡이</span>
+                        <span className="text-[10px] text-red-600 font-bold">× -5점/개</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-4">
+                        <button onClick={() => setQualityMoldy(v => Math.max(0, v - 1))} className="w-10 h-10 rounded-xl bg-white border border-red-200 text-red-500 font-black text-lg active:scale-95 transition-all">−</button>
+                        <span className="text-2xl font-black text-red-600 w-10 text-center">{qualityMoldy}</span>
+                        <button onClick={() => setQualityMoldy(v => v + 1)} className="w-10 h-10 rounded-xl bg-white border border-red-200 text-red-500 font-black text-lg active:scale-95 transition-all">+</button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* 전체 진행 현황 */}
               <div className="flex justify-between text-sm font-medium text-muted-foreground bg-muted/40 rounded-2xl px-4 py-3">
                 <span>{qualityGuideItems.filter(item => qualityItems[item]?.grade).length} / {qualityGuideItems.length} 완료</span>
                 {qualityGuideItems.some(i => qualityItems[i]?.grade) && (() => {
-                  const avg = calcOverallQualityScore(qualityItems, qualityGuideItems, qualityExpired, qualityMoldy);
+                  const avg = calcOverallQualityScore(qualityItems, qualityGuideItems, selCategory === '축산' ? qualityBloodspot * 2 : qualityExpired * 2 + qualityMoldy * 5);
                   const g = getQualityGrade(avg);
                   const wTotal = hasWeights
                     ? qualityGuideItems.reduce((sum, item) => {

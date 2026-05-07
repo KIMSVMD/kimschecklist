@@ -1058,14 +1058,16 @@ export default function StaffDashboard() {
                             for (const product of products) {
                               const d = qItems[product];
                               if (!d || typeof d !== 'object') continue;
-                              const exp = typeof d.__expired === 'number' ? d.__expired : 0;
-                              const mld = typeof d.__moldy === 'number' ? d.__moldy : 0;
                               const allGraded = ALL_CRIT.filter(c => GRADE_PTS[d[c]] !== undefined);
                               if (allGraded.length === 0) continue;
                               const productScoreTotal = Math.round(allGraded.reduce((s, c) => s + GRADE_PTS[d[c]], 0) / 2);
                               const mainGraded = mainCrit.filter(c => GRADE_PTS[d[c]] !== undefined);
+                              const bloodspot = category === '축산' ? (typeof d.__bloodspot === 'number' ? d.__bloodspot : 0) : 0;
+                              const exp = category !== '축산' ? (typeof d.__expired === 'number' ? d.__expired : 0) : 0;
+                              const mld = category !== '축산' ? (typeof d.__moldy === 'number' ? d.__moldy : 0) : 0;
+                              const penalty = category === '축산' ? bloodspot * 2 : exp * 2 + mld * 5;
                               const productStoreScore = mainGraded.length > 0
-                                ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + GRADE_PTS[d[c]], 0) / mainGraded.length - exp * 2 - mld * 5))
+                                ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + GRADE_PTS[d[c]], 0) / mainGraded.length - penalty))
                                 : 0;
                               const crits = ALL_CRIT.filter(c => d[c]).map(c => ({ name: c, grade: d[c] as string }));
                               productRows.push({ product, scoreTotal: productScoreTotal, storeScore: productStoreScore, crits, exp, mld });
@@ -1146,8 +1148,9 @@ export default function StaffDashboard() {
                                             </span>
                                           ))}
                                         </div>
-                                        {(exp > 0 || mld > 0) && (
-                                          <div className="flex gap-3 pt-0.5">
+                                        {(bloodspot > 0 || exp > 0 || mld > 0) && (
+                                          <div className="flex gap-3 pt-0.5 flex-wrap">
+                                            {bloodspot > 0 && <span className="text-xs text-red-600 font-bold">⚠ 갈색/암적색/녹색/핏물 {bloodspot}개 (-{bloodspot * 2}점)</span>}
                                             {exp > 0 && <span className="text-xs text-orange-600 font-bold">⚠ 진열기한 경과 {exp}개 (-{exp * 2}점)</span>}
                                             {mld > 0 && <span className="text-xs text-red-600 font-bold">⚠ 곰팡이 {mld}개 (-{mld * 5}점)</span>}
                                           </div>

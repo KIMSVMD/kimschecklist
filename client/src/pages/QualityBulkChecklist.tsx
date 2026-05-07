@@ -26,12 +26,19 @@ function calcBulkQualityScore(qualityItems: Record<string, any>): number {
   for (const product of products) {
     const d = qualityItems[product];
     if (!d || typeof d !== 'object') continue;
-    const expired = typeof d.__expired === 'number' ? d.__expired : 0;
-    const moldy = typeof d.__moldy === 'number' ? d.__moldy : 0;
     const graded = criteria.filter(c => BULK_GRADE_SCORES[d[c]] !== undefined);
     if (graded.length === 0) continue;
     const avg = graded.reduce((s, c) => s + BULK_GRADE_SCORES[d[c]], 0) / graded.length;
-    productScores.push(Math.max(0, Math.round(avg) - expired * 2 - moldy * 5));
+    let penalty: number;
+    if (category === '축산') {
+      const bloodspot = typeof d.__bloodspot === 'number' ? d.__bloodspot : 0;
+      penalty = bloodspot * 2;
+    } else {
+      const expired = typeof d.__expired === 'number' ? d.__expired : 0;
+      const moldy = typeof d.__moldy === 'number' ? d.__moldy : 0;
+      penalty = expired * 2 + moldy * 5;
+    }
+    productScores.push(Math.max(0, Math.round(avg) - penalty));
   }
   if (productScores.length === 0) return 0;
   return Math.round(productScores.reduce((a, b) => a + b, 0) / productScores.length);
@@ -61,6 +68,7 @@ type ProductData = {
   grades: Record<string, string>;
   expired: number;
   moldy: number;
+  bloodspot: number;
 };
 
 type BulkData = Record<string, ProductData>;
@@ -294,14 +302,15 @@ function ProductGuideModal({
 // ── 품목 카드 (표 형태 등급 선택) ────────────────────────────────────────────
 
 function ProductCard({
-  product, idx, criteria, data, onToggle, onAdjust, hasGuide, onGuideClick,
+  product, idx, criteria, data, category, onToggle, onAdjust, hasGuide, onGuideClick,
 }: {
   product: string;
   idx: number;
   criteria: string[];
   data: ProductData;
+  category: QualityCategory;
   onToggle: (criterion: string, grade: string) => void;
-  onAdjust: (field: 'expired' | 'moldy', delta: number) => void;
+  onAdjust: (field: 'expired' | 'moldy' | 'bloodspot', delta: number) => void;
   hasGuide: boolean;
   onGuideClick: () => void;
 }) {
@@ -366,26 +375,33 @@ function ProductCard({
         </table>
       </div>
 
-      {/* 진열기한경과 / 곰팡이 */}
-      <div className="flex gap-4 pt-1 border-t border-border/40">
-        {(['expired', 'moldy'] as const).map(field => (
-          <div key={field} className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground shrink-0">
-              {field === 'expired' ? '진열기한경과' : '곰팡이'}
-            </span>
+      {/* 패널티 */}
+      <div className="flex gap-4 pt-1 border-t border-border/40 flex-wrap">
+        {category === '축산' ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-red-600 shrink-0">갈색/암적색/녹색/핏물 (-2점/개)</span>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => onAdjust(field, -1)}
-                className="w-7 h-7 rounded-lg bg-muted text-muted-foreground font-bold active:scale-95 transition-all flex items-center justify-center"
-              >−</button>
-              <span className="w-6 text-center font-bold text-sm">{data[field]}</span>
-              <button
-                onClick={() => onAdjust(field, 1)}
-                className="w-7 h-7 rounded-lg bg-muted text-muted-foreground font-bold active:scale-95 transition-all flex items-center justify-center"
-              >+</button>
+              <button onClick={() => onAdjust('bloodspot', -1)} className="w-7 h-7 rounded-lg bg-red-50 text-red-500 font-bold active:scale-95 transition-all flex items-center justify-center border border-red-200">−</button>
+              <span className="w-6 text-center font-bold text-sm text-red-600">{data.bloodspot}</span>
+              <button onClick={() => onAdjust('bloodspot', 1)} className="w-7 h-7 rounded-lg bg-red-50 text-red-500 font-bold active:scale-95 transition-all flex items-center justify-center border border-red-200">+</button>
             </div>
           </div>
-        ))}
+        ) : (
+          <>
+            {(['expired', 'moldy'] as const).map(field => (
+              <div key={field} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {field === 'expired' ? '진열기한경과 (-2점/개)' : '곰팡이 (-5점/개)'}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => onAdjust(field, -1)} className="w-7 h-7 rounded-lg bg-muted text-muted-foreground font-bold active:scale-95 transition-all flex items-center justify-center">−</button>
+                  <span className="w-6 text-center font-bold text-sm">{data[field]}</span>
+                  <button onClick={() => onAdjust(field, 1)} className="w-7 h-7 rounded-lg bg-muted text-muted-foreground font-bold active:scale-95 transition-all flex items-center justify-center">+</button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
@@ -482,7 +498,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
 
   function toggleGrade(product: string, criterion: string, grade: string) {
     setBulkData(prev => {
-      const existing = prev[product] ?? { grades: {}, expired: 0, moldy: 0 };
+      const existing = prev[product] ?? { grades: {}, expired: 0, moldy: 0, bloodspot: 0 };
       const current = existing.grades[criterion];
       return {
         ...prev,
@@ -494,9 +510,9 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
     });
   }
 
-  function adjustCount(product: string, field: 'expired' | 'moldy', delta: number) {
+  function adjustCount(product: string, field: 'expired' | 'moldy' | 'bloodspot', delta: number) {
     setBulkData(prev => {
-      const existing = prev[product] ?? { grades: {}, expired: 0, moldy: 0 };
+      const existing = prev[product] ?? { grades: {}, expired: 0, moldy: 0, bloodspot: 0 };
       return {
         ...prev,
         [product]: { ...existing, [field]: Math.max(0, existing[field] + delta) },
@@ -554,6 +570,7 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
         grades,
         expired: typeof d.__expired === 'number' ? d.__expired : 0,
         moldy: typeof d.__moldy === 'number' ? d.__moldy : 0,
+        bloodspot: typeof d.__bloodspot === 'number' ? d.__bloodspot : 0,
       };
     }
     setSelectedCategory(cat);
@@ -573,11 +590,11 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
       for (const product of categoryItems) {
         const data = bulkData[product];
         if (!data) continue;
-        qualityItemsPayload[product] = {
-          ...data.grades,
-          __expired: data.expired,
-          __moldy: data.moldy,
-        };
+        if (selectedCategory === '축산') {
+          qualityItemsPayload[product] = { ...data.grades, __bloodspot: data.bloodspot };
+        } else {
+          qualityItemsPayload[product] = { ...data.grades, __expired: data.expired, __moldy: data.moldy };
+        }
       }
       const calculatedScore = calcBulkQualityScore(qualityItemsPayload);
 
@@ -748,7 +765,8 @@ export function QualityBulkChecklist({ branch, selYear, selMonth, editId }: Prop
             product={product}
             idx={idx}
             criteria={criteria}
-            data={bulkData[product] ?? { grades: {}, expired: 0, moldy: 0 }}
+            data={bulkData[product] ?? { grades: {}, expired: 0, moldy: 0, bloodspot: 0 }}
+            category={selectedCategory!}
             onToggle={(criterion, grade) => toggleGrade(product, criterion, grade)}
             onAdjust={(field, delta) => adjustCount(product, field, delta)}
             hasGuide={qualityGuideSet.has(product)}

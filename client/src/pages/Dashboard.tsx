@@ -468,22 +468,20 @@ function calcOverallQualityScoreDash(items: Record<string, any>): number {
       const d = items[product];
       if (!d || typeof d !== 'object') continue;
 
-      const expired = typeof d.__expired === 'number' ? d.__expired : 0;
-      const moldy = typeof d.__moldy === 'number' ? d.__moldy : 0;
-
       let storeScore: number;
 
       if (category === '축산') {
-        // 점수총계 = (색택 + 마블링 + 선도) / 3 - 감점
+        const bloodspot = typeof d.__bloodspot === 'number' ? d.__bloodspot : 0;
         const criteriaScores = ['색택', '마블링', '선도']
           .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
           .filter((s): s is number => s !== undefined);
         if (criteriaScores.length === 0) continue;
         storeScore = Math.max(0, Math.round(
-          criteriaScores.reduce((a, b) => a + b, 0) / 3 - expired * 2 - moldy * 5
+          criteriaScores.reduce((a, b) => a + b, 0) / 3 - bloodspot * 2
         ));
       } else {
-        // 청과/채소/수산: 매장점수 = (선도 + 상해) / 2 - 감점
+        const expired = typeof d.__expired === 'number' ? d.__expired : 0;
+        const moldy = typeof d.__moldy === 'number' ? d.__moldy : 0;
         const criteriaScores = ['선도', '상해']
           .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
           .filter((s): s is number => s !== undefined);
@@ -564,11 +562,12 @@ function AdminQualityScoreInput({
   existingAdminItems?: Record<string, any> | null;
   weightedScore?: string | null;
 }) {
-  const itemKeys = Object.keys(staffQualityItems).filter(k => k !== '__expired' && k !== '__moldy' && k !== '__category');
+  const itemKeys = Object.keys(staffQualityItems).filter(k => k !== '__expired' && k !== '__moldy' && k !== '__bloodspot' && k !== '__category');
   const totalItems = itemKeys.length;
   const category = staffQualityItems.__category as string | undefined;
-  const savedExpired = typeof staffQualityItems.__expired === 'number' ? staffQualityItems.__expired : 0;
-  const savedMoldy = typeof staffQualityItems.__moldy === 'number' ? staffQualityItems.__moldy : 0;
+  const savedExpired = category !== '축산' ? (typeof staffQualityItems.__expired === 'number' ? staffQualityItems.__expired : 0) : 0;
+  const savedMoldy = category !== '축산' ? (typeof staffQualityItems.__moldy === 'number' ? staffQualityItems.__moldy : 0) : 0;
+  const savedBloodspot = category === '축산' ? (typeof staffQualityItems.__bloodspot === 'number' ? staffQualityItems.__bloodspot : 0) : 0;
 
   const firstVal = totalItems > 0 ? staffQualityItems[itemKeys[0]] : null;
   const isNewFormat = firstVal !== null && typeof firstVal === 'object';
@@ -635,14 +634,16 @@ function AdminQualityScoreInput({
             }
             if (isOldCritFmt) {
               const allCrit = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
-              const exp = typeof d.__expired === 'number' ? d.__expired : 0;
-              const mld = typeof d.__moldy === 'number' ? d.__moldy : 0;
               const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
               const scoreTotal = Math.round(graded.reduce((sum, c) => sum + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / 2);
               const mainCrit = category === '축산' ? ['색택', '마블링', '선도'] : ['선도', '상해'];
               const mainGraded = mainCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
+              const bloodspot = category === '축산' ? (typeof d.__bloodspot === 'number' ? d.__bloodspot : 0) : 0;
+              const exp = category !== '축산' ? (typeof d.__expired === 'number' ? d.__expired : 0) : 0;
+              const mld = category !== '축산' ? (typeof d.__moldy === 'number' ? d.__moldy : 0) : 0;
+              const penalty = category === '축산' ? bloodspot * 2 : exp * 2 + mld * 5;
               const storeScore = mainGraded.length > 0
-                ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / mainGraded.length - exp * 2 - mld * 5))
+                ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / mainGraded.length - penalty))
                 : 0;
               const g = getQualityGradeDash(scoreTotal, category);
               return (
@@ -665,8 +666,9 @@ function AdminQualityScoreInput({
                       );
                     })}
                   </div>
-                  {(exp > 0 || mld > 0) && (
-                    <div className="flex gap-2 pt-0.5">
+                  {(bloodspot > 0 || exp > 0 || mld > 0) && (
+                    <div className="flex gap-2 pt-0.5 flex-wrap">
+                      {bloodspot > 0 && <span className="text-red-600 font-bold">갈색/암적색/녹색/핏물 {bloodspot}개 (-{bloodspot * 2}점)</span>}
                       {exp > 0 && <span className="text-orange-600 font-bold">진열기한 경과 {exp}개 (-{exp * 2}점)</span>}
                       {mld > 0 && <span className="text-red-600 font-bold">곰팡이 {mld}개 (-{mld * 5}점)</span>}
                     </div>
@@ -676,8 +678,9 @@ function AdminQualityScoreInput({
             }
             return null;
           })}
-          {(savedExpired > 0 || savedMoldy > 0) && (
-            <div className="flex gap-3 px-3 py-2 text-xs font-bold border border-orange-200/60 rounded-xl bg-orange-50/40">
+          {(savedBloodspot > 0 || savedExpired > 0 || savedMoldy > 0) && (
+            <div className="flex gap-3 px-3 py-2 text-xs font-bold border border-red-200/60 rounded-xl bg-red-50/40 flex-wrap">
+              {savedBloodspot > 0 && <span className="text-red-600">갈색/암적색/녹색/핏물 {savedBloodspot}개 (-{savedBloodspot * 2}점)</span>}
               {savedExpired > 0 && <span className="text-orange-600">진열기한 경과 {savedExpired}개 (-{savedExpired * 2}점)</span>}
               {savedMoldy > 0 && <span className="text-red-600">곰팡이 {savedMoldy}개 (-{savedMoldy * 5}점)</span>}
             </div>
