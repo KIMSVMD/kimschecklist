@@ -163,7 +163,10 @@ export default function StaffDashboard() {
     const typeMatch = activeTab === 'quality'
       ? itemType === 'quality'
       : itemType !== 'quality'; // vm 탭: vm + ad 모두 표시 (이제 vm checklistType으로 저장됨)
-    const catMatch = filterCategory === '전체' || (item as any).category === filterCategory;
+    const catMatch = filterCategory === '전체' ||
+      (activeTab === 'quality'
+        ? (item as any).qualityItems?.__category === filterCategory
+        : (item as any).category === filterCategory);
     return inMonth && typeMatch && catMatch;
   }).sort((a, b) => {
     const itemTypeA = (a as any).checklistType || 'vm';
