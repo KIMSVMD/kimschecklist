@@ -825,7 +825,6 @@ export default function StaffDashboard() {
                   const displayScore = adminScore != null && adAdminScore != null
                     ? Math.round((adminScore + adAdminScore) / 2)
                     : adminScore ?? adAdminScore ?? null;
-                  console.log('[StaffDashboard] item id:', item.id, 'adminComment:', (item as any).adminComment, 'commentConfirmed:', (item as any).commentConfirmed);
                   return (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -1212,11 +1211,11 @@ export default function StaffDashboard() {
                           {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
                         </p>
 
-                        {(item as any).adminComment && (
+                        {!!(item as any).adminComment && (
                           <VMCommentThread
                             checklistId={item.id}
-                            adminComment={(item as any).adminComment}
-                            confirmed={(item as any).commentConfirmed}
+                            adminComment={(item as any).adminComment ?? ''}
+                            confirmed={(item as any).commentConfirmed ?? false}
                             isAdmin={false}
                           />
                         )}

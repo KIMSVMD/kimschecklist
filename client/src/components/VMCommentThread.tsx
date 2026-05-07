@@ -31,8 +31,8 @@ export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin,
   const replyPhotosRef = useRef<string[]>([]);
   replyPhotosRef.current = replyPhotos;
 
-  if (!isAdmin && !adminComment) return null;
-  if (isAdmin && !adminComment && !forceShow) return null;
+  if (!isAdmin && !adminComment?.trim()) return null;
+  if (isAdmin && !adminComment?.trim() && !forceShow) return null;
 
   const handleConfirm = async () => {
     try {
