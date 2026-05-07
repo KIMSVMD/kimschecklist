@@ -639,7 +639,7 @@ export default function EditChecklist() {
                   const gradedItems = qualityGuideItems.filter(i => (qualityItems[i] as any)?.grade && (qualityItems[i] as any)?.grade !== '');
                   const base = gradedItems.length > 0 ? gradedItems.reduce((s, i) => s + gradeScore((qualityItems[i] as any)?.grade), 0) / gradedItems.length : 0;
                   const overallScore = gradedItems.length > 0 ? Math.max(0, Math.round(base) - qualityExpired * 2 - qualityMoldy * 5) : null;
-                  const getGrade = (s: number) => s >= 90 ? 'A' : s >= 70 ? 'B' : s >= 50 ? 'C' : 'E';
+                  const getGrade = (s: number) => s >= 100 ? 'A' : s >= 85 ? 'B' : s >= 70 ? 'C' : s > 55 ? 'D' : s >= 40 ? 'E' : 'E';
 
                   return (
                     <>

@@ -537,17 +537,12 @@ function calcQualityScoreTotalDash(items: Record<string, any>): number {
   return Math.round(scoreTotals.reduce((a, b) => a + b, 0) / scoreTotals.length);
 }
 
-function getQualityGradeDash(score: number, category?: string): string {
-  if (category === '축산') {
-    if (score >= 100) return 'A';
-    if (score >= 85) return 'B';
-    if (score >= 70) return 'C';
-    if (score > 55) return 'D';
-    return 'E';
-  }
-  if (score >= 90) return 'A';
-  if (score >= 80) return 'B';
+function getQualityGradeDash(score: number, _category?: string): string {
+  if (score >= 100) return 'A';
+  if (score >= 85) return 'B';
   if (score >= 70) return 'C';
+  if (score > 55) return 'D';
+  if (score >= 40) return 'E';
   return 'E';
 }
 
@@ -649,7 +644,7 @@ function AdminQualityScoreInput({
               const storeScore = mainGraded.length > 0
                 ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / mainGraded.length - exp * 2 - mld * 5))
                 : 0;
-              const g = getQualityGradeDash(storeScore, category);
+              const g = getQualityGradeDash(scoreTotal, category);
               return (
                 <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1.5">
                   <div className="flex items-center justify-between gap-2">

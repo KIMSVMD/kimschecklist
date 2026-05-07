@@ -60,14 +60,16 @@ function calcOverallQualityScore(
 ): number {
   const gradedItems = guideItems.filter(i => items[i]?.grade && items[i]?.grade !== '');
   if (gradedItems.length === 0) return 0;
-  const base = gradedItems.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0) / gradedItems.length;
-  return Math.max(0, Math.round(base) - expired * 2 - moldy * 5);
+  const sum = gradedItems.reduce((s, i) => s + calcGradeScore(items[i]?.grade), 0);
+  return Math.max(0, Math.round(sum / 2) - expired * 2 - moldy * 5);
 }
 
 function getQualityGrade(score: number): string {
-  if (score >= 90) return 'A';
-  if (score >= 70) return 'B';
-  if (score >= 50) return 'C';
+  if (score >= 100) return 'A';
+  if (score >= 85) return 'B';
+  if (score >= 70) return 'C';
+  if (score > 55) return 'D';
+  if (score >= 40) return 'E';
   return 'E';
 }
 
