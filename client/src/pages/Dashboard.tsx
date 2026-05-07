@@ -520,6 +520,23 @@ function calcOverallQualityScoreDash(items: Record<string, any>): number {
   return 0;
 }
 
+function calcQualityScoreTotalDash(items: Record<string, any>): number {
+  if (!('__category' in items)) return 0;
+  const products = Object.keys(items).filter(k => k !== '__category' && k !== '__expired' && k !== '__moldy');
+  const allCrit = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
+  const scoreTotals: number[] = [];
+  for (const product of products) {
+    const d = items[product];
+    if (!d || typeof d !== 'object') continue;
+    const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
+    if (graded.length === 0) continue;
+    const productScoreTotal = Math.round(graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / 2);
+    if (productScoreTotal > 0) scoreTotals.push(productScoreTotal);
+  }
+  if (scoreTotals.length === 0) return 0;
+  return Math.round(scoreTotals.reduce((a, b) => a + b, 0) / scoreTotals.length);
+}
+
 function getQualityGradeDash(score: number, category?: string): string {
   if (category === '축산') {
     if (score >= 100) return 'A';
@@ -566,12 +583,17 @@ function AdminQualityScoreInput({
 
   const totalScoreTotal = (() => {
     const allCrit = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
-    return itemKeys.reduce((sum, k) => {
+    const perProductTotals = itemKeys.reduce((acc, k) => {
       const d = staffQualityItems[k] as Record<string, any>;
-      if (!d || typeof d !== 'object') return sum;
+      if (!d || typeof d !== 'object') return acc;
       const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
-      return sum + graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0);
-    }, 0);
+      if (graded.length === 0) return acc;
+      const productTotal = Math.round(graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / 2);
+      if (productTotal > 0) acc.push(productTotal);
+      return acc;
+    }, [] as number[]);
+    if (perProductTotals.length === 0) return 0;
+    return Math.round(perProductTotals.reduce((a, b) => a + b, 0) / perProductTotals.length);
   })();
 
   const scoreColorClass = (s: number) =>
@@ -621,7 +643,7 @@ function AdminQualityScoreInput({
               const exp = typeof d.__expired === 'number' ? d.__expired : 0;
               const mld = typeof d.__moldy === 'number' ? d.__moldy : 0;
               const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
-              const scoreTotal = graded.reduce((sum, c) => sum + QUALITY_GRADE_SCORES_DASH[d[c]], 0);
+              const scoreTotal = Math.round(graded.reduce((sum, c) => sum + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / 2);
               const mainCrit = category === '축산' ? ['색택', '마블링', '선도'] : ['선도', '상해'];
               const mainGraded = mainCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
               const storeScore = mainGraded.length > 0
@@ -1095,16 +1117,17 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                         const qItems = (item as any).qualityItems as Record<string, any> | null;
                         const isBulkQ = !!(qItems && '__category' in qItems);
                         if (!isBulkQ || !qItems) return null;
-                        const liveScore = Math.min(100, Math.max(0, calcOverallQualityScoreDash(qItems)));
-                        const qScore = qualityAdminScore != null ? Math.min(100, Math.max(0, qualityAdminScore)) : liveScore;
-                        if (qScore === 0) return null;
+                        const liveStoreScore = Math.min(100, Math.max(0, calcOverallQualityScoreDash(qItems)));
+                        const qScore = qualityAdminScore != null ? Math.min(100, Math.max(0, qualityAdminScore)) : liveStoreScore;
+                        const qScoreTotal = calcQualityScoreTotalDash(qItems);
+                        if (qScore === 0 && qScoreTotal === 0) return null;
                         return (
                           <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
                             qScore >= 90 ? 'bg-purple-50 border-purple-200 text-purple-700' :
                             qScore >= 70 ? 'bg-orange-50 border-orange-200 text-orange-700' :
                             'bg-red-50 border-red-200 text-primary'
                           }`} data-testid={`text-quality-score-${item.id}`}>
-                            <span>⭐</span>{qScore}점
+                            점수총계 {qScoreTotal}점 / 매장점수 {qScore}점
                           </div>
                         );
                       })() : (() => {
