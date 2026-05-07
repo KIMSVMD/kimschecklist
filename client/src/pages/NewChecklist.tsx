@@ -1032,54 +1032,6 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
         </div>
       ))}
 
-      {/* Photo Upload */}
-      {effectiveInspectionType === 'vm' && <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-secondary">현장 사진 촬영</h3>
-          {localPreviews.length > 0 && (
-            <span className="text-sm font-bold text-muted-foreground">{localPreviews.length}장</span>
-          )}
-        </div>
-
-        {/* Uploaded photo grid */}
-        {localPreviews.length > 0 && (
-          <div className="grid grid-cols-3 gap-2">
-            {localPreviews.map((preview, i) => (
-              <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted">
-                <PhotoThumbnail src={i < photoUrls.length ? photoUrls[i] : null} className="w-full h-full block">
-                  <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
-                </PhotoThumbnail>
-                <button
-                  onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
-                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all z-10"
-                  data-testid={`btn-remove-photo-${i}`}
-                >
-                  <XCircle className="w-4 h-4" />
-                </button>
-                {i >= photoUrls.length && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
-                    <Loader2 className="w-6 h-6 text-white animate-spin" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add photo button */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 active:scale-[0.98] transition-all"
-          data-testid="btn-add-photo"
-        >
-          {uploadingCount > 0
-            ? <><Loader2 className="w-7 h-7 text-primary animate-spin" /><span className="font-bold text-primary text-lg">업로드 중...</span></>
-            : <><Camera className="w-7 h-7 text-primary" /><span className="font-bold text-primary text-lg">{localPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
-          }
-        </button>
-        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFile} />
-      </div>}
-
       {/* Per-item ○/✗ evaluation */}
       {effectiveInspectionType === 'vm' && guideItems.length > 0 && (
         <div className="space-y-5">
@@ -1215,48 +1167,6 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               </div>
             </div>
           )}
-
-          {/* Ad photo upload */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-secondary">현장 사진 촬영</h3>
-              {adLocalPreviews.length > 0 && <span className="text-sm font-bold text-muted-foreground">{adLocalPreviews.length}장</span>}
-            </div>
-            {adLocalPreviews.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {adLocalPreviews.map((preview, i) => (
-                  <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/30 bg-muted">
-                    <PhotoThumbnail src={i < adPhotoUrls.length ? adPhotoUrls[i] : null} className="w-full h-full block">
-                      <img src={preview} alt={`광고 사진 ${i + 1}`} className="w-full h-full object-cover" />
-                    </PhotoThumbnail>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); removeAdPhoto(i); }}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all z-10"
-                      data-testid={`btn-remove-ad-photo-${i}`}
-                    >
-                      <XCircle className="w-4 h-4" />
-                    </button>
-                    {i >= adPhotoUrls.length && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
-                        <Loader2 className="w-6 h-6 text-white animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={() => adFileInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 active:scale-[0.98] transition-all"
-              data-testid="btn-add-ad-photo"
-            >
-              {adUploadingCount > 0
-                ? <><Loader2 className="w-7 h-7 text-primary animate-spin" /><span className="font-bold text-primary text-lg">업로드 중...</span></>
-                : <><Camera className="w-7 h-7 text-primary" /><span className="font-bold text-primary text-lg">{adLocalPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
-              }
-            </button>
-            <input ref={adFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAdFile} />
-          </div>
 
           {/* Ad items evaluation */}
           {adGuideItems.length > 0 && (
@@ -1652,6 +1562,53 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
               data-testid="textarea-quality-notes"
             />
           </div>
+        </div>
+      )}
+
+      {/* Unified Photo Upload (VM only) */}
+      {effectiveInspectionType === 'vm' && (
+        <div className="space-y-3">
+          <div className="rounded-2xl bg-blue-50 border border-blue-200 p-4 space-y-1.5">
+            <p className="text-sm font-bold text-blue-700">📸 현장 사진 촬영 안내</p>
+            <ul className="text-sm text-blue-600 space-y-0.5">
+              <li>- 조닝 전체가 나오도록 찍어주세요.</li>
+              <li>- 광고물이 있을 경우 광고물이 잘 보이게 찍어주세요.</li>
+            </ul>
+          </div>
+          {localPreviews.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {localPreviews.map((preview, i) => (
+                <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted">
+                  <PhotoThumbnail src={i < photoUrls.length ? photoUrls[i] : null} className="w-full h-full block">
+                    <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                  </PhotoThumbnail>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all z-10"
+                    data-testid={`btn-remove-photo-${i}`}
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
+                  {i >= photoUrls.length && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 active:scale-[0.98] transition-all"
+            data-testid="btn-add-photo"
+          >
+            {uploadingCount > 0
+              ? <><Loader2 className="w-7 h-7 text-primary animate-spin" /><span className="font-bold text-primary text-lg">업로드 중...</span></>
+              : <><Camera className="w-7 h-7 text-primary" /><span className="font-bold text-primary text-lg">{localPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
+            }
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFile} />
         </div>
       )}
 
