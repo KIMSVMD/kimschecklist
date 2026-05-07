@@ -1038,101 +1038,165 @@ export default function StaffDashboard() {
                           const qItems = (item as any).qualityItems as Record<string, any> | null;
                           const qAdminItems = (item as any).qualityAdminItems as Record<string, 'ok' | 'notok'> | null;
                           const qAdminScore = (item as any).qualityAdminScore as number | null | undefined;
-                          const qWeightedScore = (item as any).qualityWeightedScore as string | null | undefined;
                           const qPhotoUrls = (item as any).qualityPhotoUrls as string[] | null;
                           const qNotes = (item as any).qualityNotes as string | null;
-                          const qEntries = qItems ? Object.entries(qItems).filter(([k]) => k !== '__expired' && k !== '__moldy' && k !== '__category') : [];
                           const isBulkQ = !!(qItems && '__category' in qItems);
-                          const autoScore = isBulkQ && qWeightedScore ? parseInt(qWeightedScore) : null;
-                          const displayScore = qAdminScore != null ? qAdminScore : autoScore;
-                          const isAutoScore = qAdminScore == null && displayScore != null;
-                          const displayGrade = displayScore != null
-                            ? (displayScore >= 90 ? 'A' : displayScore >= 80 ? 'B' : displayScore >= 70 ? 'C' : 'E')
+
+                          const GRADE_PTS: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
+                          const ALL_CRIT = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
+                          type ProductRow = { product: string; scoreTotal: number; storeScore: number; crits: { name: string; grade: string }[]; exp: number; mld: number };
+                          const productRows: ProductRow[] = [];
+                          let liveScoreTotal = 0;
+                          let liveStoreScore = 0;
+
+                          if (isBulkQ && qItems) {
+                            const category = qItems.__category as string;
+                            const mainCrit = category === '축산' ? ['색택', '마블링', '선도'] : ['선도', '상해'];
+                            const products = Object.keys(qItems).filter(k => k !== '__category' && k !== '__expired' && k !== '__moldy');
+                            const scoreTotals: number[] = [];
+                            const storeScores: number[] = [];
+                            for (const product of products) {
+                              const d = qItems[product];
+                              if (!d || typeof d !== 'object') continue;
+                              const exp = typeof d.__expired === 'number' ? d.__expired : 0;
+                              const mld = typeof d.__moldy === 'number' ? d.__moldy : 0;
+                              const allGraded = ALL_CRIT.filter(c => GRADE_PTS[d[c]] !== undefined);
+                              if (allGraded.length === 0) continue;
+                              const productScoreTotal = Math.round(allGraded.reduce((s, c) => s + GRADE_PTS[d[c]], 0) / 2);
+                              const mainGraded = mainCrit.filter(c => GRADE_PTS[d[c]] !== undefined);
+                              const productStoreScore = mainGraded.length > 0
+                                ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + GRADE_PTS[d[c]], 0) / mainGraded.length - exp * 2 - mld * 5))
+                                : 0;
+                              const crits = ALL_CRIT.filter(c => d[c]).map(c => ({ name: c, grade: d[c] as string }));
+                              productRows.push({ product, scoreTotal: productScoreTotal, storeScore: productStoreScore, crits, exp, mld });
+                              if (productScoreTotal > 0) scoreTotals.push(productScoreTotal);
+                              if (productStoreScore > 0) storeScores.push(productStoreScore);
+                            }
+                            liveScoreTotal = scoreTotals.length > 0 ? Math.round(scoreTotals.reduce((a, b) => a + b, 0) / scoreTotals.length) : 0;
+                            liveStoreScore = storeScores.length > 0 ? Math.round(storeScores.reduce((a, b) => a + b, 0) / storeScores.length) : 0;
+                          }
+
+                          const displayScoreTotal = liveScoreTotal;
+                          const displayStoreScore = qAdminScore != null ? qAdminScore : liveStoreScore;
+                          const displayGrade = displayScoreTotal > 0
+                            ? (displayScoreTotal >= 100 ? 'A' : displayScoreTotal >= 85 ? 'B' : displayScoreTotal >= 70 ? 'C' : displayScoreTotal > 55 ? 'D' : 'E')
                             : null;
+
+                          const qEntries = qItems ? Object.entries(qItems).filter(([k]) => k !== '__expired' && k !== '__moldy' && k !== '__category') : [];
                           const qChangedCount = !isBulkQ ? qEntries.filter(([name, st]) => {
                             const av = qAdminItems?.[name];
                             if (!av) return false;
                             return (av === 'ok') !== (st === 'ok');
                           }).length : 0;
+
+                          const gradeColor = (g: string) =>
+                            g === 'A' ? 'bg-purple-600 text-white' :
+                            g === 'B' ? 'bg-purple-400 text-white' :
+                            g === 'C' ? 'bg-amber-400 text-white' :
+                            g === 'D' ? 'bg-orange-500 text-white' :
+                            'bg-red-500 text-white';
+
                           return (
-                            <div className="mb-3 space-y-2">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">
+                            <div className="mb-3 space-y-3">
+                              {/* 헤더: 카테고리 + 점수총계/매장점수 + 등급 */}
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-sm px-3 py-1.5 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">
                                   ⭐ 품질{isBulkQ && qItems?.__category ? ` (${qItems.__category})` : ''}
                                 </span>
-                                {displayScore != null && (
-                                  <span className={`text-[10px] px-2 py-1 rounded-full font-black border inline-flex items-center gap-1 ${
-                                    displayScore >= 90 ? 'bg-purple-50 border-purple-200 text-purple-700' :
-                                    displayScore >= 80 ? 'bg-purple-50 border-purple-200 text-purple-700' :
-                                    displayScore >= 70 ? 'bg-orange-50 border-orange-200 text-orange-700' :
-                                    'bg-red-50 border-red-200 text-red-600'
-                                  }`}>
-                                    {displayScore}점
-                                    {isAutoScore && <span className="text-[9px] font-medium opacity-60 ml-0.5">자동</span>}
-                                  </span>
-                                )}
-                                {displayGrade != null && (
-                                  <span className={`text-[10px] px-2 py-1 rounded-full font-black inline-flex items-center ${
-                                    displayGrade === 'A' ? 'bg-purple-600 text-white' :
-                                    displayGrade === 'B' ? 'bg-purple-400 text-white' :
-                                    displayGrade === 'C' ? 'bg-amber-400 text-white' :
-                                    'bg-red-500 text-white'
-                                  }`}>{displayGrade}등급</span>
-                                )}
-                                {qChangedCount > 0 && (
-                                  <span className="text-[10px] px-2 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 font-black">관리자 수정 {qChangedCount}항목</span>
-                                )}
-                              </div>
-                              {qEntries.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {isBulkQ ? (
-                                    qEntries.map(([product, d]: [string, any]) => {
-                                      if (typeof d !== 'object') return null;
-                                      const parts = ['선도','상해','규격','혼입율','색택','마블링'].filter(c => d[c]).map(c => `${c}${d[c]}`);
-                                      if (parts.length === 0) return null;
-                                      return (
-                                        <span key={product} className="text-xs px-3 py-1.5 rounded-xl font-bold border bg-purple-50 border-purple-200 text-purple-700 inline-flex items-center gap-1">
-                                          {product}: {parts.join(' ')}
-                                        </span>
-                                      );
-                                    })
-                                  ) : (
-                                    qEntries.map(([name, st]) => {
-                                      const adminVal = qAdminItems?.[name];
-                                      const staffIsOk = st === 'ok';
-                                      const adminIsOk = adminVal === 'ok';
-                                      const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
-                                      return (
-                                        <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                          wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
-                                          : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                          : 'bg-red-50 border-red-200 text-red-600'
-                                        }`}>
-                                          {name}:&nbsp;
-                                          {wasChanged ? (
-                                            <>
-                                              <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
-                                              <span>→ {adminIsOk ? '○' : '✗'}</span>
-                                              <span className="text-[9px] bg-purple-200 text-purple-800 px-1 rounded-full ml-0.5">수정</span>
-                                            </>
-                                          ) : (
-                                            <span>{staffIsOk ? '○' : '✗'}</span>
-                                          )}
-                                        </span>
-                                      );
-                                    })
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {displayScoreTotal > 0 && (
+                                    <span className={`text-sm font-black px-3 py-1.5 rounded-xl border ${
+                                      displayScoreTotal >= 100 ? 'bg-purple-50 border-purple-300 text-purple-700' :
+                                      displayScoreTotal >= 85 ? 'bg-purple-50 border-purple-200 text-purple-600' :
+                                      displayScoreTotal >= 70 ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                                      'bg-red-50 border-red-200 text-red-600'
+                                    }`}>
+                                      점수총계 {displayScoreTotal}점 / 매장점수 {displayStoreScore}점
+                                    </span>
+                                  )}
+                                  {displayGrade && (
+                                    <span className={`text-base font-black px-3 py-1.5 rounded-xl ${gradeColor(displayGrade)}`}>
+                                      {displayGrade}등급
+                                    </span>
+                                  )}
+                                  {qChangedCount > 0 && (
+                                    <span className="text-xs px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 font-black">관리자 수정 {qChangedCount}항목</span>
                                   )}
                                 </div>
+                              </div>
+
+                              {/* 품목별 점수 (bulk 포맷) */}
+                              {isBulkQ && productRows.length > 0 && (
+                                <div className="space-y-2">
+                                  {productRows.map(({ product, scoreTotal, storeScore, crits, exp, mld }) => {
+                                    const g = scoreTotal >= 100 ? 'A' : scoreTotal >= 85 ? 'B' : scoreTotal >= 70 ? 'C' : scoreTotal > 55 ? 'D' : 'E';
+                                    return (
+                                      <div key={product} className="px-3 py-2.5 rounded-xl bg-purple-50/40 border border-purple-200/60 space-y-2">
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                          <span className="text-sm font-black text-secondary">{product}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-xs font-bold text-secondary/70">점수총계 {scoreTotal}점 / 매장점수 {storeScore}점</span>
+                                            <span className={`text-xs font-black px-2 py-0.5 rounded-md ${gradeColor(g)}`}>{g}등급</span>
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {crits.map(({ name, grade }) => (
+                                            <span key={name} className={`text-xs font-black px-2 py-0.5 rounded-md ${gradeColor(grade)}`}>
+                                              {name} {grade}
+                                            </span>
+                                          ))}
+                                        </div>
+                                        {(exp > 0 || mld > 0) && (
+                                          <div className="flex gap-3 pt-0.5">
+                                            {exp > 0 && <span className="text-xs text-orange-600 font-bold">⚠ 진열기한 경과 {exp}개 (-{exp * 2}점)</span>}
+                                            {mld > 0 && <span className="text-xs text-red-600 font-bold">⚠ 곰팡이 {mld}개 (-{mld * 5}점)</span>}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               )}
+
+                              {/* 구형 포맷: ok/notok 항목 */}
+                              {!isBulkQ && qEntries.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {qEntries.map(([name, st]) => {
+                                    const adminVal = qAdminItems?.[name];
+                                    const staffIsOk = st === 'ok';
+                                    const adminIsOk = adminVal === 'ok';
+                                    const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                    return (
+                                      <span key={name} className={`text-xs px-2.5 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                        wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
+                                        : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
+                                        : 'bg-red-50 border-red-200 text-red-600'
+                                      }`}>
+                                        {name}:&nbsp;
+                                        {wasChanged ? (
+                                          <>
+                                            <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                            <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                            <span className="text-[10px] bg-purple-200 text-purple-800 px-1 rounded-full ml-0.5">수정</span>
+                                          </>
+                                        ) : (
+                                          <span>{staffIsOk ? '○' : '✗'}</span>
+                                        )}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
                               {qNotes && (
-                                <div className="p-2 bg-purple-50/80 rounded-xl border border-purple-200">
-                                  <strong className="block mb-0.5 text-[10px] text-purple-700 font-black">⭐ 품질 특이사항:</strong>
-                                  <p className="text-xs text-secondary">{qNotes}</p>
+                                <div className="p-3 bg-purple-50/80 rounded-xl border border-purple-200">
+                                  <strong className="block mb-1 text-xs text-purple-700 font-black">⭐ 품질 특이사항:</strong>
+                                  <p className="text-sm text-secondary">{qNotes}</p>
                                 </div>
                               )}
                               {qPhotoUrls && qPhotoUrls.length > 0 && (
                                 <div>
-                                  <strong className="block mb-1 text-[10px] text-purple-700 font-black">📸 품질 현장 사진:</strong>
+                                  <strong className="block mb-1.5 text-xs text-purple-700 font-black">📸 품질 현장 사진:</strong>
                                   <QualityPhotoSlider urls={qPhotoUrls} />
                                 </div>
                               )}
