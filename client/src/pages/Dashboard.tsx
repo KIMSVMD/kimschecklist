@@ -564,6 +564,16 @@ function AdminQualityScoreInput({
   const autoScore = isNewFormat ? calcOverallQualityScoreDash(staffQualityItems) : (existingScore ?? 0);
   const displayScore = existingScore != null ? existingScore : autoScore;
 
+  const totalScoreTotal = (() => {
+    const allCrit = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
+    return itemKeys.reduce((sum, k) => {
+      const d = staffQualityItems[k] as Record<string, any>;
+      if (!d || typeof d !== 'object') return sum;
+      const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
+      return sum + graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0);
+    }, 0);
+  })();
+
   const scoreColorClass = (s: number) =>
     s >= 90 ? 'text-purple-700 bg-purple-50 border-purple-300' :
     s >= 70 ? 'text-purple-600 bg-purple-50 border-purple-200' :
@@ -573,16 +583,10 @@ function AdminQualityScoreInput({
     <div className="mt-3 border-t border-purple-200/60 pt-3">
       {/* 자동 계산 점수 */}
       <div className={`flex items-center justify-between px-4 py-3 rounded-xl border font-bold ${scoreColorClass(displayScore)}`}>
-        <div>
-          <span className="text-sm">자동 계산 ({totalItems}개 항목)</span>
-          {weightedScore && (
-            <div className="text-xs text-indigo-700 font-black mt-0.5">환산비율합계 {parseFloat(weightedScore).toFixed(2)}</div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-sm font-black px-2.5 py-1 rounded-full ${gradeColorDash(getQualityGradeDash(displayScore, category))}`}>{getQualityGradeDash(displayScore, category)}등급</span>
-          <span className="text-2xl font-black">{displayScore}점</span>
-        </div>
+        <span className="text-sm">자동 계산 ({totalItems}개 항목)</span>
+        <span className="text-sm font-black">
+          점수총계 {totalScoreTotal}점 / 매장점수 {displayScore}점
+        </span>
       </div>
       {/* 품목별 등급 */}
       {isNewFormat && totalItems > 0 && (
@@ -617,17 +621,20 @@ function AdminQualityScoreInput({
               const exp = typeof d.__expired === 'number' ? d.__expired : 0;
               const mld = typeof d.__moldy === 'number' ? d.__moldy : 0;
               const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
-              const avg = graded.length > 0 ? graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / graded.length : 0;
-              const s = graded.length > 0 ? Math.max(0, Math.round(avg) - exp * 2 - mld * 5) : 0;
-              const g = getQualityGradeDash(s, category);
+              const scoreTotal = graded.reduce((sum, c) => sum + QUALITY_GRADE_SCORES_DASH[d[c]], 0);
+              const mainCrit = category === '축산' ? ['색택', '마블링', '선도'] : ['선도', '상해'];
+              const mainGraded = mainCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
+              const storeScore = mainGraded.length > 0
+                ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / mainGraded.length - exp * 2 - mld * 5))
+                : 0;
+              const g = getQualityGradeDash(storeScore, category);
               return (
                 <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-secondary">{key}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{g}</span>
-                      <span className={`font-black px-2 py-0.5 rounded-full text-xs ${gradeColorDash(g)}`}>{s}점</span>
-                    </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-secondary shrink-0">{key}</span>
+                    <span className="font-black text-right leading-snug">
+                      점수총계 {scoreTotal}점 / 매장점수 {storeScore}점 / <span className={`px-1.5 py-0.5 rounded-md ${gradeColorDash(g)}`}>{g}등급</span>
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {(['선도','상해','규격','혼입율','색택','마블링'] as const).map(c => {
