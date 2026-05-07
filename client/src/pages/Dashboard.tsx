@@ -1228,6 +1228,7 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                     adminComment={(item as any).adminComment}
                     confirmed={(item as any).commentConfirmed}
                     isAdmin={true}
+                    forceShow={true}
                   />
 
                   <div className="flex gap-3 mt-4">
