@@ -483,13 +483,13 @@ function calcOverallQualityScoreDash(items: Record<string, any>): number {
           criteriaScores.reduce((a, b) => a + b, 0) / 3 - expired * 2 - moldy * 5
         ));
       } else {
-        // 청과/채소/수산: 점수총계 = (선도 + 상해 + 규격 + 혼입율) / 2 - 감점
+        // 청과/채소/수산: 점수총계 = (선도 + 상해 + 규격 + 혼입율) 평균 - 감점
         const criteriaScores = ['선도', '상해', '규격', '혼입율']
           .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
           .filter((s): s is number => s !== undefined);
         if (criteriaScores.length === 0) continue;
         storeScore = Math.max(0, Math.round(
-          criteriaScores.reduce((a, b) => a + b, 0) / 2 - expired * 2 - moldy * 5
+          criteriaScores.reduce((a, b) => a + b, 0) / criteriaScores.length - expired * 2 - moldy * 5
         ));
       }
 
