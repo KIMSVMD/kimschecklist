@@ -1282,72 +1282,8 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
                     const hasQualityData = hasQualityItemsInner || hasQualityPhotos || qualityNotes;
                     if (!hasQualityData || viewFilter === 'vm' || (item as any).checklistType === 'ad') return null;
                     const qualityAdminItems = (item as any).qualityAdminItems as Record<string, any> | null;
-                    const isBulkQFormat = !!(qualityItems && '__category' in qualityItems);
-                    const filteredQualityItems = qualityItems
-                      ? Object.fromEntries(Object.entries(qualityItems).filter(([k]) => k !== '__expired' && k !== '__moldy' && k !== '__category'))
-                      : null;
-                    const firstQVal = hasQualityItemsInner && filteredQualityItems ? Object.values(filteredQualityItems)[0] : null;
-                    const isNewQFormat = firstQVal !== null && typeof firstQVal === 'object';
                     return (
                       <>
-                        {hasQualityItemsInner && filteredQualityItems && (
-                          <div className="mt-3 space-y-1">
-                            <span className="text-[10px] px-2 py-1 rounded-full font-black border bg-purple-50 border-purple-300 text-purple-700 inline-flex items-center gap-1">⭐ 품질 {isBulkQFormat && qualityItems!.__category ? `(${qualityItems!.__category})` : ''}</span>
-                            {isBulkQFormat ? (
-                              /* 일괄 형식: 품목별 기준 1행 표시 */
-                              <div className="flex flex-wrap gap-1.5 mt-0.5">
-                                {Object.entries(filteredQualityItems).map(([product, d]: [string, any]) => {
-                                  if (typeof d !== 'object') return null;
-                                  const CRIT_ORDER = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
-                                  const parts = CRIT_ORDER.filter(c => d[c]).map(c => `${c}${d[c]}`);
-                                  if (parts.length === 0) return null;
-                                  return (
-                                    <span key={product} className="text-[10px] px-2 py-1 rounded-full font-bold border bg-purple-50 border-purple-200 text-purple-700 inline-flex items-center gap-1">
-                                      {product}: {parts.join(' ')}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            ) : isNewQFormat ? (
-                              /* 새 형식: 항목명 + 등급 태그 */
-                              <div className="flex flex-wrap gap-1.5 mt-0.5">
-                                {Object.entries(filteredQualityItems).map(([name, d]: [string, any]) => {
-                                  const g = d?.grade || '';
-                                  const s = gradeScoreDash(g);
-                                  if (!g) return null;
-                                  return (
-                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                      s >= 85 ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                      : s >= 70 ? 'bg-amber-50 border-amber-200 text-amber-600'
-                                      : 'bg-red-50 border-red-200 text-red-600'
-                                    }`}>
-                                      {name}: {g}등급({s}점)
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              /* 구 형식: ok/notok 태그 */
-                              <div className="flex flex-wrap gap-1.5 mt-0.5">
-                                {Object.entries(qualityItems!).map(([name, status]: [string, any]) => {
-                                  const adminVal = qualityAdminItems?.[name];
-                                  const staffIsOk = status === 'ok';
-                                  const adminIsOk = adminVal === 'ok';
-                                  const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
-                                  return (
-                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
-                                      wasChanged ? 'bg-purple-50 border-purple-300 text-purple-700'
-                                      : staffIsOk ? 'bg-purple-50 border-purple-200 text-purple-600'
-                                      : 'bg-red-50 border-red-200 text-red-600'
-                                    }`}>
-                                      {name}: {wasChanged ? <>{staffIsOk ? '○' : '✗'} → {adminIsOk ? '○' : '✗'}</> : (staffIsOk ? '○' : '✗')}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
                         {qualityNotes && (
                           <div className="mt-3 p-3 bg-purple-50/80 rounded-2xl border border-purple-200">
                             <strong className="block mb-1 text-[11px] text-purple-700 font-black">⭐ 품질 특이사항:</strong>
