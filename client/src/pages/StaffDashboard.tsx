@@ -26,6 +26,7 @@ const REGIONS: Record<string, string[]> = {
   '소형점': ['부산대', '인천', '고잔', '중계', '김포', '청주'],
 };
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
+const QUALITY_CATEGORIES = ['채소', '청과', '수산', '축산'];
 const ZONES = ['입구', '농산', '수산', '축산', '공산'];
 
 function toLocalDateStr(d: Date) {
@@ -445,7 +446,7 @@ export default function StaffDashboard() {
               </div>
               {/* category chips — black filled active, white bordered inactive */}
               <div className="flex gap-2 overflow-x-auto no-scrollbar py-3 touch-pan-x">
-                {(activeTab === 'quality' ? CATEGORIES.filter(c => c !== '공산') : CATEGORIES).map(cat => {
+                {(activeTab === 'quality' ? QUALITY_CATEGORIES : CATEGORIES).map(cat => {
                   const badge = catBadge(cat);
                   return (
                     <button key={cat}
@@ -762,9 +763,7 @@ export default function StaffDashboard() {
                               <div className="shrink-0">
                                 {isScored && grade ? (
                                   <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${gColor}`}>{grade}</span>
-                                ) : isPending ? (
-                                  <span className="text-[10px] font-bold text-muted-foreground">미평가</span>
-                                ) : (
+                                ) : isPending ? null : (
                                   <span className="text-[10px] font-bold text-muted-foreground/30">미점검</span>
                                 )}
                               </div>
@@ -901,9 +900,7 @@ export default function StaffDashboard() {
                                   <span className="text-[10px] font-medium opacity-70 ml-0.5">평균</span>
                                 )}
                               </div>
-                            ) : (
-                              <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
-                            )}
+                            ) : null}
                           </div>
                         </div>
 

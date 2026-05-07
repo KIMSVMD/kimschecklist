@@ -631,8 +631,8 @@ function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: {
     category: filterCategory !== '전체' ? filterCategory : undefined,
   });
 
-  // 선택 카테고리 전체 데이터 — 순위 계산용 (전체 선택 시 농산 기본)
-  const effectiveCat = filterCategory !== '전체' ? filterCategory : '농산';
+  // 선택 카테고리 전체 데이터 — 순위 계산용 (전체 선택 시 품질은 채소, 나머지는 농산 기본)
+  const effectiveCat = filterCategory !== '전체' ? filterCategory : (viewFilter === 'quality' ? '채소' : '농산');
   const { data: agriAll } = useChecklists({ category: effectiveCat });
   const { data: validGuideProducts = [] } = useValidGuideProducts(filterYear, filterMonth);
 
