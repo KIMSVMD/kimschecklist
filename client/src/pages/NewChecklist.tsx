@@ -1086,7 +1086,7 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
 
       {/* Notes */}
       {effectiveInspectionType === 'vm' && <div className="space-y-3">
-        <h3 className="text-xl font-bold text-secondary">특이사항 (선택)</h3>
+        <h3 className="text-xl font-bold text-secondary">진열 특이사항 (선택)</h3>
         <textarea
           placeholder="VM 집기 부족/파손/광고물 요청 등..."
           className="w-full p-5 rounded-2xl border-2 border-border bg-white text-lg focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all min-h-[8rem] resize-none"
@@ -1221,7 +1221,17 @@ function ItemsForm({ adOnly, qualityOnly = false, branch, selYear, selMonth, sel
           )}
 
           <div className="space-y-2">
-            <label className="text-base font-bold text-secondary">특이사항 (선택)</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-base font-bold text-secondary">광고(+셀링) 특이사항 (선택)</label>
+              <a
+                href="https://kimsclub-design.noavibe.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 text-xs font-bold text-[#006341] bg-[#006341]/10 border border-[#006341]/30 px-2.5 py-1 rounded-full hover:bg-[#006341]/20 transition-all active:scale-95"
+              >
+                📋 광고 신청 →
+              </a>
+            </div>
             <textarea
               value={adNotes}
               onChange={e => setAdNotes(e.target.value)}
