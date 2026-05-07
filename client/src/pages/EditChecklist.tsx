@@ -359,50 +359,6 @@ export default function EditChecklist() {
           </div>
         )}
 
-        {/* Photo Upload */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-secondary">현장 사진</h3>
-            {localPreviews.length > 0 && (
-              <span className="text-sm font-bold text-muted-foreground">{localPreviews.length}장</span>
-            )}
-          </div>
-
-          {localPreviews.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
-              {localPreviews.map((preview, i) => (
-                <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted">
-                  <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removePhoto(i)}
-                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
-                    data-testid={`btn-remove-photo-${i}`}
-                  >
-                    <XCircle className="w-4 h-4" />
-                  </button>
-                  {i >= photoUrls.length && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 active:scale-[0.98] transition-all"
-            data-testid="btn-add-photo"
-          >
-            {uploadingCount > 0
-              ? <><Loader2 className="w-7 h-7 text-primary animate-spin" /><span className="font-bold text-primary text-lg">업로드 중...</span></>
-              : <><Camera className="w-7 h-7 text-primary" /><span className="font-bold text-primary text-lg">{localPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
-            }
-          </button>
-          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFile} />
-        </div>
-
         {/* Per-item Status */}
         {guideItems.length > 0 && (
           <div className="space-y-5">
@@ -510,45 +466,6 @@ export default function EditChecklist() {
                 </div>
               </div>
             )}
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-secondary">광고 현장 사진</h3>
-                {adLocalPreviews.length > 0 && <span className="text-sm font-bold text-muted-foreground">{adLocalPreviews.length}장</span>}
-              </div>
-              {adLocalPreviews.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {adLocalPreviews.map((preview, i) => (
-                    <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-amber-200 bg-muted">
-                      <img src={preview} alt={`광고 사진 ${i + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => removeAdPhoto(i)}
-                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
-                        data-testid={`btn-remove-ad-photo-edit-${i}`}
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
-                      {i >= adPhotoUrls.length && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <Loader2 className="w-6 h-6 text-white animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button
-                onClick={() => adFileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-amber-300 bg-amber-50 active:scale-[0.98] transition-all"
-                data-testid="btn-add-ad-photo-edit"
-              >
-                {adUploadingCount > 0
-                  ? <><Loader2 className="w-7 h-7 text-amber-500 animate-spin" /><span className="font-bold text-amber-600 text-lg">업로드 중...</span></>
-                  : <><Camera className="w-7 h-7 text-amber-500" /><span className="font-bold text-amber-600 text-lg">{adLocalPreviews.length > 0 ? '광고 사진 추가' : '광고 사진 업로드'}</span></>
-                }
-              </button>
-              <input ref={adFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAdFile} />
-            </div>
 
             {adGuideItems.length > 0 && (
               <div className="space-y-4">
@@ -1003,6 +920,51 @@ export default function EditChecklist() {
               저장 완료 — {lastSaved.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           </motion.div>
+        )}
+
+        {/* Unified Photo Upload */}
+        {checklistType !== 'quality' && (
+          <div className="space-y-3">
+            <div className="rounded-2xl bg-blue-50 border border-blue-200 p-4 space-y-1.5">
+              <p className="text-sm font-bold text-blue-700">📸 현장 사진 촬영 안내</p>
+              <ul className="text-sm text-blue-600 space-y-0.5">
+                <li>- 조닝 전체가 가이드와 같이 나오도록 찍어주세요.</li>
+                <li>- 광고물이 있을 경우 광고물이 잘 보이게 찍어주세요.</li>
+              </ul>
+            </div>
+            {localPreviews.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {localPreviews.map((preview, i) => (
+                  <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-border bg-muted">
+                    <img src={preview} alt={`사진 ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removePhoto(i)}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-all"
+                      data-testid={`btn-remove-photo-${i}`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                    {i >= photoUrls.length && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-3 py-5 rounded-3xl border-4 border-dashed border-primary/30 bg-primary/5 active:scale-[0.98] transition-all"
+              data-testid="btn-add-photo"
+            >
+              {uploadingCount > 0
+                ? <><Loader2 className="w-7 h-7 text-primary animate-spin" /><span className="font-bold text-primary text-lg">업로드 중...</span></>
+                : <><Camera className="w-7 h-7 text-primary" /><span className="font-bold text-primary text-lg">{localPreviews.length > 0 ? '사진 추가하기' : '탭하여 사진 업로드'}</span></>
+              }
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFile} />
+          </div>
         )}
 
         {guideItems.length > 0 && !allItemsEvaluated && (
