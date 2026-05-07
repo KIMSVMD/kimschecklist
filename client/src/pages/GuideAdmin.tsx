@@ -1365,6 +1365,8 @@ export default function GuideAdmin() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [visibilityEditId, setVisibilityEditId] = useState<number | null>(null);
+  const [periodForm, setPeriodForm] = useState({ fromYear: new Date().getFullYear(), fromMonth: 1, toYear: new Date().getFullYear(), toMonth: 12 });
   useEffect(() => {
     if (!authLoading && !adminStatus?.isAdmin) {
       setLocation('/admin/login');
@@ -1454,6 +1456,43 @@ export default function GuideAdmin() {
       toast({ title: "삭제 완료" });
     } catch (err: any) {
       toast({ title: "삭제 실패", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleVisibilityChange = async (
+    guide: Guide,
+    mode: 'always' | 'period' | 'hidden',
+    period?: { fromYear: number; fromMonth: number; toYear: number; toMonth: number },
+  ) => {
+    const visibilityFields =
+      mode === 'always'
+        ? { validFromYear: null, validFromMonth: null, validToYear: null, validToMonth: null }
+        : mode === 'hidden'
+        ? { validFromYear: 9999, validFromMonth: 1, validToYear: 9999, validToMonth: 12 }
+        : { validFromYear: period!.fromYear, validFromMonth: period!.fromMonth, validToYear: period!.toYear, validToMonth: period!.toMonth };
+    try {
+      await updateMutation.mutateAsync({
+        id: guide.id,
+        payload: {
+          category: guide.category,
+          product: guide.product,
+          storeType: guide.storeType,
+          guideType: (guide as any).guideType || 'vm',
+          points: guide.points as string[],
+          items: guide.items as string[],
+          imageUrl: guide.imageUrl,
+          imageUrls: (guide as any).imageUrls || null,
+          videoUrl: (guide as any).videoUrl || null,
+          videoLinkUrl: (guide as any).videoLinkUrl || null,
+          itemWeights: (guide as any).itemWeights || null,
+          attachFileUrls: (guide as any).attachFileUrls || null,
+          ...visibilityFields,
+        },
+      });
+      toast({ title: mode === 'always' ? '항상 노출로 변경됨' : mode === 'hidden' ? '노출 안함으로 변경됨' : '기간 설정 완료' });
+      setVisibilityEditId(null);
+    } catch (err: any) {
+      toast({ title: '변경 실패', description: err.message, variant: 'destructive' });
     }
   };
 
@@ -1700,6 +1739,35 @@ export default function GuideAdmin() {
                               ) : (
                                 <p className="text-xs text-muted-foreground/60 mt-0.5">항상 노출</p>
                               )}
+                              <div className="flex gap-1 mt-1.5">
+                                {([
+                                  { mode: 'always' as const, label: '항상노출', isActive: (guide as any).validFromYear == null, active: 'bg-sky-500 text-white', inactive: 'bg-muted text-muted-foreground hover:bg-sky-100 hover:text-sky-700' },
+                                  { mode: 'period' as const, label: '기간설정', isActive: (guide as any).validFromYear && (guide as any).validFromYear !== 9999, active: 'bg-blue-500 text-white', inactive: 'bg-muted text-muted-foreground hover:bg-blue-100 hover:text-blue-700' },
+                                  { mode: 'hidden' as const, label: '노출안함', isActive: (guide as any).validFromYear === 9999, active: 'bg-red-500 text-white', inactive: 'bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-700' },
+                                ]).map(({ mode, label, isActive, active, inactive }) => (
+                                  <button
+                                    key={mode}
+                                    onClick={() => {
+                                      if (mode === 'period') {
+                                        const fy = (guide as any).validFromYear;
+                                        setPeriodForm({
+                                          fromYear: fy && fy !== 9999 ? fy : new Date().getFullYear(),
+                                          fromMonth: (guide as any).validFromMonth ?? 1,
+                                          toYear: (guide as any).validToYear && (guide as any).validToYear !== 9999 ? (guide as any).validToYear : new Date().getFullYear(),
+                                          toMonth: (guide as any).validToMonth ?? 12,
+                                        });
+                                        setVisibilityEditId(visibilityEditId === guide.id ? null : guide.id);
+                                      } else {
+                                        handleVisibilityChange(guide, mode);
+                                      }
+                                    }}
+                                    disabled={updateMutation.isPending}
+                                    className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 ${isActive ? active : inactive}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                             <div className="flex flex-col gap-2 shrink-0">
                               <button
@@ -1718,6 +1786,48 @@ export default function GuideAdmin() {
                               </button>
                             </div>
                           </div>
+
+                          {visibilityEditId === guide.id && (
+                            <div className="mx-4 mb-3 p-3 rounded-2xl border border-blue-200 bg-blue-50 space-y-2">
+                              <p className="text-xs font-bold text-blue-700">노출 기간 설정</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <p className="text-[11px] font-semibold text-blue-600">시작</p>
+                                  <div className="flex gap-1">
+                                    <select value={periodForm.fromYear} onChange={e => setPeriodForm(p => ({ ...p, fromYear: Number(e.target.value) }))} className="flex-1 px-2 py-1.5 rounded-lg border border-blue-200 text-xs font-bold bg-white">
+                                      {[2025,2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}년</option>)}
+                                    </select>
+                                    <select value={periodForm.fromMonth} onChange={e => setPeriodForm(p => ({ ...p, fromMonth: Number(e.target.value) }))} className="w-14 px-1 py-1.5 rounded-lg border border-blue-200 text-xs font-bold bg-white">
+                                      {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{m}월</option>)}
+                                    </select>
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-[11px] font-semibold text-blue-600">종료</p>
+                                  <div className="flex gap-1">
+                                    <select value={periodForm.toYear} onChange={e => setPeriodForm(p => ({ ...p, toYear: Number(e.target.value) }))} className="flex-1 px-2 py-1.5 rounded-lg border border-blue-200 text-xs font-bold bg-white">
+                                      {[2025,2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}년</option>)}
+                                    </select>
+                                    <select value={periodForm.toMonth} onChange={e => setPeriodForm(p => ({ ...p, toMonth: Number(e.target.value) }))} className="w-14 px-1 py-1.5 rounded-lg border border-blue-200 text-xs font-bold bg-white">
+                                      {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{m}월</option>)}
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  onClick={() => handleVisibilityChange(guide, 'period', periodForm)}
+                                  disabled={updateMutation.isPending}
+                                  className="flex-1 py-1.5 rounded-xl bg-blue-500 text-white text-xs font-black disabled:opacity-50"
+                                >
+                                  {updateMutation.isPending ? '저장 중...' : '확정'}
+                                </button>
+                                <button onClick={() => setVisibilityEditId(null)} className="px-3 py-1.5 rounded-xl bg-muted text-secondary text-xs font-bold">
+                                  취소
+                                </button>
+                              </div>
+                            </div>
+                          )}
 
                           <button
                             onClick={() => setExpandedId(expandedId === guide.id ? null : guide.id)}
