@@ -98,12 +98,12 @@ export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin,
   const canReply = isAdmin || isConfirmed;
 
   return (
-    <div className={`rounded-2xl border-2 overflow-hidden ${isConfirmed ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+    <div className={`rounded-2xl border-2 overflow-hidden ${isConfirmed ? "border-emerald-200 bg-emerald-50" : "border-[#006341]/30 bg-[#006341]/5"}`}>
       {!hideComment && (
         <>
           <div className="flex items-center gap-2 px-4 pt-3 pb-1">
-            <MessageSquare className={`w-4 h-4 ${isConfirmed ? "text-emerald-600" : "text-amber-600"}`} />
-            <span className={`text-xs font-black uppercase tracking-wide ${isConfirmed ? "text-emerald-600" : "text-amber-600"}`}>
+            <MessageSquare className={`w-4 h-4 ${isConfirmed ? "text-emerald-600" : "text-[#006341]"}`} />
+            <span className={`text-xs font-black uppercase tracking-wide ${isConfirmed ? "text-emerald-600" : "text-[#006341]"}`}>
               관리자 코멘트
             </span>
             {isConfirmed && (
@@ -123,7 +123,7 @@ export function VMCommentThread({ checklistId, adminComment, confirmed, isAdmin,
           <button
             onClick={handleConfirm}
             disabled={confirmMutation.isPending}
-            className="w-full py-3 rounded-xl bg-amber-500 text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+            className="w-full py-3 rounded-xl bg-[#006341] text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
             data-testid={`btn-confirm-vm-${checklistId}`}
           >
             {confirmMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-5 h-5" />}
