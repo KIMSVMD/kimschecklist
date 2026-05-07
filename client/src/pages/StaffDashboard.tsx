@@ -1044,7 +1044,7 @@ export default function StaffDashboard() {
 
                           const GRADE_PTS: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
                           const ALL_CRIT = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
-                          type ProductRow = { product: string; scoreTotal: number; storeScore: number; crits: { name: string; grade: string }[]; exp: number; mld: number };
+                          type ProductRow = { product: string; scoreTotal: number; storeScore: number; crits: { name: string; grade: string }[]; exp: number; mld: number; bloodspot: number };
                           const productRows: ProductRow[] = [];
                           let liveScoreTotal = 0;
                           let liveStoreScore = 0;
@@ -1070,7 +1070,7 @@ export default function StaffDashboard() {
                                 ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + GRADE_PTS[d[c]], 0) / mainGraded.length - penalty))
                                 : 0;
                               const crits = ALL_CRIT.filter(c => d[c]).map(c => ({ name: c, grade: d[c] as string }));
-                              productRows.push({ product, scoreTotal: productScoreTotal, storeScore: productStoreScore, crits, exp, mld });
+                              productRows.push({ product, scoreTotal: productScoreTotal, storeScore: productStoreScore, crits, exp, mld, bloodspot });
                               if (productScoreTotal > 0) scoreTotals.push(productScoreTotal);
                               if (productStoreScore > 0) storeScores.push(productStoreScore);
                             }
@@ -1130,7 +1130,7 @@ export default function StaffDashboard() {
                               {/* 품목별 점수 (bulk 포맷) */}
                               {isBulkQ && productRows.length > 0 && (
                                 <div className="space-y-2">
-                                  {productRows.map(({ product, scoreTotal, storeScore, crits, exp, mld }) => {
+                                  {productRows.map(({ product, scoreTotal, storeScore, crits, exp, mld, bloodspot }) => {
                                     const g = scoreTotal >= 100 ? 'A' : scoreTotal >= 85 ? 'B' : scoreTotal >= 70 ? 'C' : scoreTotal > 55 ? 'D' : 'E';
                                     return (
                                       <div key={product} className="px-3 py-2.5 rounded-xl bg-purple-50/40 border border-purple-200/60 space-y-2">
