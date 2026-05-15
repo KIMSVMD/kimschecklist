@@ -18,14 +18,19 @@ export default function AdminLogin() {
     }
   }, [adminStatus?.isAdmin, setLocation]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async () => {
+    if (loginMutation.isPending || !password) return;
     try {
       await loginMutation.mutateAsync(password);
       setLocation('/admin/guides');
     } catch (err: any) {
       toast({ title: "로그인 실패", description: err.message, variant: "destructive" });
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleLogin();
   };
 
   return (
@@ -60,7 +65,8 @@ export default function AdminLogin() {
           </div>
 
           <button
-            type="submit"
+            type="button"
+            onClick={handleLogin}
             disabled={loginMutation.isPending || !password}
             className="w-full py-5 rounded-2xl bg-primary text-white font-black text-xl shadow-lg shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             data-testid="button-admin-login"
