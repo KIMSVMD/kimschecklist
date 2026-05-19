@@ -11,7 +11,10 @@ const httpServer = createServer(app);
 app.set("trust proxy", 1);
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || "https://kims-checklist26-vmd.noavibe.app",
+  origin: [
+    "https://kims-checklist26-vmd.noavibe.app",
+    "https://jingyeong01-kims-check.noavibe.app",
+  ],
   credentials: true,
 }));
 
