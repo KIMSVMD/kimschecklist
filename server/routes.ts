@@ -9,6 +9,9 @@ import { z } from "zod";
 import path from "path";
 import fs from "fs";
 import express from "express";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "fallback-secret";
 // Keep /uploads/ static serving for any older records
 const uploadDir = path.join(process.cwd(), "uploads");
 try {
@@ -19,8 +22,19 @@ try {
   // read-only filesystem (e.g. Vercel) - skip
 }
 
+function verifyAdminToken(req: Request): boolean {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return false;
+  try {
+    jwt.verify(authHeader.slice(7), JWT_SECRET);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if ((req.session as any).isAdmin) {
+  if (verifyAdminToken(req)) {
     return next();
   }
   res.status(401).json({ message: "관리자 권한이 필요합니다." });
@@ -36,20 +50,19 @@ export async function registerRoutes(
   app.post(api.admin.login.path, (req, res) => {
     const { password } = req.body;
     if (password === process.env.ADMIN_PASSWORD) {
-      (req.session as any).isAdmin = true;
-      res.json({ ok: true });
+      const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: '7d' });
+      res.json({ ok: true, token });
     } else {
       res.status(401).json({ message: "비밀번호가 올바르지 않습니다." });
     }
   });
 
-  app.post(api.admin.logout.path, (req, res) => {
-    req.session.destroy(() => {});
+  app.post(api.admin.logout.path, (_req, res) => {
     res.json({ ok: true });
   });
 
   app.get(api.admin.me.path, (req, res) => {
-    res.json({ isAdmin: !!(req.session as any).isAdmin });
+    res.json({ isAdmin: verifyAdminToken(req) });
   });
 
   // Guide routes (public read, admin write)
@@ -388,7 +401,7 @@ export async function registerRoutes(
       const { content, authorType, photoUrl, photoUrls } = req.body;
       if (!content || !authorType) return res.status(400).json({ message: "content and authorType required" });
       if (!['admin', 'staff'].includes(authorType)) return res.status(400).json({ message: "authorType must be admin or staff" });
-      if (authorType === 'admin' && !(req.session as any).isAdmin) {
+      if (authorType === 'admin' && !verifyAdminToken(req)) {
         return res.status(401).json({ message: "관리자 권한이 필요합니다." });
       }
       const reply = await storage.addCleaningReply({ cleaningId: id, content, authorType, photoUrl: photoUrl ?? null, photoUrls: photoUrls ?? null });
@@ -678,7 +691,7 @@ export async function registerRoutes(
       const { content, authorType, photoUrl, photoUrls } = req.body;
       if (!content || !authorType) return res.status(400).json({ message: "content and authorType required" });
       if (!['admin', 'staff'].includes(authorType)) return res.status(400).json({ message: "authorType must be admin or staff" });
-      if (authorType === 'admin' && !(req.session as any).isAdmin) {
+      if (authorType === 'admin' && !verifyAdminToken(req)) {
         return res.status(401).json({ message: "관리자 권한이 필요합니다." });
       }
       const reply = await storage.addChecklistReply({ checklistId: id, content, authorType, photoUrl: photoUrl ?? null, photoUrls: photoUrls ?? null });

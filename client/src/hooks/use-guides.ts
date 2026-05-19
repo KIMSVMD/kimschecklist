@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Guide } from "@shared/schema";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 export function useGuides() {
   return useQuery<Guide[]>({
@@ -95,7 +96,11 @@ export function useAdminStatus() {
   return useQuery<{ isAdmin: boolean }>({
     queryKey: ['/api/admin/me'],
     queryFn: async () => {
-      const res = await fetch('https://kimschecklist.onrender.com/api/admin/me', { credentials: 'include' });
+      const token = localStorage.getItem('admin_token');
+      if (!token) return { isAdmin: false };
+      const res = await fetch('https://kimschecklist.onrender.com/api/admin/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       return res.json();
     },
   });
@@ -109,13 +114,14 @@ export function useAdminLogin() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
-        credentials: 'include',
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || '로그인 실패');
       }
-      return res.json();
+      const data = await res.json();
+      localStorage.setItem('admin_token', data.token);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/me'] });
@@ -127,7 +133,7 @@ export function useAdminLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      await fetch('https://kimschecklist.onrender.com/api/admin/logout', { method: 'POST', credentials: 'include' });
+      localStorage.removeItem('admin_token');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/me'] });
@@ -151,9 +157,8 @@ export function useCreateGuide() {
     mutationFn: async (payload: GuidePayload) => {
       const res = await fetch('https://kimschecklist.onrender.com/api/guides', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(payload),
-        credentials: 'include',
       });
       if (!res.ok) {
         const err = await res.json();
@@ -175,9 +180,8 @@ export function useUpdateGuide() {
     mutationFn: async ({ id, payload }: { id: number; payload: Partial<GuidePayload> }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/guides/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(payload),
-        credentials: 'include',
       });
       if (!res.ok) {
         const err = await res.json();
@@ -200,7 +204,7 @@ export function useDeleteGuide() {
     mutationFn: async (id: number) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/guides/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('삭제 실패');
     },

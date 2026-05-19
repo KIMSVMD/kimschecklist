@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { z } from "zod";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 export function useChecklists(filters?: { branch?: string; category?: string }) {
   // Construct query string for URL
@@ -14,7 +15,7 @@ export function useChecklists(filters?: { branch?: string; category?: string }) 
   return useQuery({
     queryKey: [api.checklists.list.path, filters?.branch, filters?.category],
     queryFn: async () => {
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(url, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to fetch checklists");
       const data = await res.json();
       return api.checklists.list.responses[200].parse(data);
@@ -27,7 +28,7 @@ export function useChecklist(id: number) {
     queryKey: [api.checklists.get.path, id],
     queryFn: async () => {
       const url = `https://kimschecklist.onrender.com${buildUrl(api.checklists.get.path, { id })}`;
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(url, { headers: getAuthHeaders() });
       if (res.status === 404) return null;
       if (!res.ok) throw new Error("Failed to fetch checklist");
       const data = await res.json();
@@ -44,9 +45,8 @@ export function useCreateChecklist() {
       const validated = api.checklists.create.input.parse(data);
       const res = await fetch(`https://kimschecklist.onrender.com${api.checklists.create.path}`, {
         method: api.checklists.create.method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(validated),
-        credentials: "include",
       });
       
       if (!res.ok) {
@@ -70,7 +70,7 @@ export function useDeleteChecklist() {
     mutationFn: async (id: number) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('삭제 실패');
     },
@@ -87,9 +87,8 @@ export function useUpdateChecklist() {
     mutationFn: async ({ id, data }: { id: number; data: Partial<z.infer<typeof api.checklists.create.input>> }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(data),
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to update checklist');
       return res.json();
@@ -115,9 +114,8 @@ export function useSaveChecklistComment() {
     mutationFn: async ({ id, adminComment }: { id: number; adminComment: string }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/comment`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ adminComment }),
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('코멘트 저장 실패');
       return res.json();
@@ -134,7 +132,7 @@ export function useConfirmChecklistComment() {
     mutationFn: async (id: number) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/confirm`, {
         method: 'PATCH',
-        credentials: 'include',
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('확인 처리 실패');
       return res.json();
@@ -152,9 +150,8 @@ export function useSaveChecklistReply() {
     mutationFn: async ({ id, staffReply }: { id: number; staffReply: string }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/reply`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ staffReply }),
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('답글 저장 실패');
       return res.json();
@@ -172,9 +169,8 @@ export function useUpdateChecklistScore() {
     mutationFn: async ({ id, adminScore, adminItems }: { id: number; adminScore: number | null; adminItems?: Record<string, 'ok' | 'notok'> | null }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/score`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ adminScore, adminItems: adminItems ?? null }),
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('점수 저장 실패');
       return res.json();
@@ -191,9 +187,8 @@ export function useUpdateChecklistAdScore() {
     mutationFn: async ({ id, adAdminScore, adAdminItems }: { id: number; adAdminScore: number | null; adAdminItems?: Record<string, 'ok' | 'notok'> | null }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/ad-score`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ adAdminScore, adAdminItems: adAdminItems ?? null }),
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('광고 점수 저장 실패');
       return res.json();
@@ -210,9 +205,8 @@ export function useUpdateChecklistQualityScore() {
     mutationFn: async ({ id, qualityAdminScore, qualityAdminItems }: { id: number; qualityAdminScore: number | null; qualityAdminItems?: Record<string, 'ok' | 'notok'> | null }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/quality-score`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ qualityAdminScore, qualityAdminItems: qualityAdminItems ?? null }),
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('품질 점수 저장 실패');
       return res.json();
@@ -229,9 +223,8 @@ export function useUpdateChecklistItemStatus() {
     mutationFn: async ({ id, itemName, newStatus }: { id: number; itemName: string; newStatus: string }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/item-status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ itemName, newStatus }),
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('항목 상태 변경 실패');
       return res.json();
@@ -245,7 +238,7 @@ export function useUpdateChecklistItemStatus() {
 export function useChecklistReplies(checklistId: number | null | undefined) {
   return useQuery({
     queryKey: ["/api/checklists", checklistId, "replies"],
-    queryFn: () => fetch(`https://kimschecklist.onrender.com/api/checklists/${checklistId}/replies`, { credentials: 'include' }).then(r => r.json()),
+    queryFn: () => fetch(`https://kimschecklist.onrender.com/api/checklists/${checklistId}/replies`, { headers: getAuthHeaders() }).then(r => r.json()),
     enabled: checklistId != null,
   });
 }
@@ -256,9 +249,8 @@ export function useAddChecklistReply() {
     mutationFn: async ({ id, content, authorType, photoUrl, photoUrls }: { id: number; content: string; authorType: 'admin' | 'staff'; photoUrl?: string | null; photoUrls?: string[] | null }) => {
       const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/replies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ content, authorType, photoUrl: photoUrl ?? null, photoUrls: photoUrls ?? null }),
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('답글 저장 실패');
       return res.json();
