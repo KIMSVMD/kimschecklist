@@ -7,7 +7,7 @@ import { useAdminStatus, useValidGuideProducts } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { calcCleaningScore, scoreColor, getGrade, gradeColor } from "@/lib/scoring";
+import { calcCleaningScore, scoreColor, computeRelativeGrades, gradeColor } from "@/lib/scoring";
 import {
   Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
   CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
@@ -1836,7 +1836,7 @@ function RankingTab() {
         {(['A', 'B', 'C'] as const).map(g => (
           <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
         ))}
-        <span className="text-[10px] text-muted-foreground">80/60/0 기준</span>
+        <span className="text-[10px] text-muted-foreground">상위20%/50% 상대평가</span>
       </div>
 
       {/* Ranking list */}
@@ -1847,6 +1847,9 @@ function RankingTab() {
       ) : (
         <div className="space-y-0.5">
           {(() => {
+            const gradeMap = computeRelativeGrades(
+              ranking.filter(r => r.status === 'scored').map(r => r.avg),
+            );
             let position = 0;
             let displayRank = 0;
             let prevAvg: number | null = null;
@@ -1861,7 +1864,7 @@ function RankingTab() {
                 }
               }
               const medal = displayRank === 1 && isScored ? '🥇' : displayRank === 2 && isScored ? '🥈' : displayRank === 3 && isScored ? '🥉' : null;
-              const grade = getGrade(avg);
+              const grade = avg != null ? (gradeMap.get(avg) ?? null) : null;
               const gColor = gradeColor(grade);
               const avgColor = avg != null ? (avg >= 80 ? 'text-blue-600' : avg >= 60 ? 'text-amber-600' : 'text-red-500') : '';
               const rowBg = isScored

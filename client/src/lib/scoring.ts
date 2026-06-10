@@ -45,11 +45,31 @@ export function scoreLabel(score: number): string {
   return "미흡";
 }
 
-export function getGrade(score: number | null): 'A' | 'B' | 'C' | null {
-  if (score == null) return null;
-  if (score >= 90) return 'A';
-  if (score >= 70) return 'B';
-  return 'C';
+/**
+ * 월별 상대평가: 점검 완료 점포 전체 점수 기준
+ * 상위 20% → A, 중간 30% → B, 하위 50% → C
+ * 동점은 반드시 같은 등급 (더 높은 등급 적용)
+ */
+export function computeRelativeGrades(
+  scores: (number | null)[],
+): Map<number, 'A' | 'B' | 'C'> {
+  const valid = scores.filter((s): s is number => s != null);
+  const n = valid.length;
+  if (n === 0) return new Map();
+
+  const uniqueSorted = [...new Set(valid)].sort((a, b) => b - a);
+  const result = new Map<number, 'A' | 'B' | 'C'>();
+  let cumCount = 0;
+
+  for (const score of uniqueSorted) {
+    const countAtScore = valid.filter(s => s === score).length;
+    const ratio = cumCount / n;
+    const grade: 'A' | 'B' | 'C' = ratio < 0.2 ? 'A' : ratio < 0.5 ? 'B' : 'C';
+    result.set(score, grade);
+    cumCount += countAtScore;
+  }
+
+  return result;
 }
 
 export function gradeColor(grade: 'A' | 'B' | 'C' | null): string {
