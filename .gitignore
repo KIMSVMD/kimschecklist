@@ -2,7 +2,7 @@ node_modules
 dist
 .DS_Store
 server/public
-vite.config.ts.*
+vite.config.ts.bak
 *.tar.gz
 .vercel
 .local/
