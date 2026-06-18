@@ -72,6 +72,12 @@ export function computeRelativeGrades(
   return result;
 }
 
+export function computeAbsoluteGrade(score: number): 'A' | 'B' | 'C' {
+  if (score >= 95) return 'A';
+  if (score >= 75) return 'B';
+  return 'C';
+}
+
 export function gradeColor(grade: 'A' | 'B' | 'C' | null): string {
   if (grade === 'A') return 'text-blue-600 bg-blue-50 border-blue-200';
   if (grade === 'B') return 'text-amber-600 bg-amber-50 border-amber-200';

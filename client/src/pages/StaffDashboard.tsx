@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { calcCleaningScore, scoreColor, computeRelativeGrades, gradeColor } from "@/lib/scoring";
+import { calcCleaningScore, scoreColor, computeRelativeGrades, computeAbsoluteGrade, gradeColor } from "@/lib/scoring";
 import { useStaffNotifications, useGuideNotifications, type StaffNotification } from "@/hooks/use-notifications";
 import { QualityPhotoSlider } from "@/components/QualityPhotoSlider";
 
@@ -698,9 +698,14 @@ export default function StaffDashboard() {
                 const rawRanking = activeTab === 'quality' ? qualityRanking : vmRanking;
                 const title = activeTab === 'quality' ? '품질 월별 피드백' : '진열(+광고) 월별 피드백';
                 const accentClass = activeTab === 'quality' ? 'text-purple-600' : 'text-primary';
-                const gradeMap = computeRelativeGrades(
+                const isAbsoluteGrading = activeTab === 'vm';
+                const gradeMap = isAbsoluteGrading ? null : computeRelativeGrades(
                   rawRanking.filter(r => r.status === 'scored').map(r => r.avg),
                 );
+                const getGrade = (avg: number | null): 'A' | 'B' | 'C' | null => {
+                  if (avg == null) return null;
+                  return isAbsoluteGrading ? computeAbsoluteGrade(avg) : (gradeMap!.get(avg) ?? null);
+                };
                 // Sort by grade A→B→C, then same grade: score desc, then 대형→중형→소형
                 const gradeOrder = { A: 0, B: 1, C: 2 } as const;
                 const storeOrder: Record<string, number> = {};
@@ -715,7 +720,7 @@ export default function StaffDashboard() {
                   '인천',,'고잔','김포',
                   '부산대','청주',
                 ].forEach((b, i) => { storeOrder[b] = i; });
-                const gradeList = rawRanking.filter(r => r.status === 'scored').map(r => ({ ...r, grade: r.avg != null ? (gradeMap.get(r.avg) ?? null) : null }));
+                const gradeList = rawRanking.filter(r => r.status === 'scored').map(r => ({ ...r, grade: getGrade(r.avg) }));
                 const sortedGrade = gradeList.sort((a, b) => {
                   const ga = a.grade ?? 'C', gb = b.grade ?? 'C';
                   if (ga !== gb) return gradeOrder[ga] - gradeOrder[gb];
@@ -737,7 +742,7 @@ export default function StaffDashboard() {
                       {(['A', 'B', 'C'] as const).map(g => (
                         <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
                       ))}
-                      <span className="text-[10px] text-muted-foreground ml-1">상위20%/50% 상대평가</span>
+                      <span className="text-[10px] text-muted-foreground ml-1">{isAbsoluteGrading ? '95점↑A / 75점↑B / C' : '상위20%/50% 상대평가'}</span>
                     </div>
                     {sortedRanking.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -749,7 +754,7 @@ export default function StaffDashboard() {
                         {sortedRanking.map(({ branch, avg, count, status }) => {
                           const isScored = status === 'scored';
                           const isPending = status === 'pending';
-                          const grade = avg != null ? (gradeMap.get(avg) ?? null) : null;
+                          const grade = getGrade(avg);
                           const gColor = gradeColor(grade);
                           const rowBg = isScored
                             ? 'bg-white border-border/40'
@@ -766,9 +771,12 @@ export default function StaffDashboard() {
                               <div className="flex-1 min-w-0">
                                 <span className={`font-bold text-sm ${isScored ? 'text-secondary' : 'text-muted-foreground/50'}`}>{branch}점</span>
                               </div>
-                              <div className="shrink-0">
+                              <div className="shrink-0 flex items-center gap-1">
                                 {isScored && grade ? (
-                                  <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${gColor}`}>{grade}</span>
+                                  <>
+                                    <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${gColor}`}>{grade}</span>
+                                    {isAbsoluteGrading && <span className="text-xs font-bold text-muted-foreground">{avg}점</span>}
+                                  </>
                                 ) : isPending ? null : (
                                   <span className="text-[10px] font-bold text-muted-foreground/30">미점검</span>
                                 )}
