@@ -5,11 +5,14 @@ import { registerRoutes } from "../server/routes";
 import { seedProductsIfEmpty } from "../server/seed";
 import { createServer } from "http";
 import { pool } from "../server/db";
+import { corsMiddleware } from "../server/cors";
 
 const app = express();
 const httpServer = createServer(app);
 
 app.set("trust proxy", 1);
+
+app.use(corsMiddleware);
 
 app.use(
   express.json({
