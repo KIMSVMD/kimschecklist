@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Dg1GGh1n4O_qivvC-02so"
+uri = "file://kimschecklist.tar.gz"
+type = "unspecified"
+title = "KIM'S CLUB 체크리스트 앱 소스코드"
