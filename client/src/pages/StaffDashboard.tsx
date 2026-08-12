@@ -27,7 +27,7 @@ const REGIONS: Record<string, string[]> = {
 };
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['채소', '청과', '수산', '축산'];
-const ZONES = ['입구', '농산', '수산', '축산', '공산'];
+const ZONES = ['공통', '농산', '수산', '축산', '공산'];
 
 function toLocalDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

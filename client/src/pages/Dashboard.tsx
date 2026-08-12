@@ -26,7 +26,7 @@ import { QualityPhotoSlider } from "@/components/QualityPhotoSlider";
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['채소', '청과', '수산', '축산'];
 const BRANCHES = ['전체', '강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정', '부산대', '인천', '고잔', '중계', '김포', '청주'];
-const ZONES = ['입구', '농산', '축산', '수산', '공산'];
+const ZONES = ['공통', '농산', '축산', '수산', '공산'];
 
 function AdminScoreInput({
   id, existingScore, staffItems, existingAdminItems

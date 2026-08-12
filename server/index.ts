@@ -1,22 +1,16 @@
 import express, { type Request, Response, NextFunction } from "express";
-import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { seedProductsIfEmpty, seedQualityProductsIfEmpty } from "./seed";
 import { createServer } from "http";
+import { corsMiddleware } from "./cors";
 
 const app = express();
 const httpServer = createServer(app);
 
 app.set("trust proxy", 1);
 
-app.use(cors({
-  origin: [
-    "https://kims-checklist26-vmd.noavibe.app",
-    "https://jingyeong01-kims-check.noavibe.app",
-  ],
-  credentials: true,
-}));
+app.use(corsMiddleware);
 
 declare module "http" {
   interface IncomingMessage {

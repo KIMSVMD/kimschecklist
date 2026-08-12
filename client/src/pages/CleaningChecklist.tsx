@@ -11,18 +11,16 @@ import {
   MapPin,
   ClipboardList,
   ChevronRight,
-  Sun,
-  Moon,
   AlertCircle,
   Droplets,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
 
-const ZONES = ["입구", "농산", "축산", "수산", "공산"];
+const ZONES = ["공통", "농산", "축산", "수산", "공산"];
 
 const ZONE_ITEMS: Record<string, string[]> = {
-  "입구": ["카트 정리 상태"],
+  "공통": ["카트 정리 상태"],
   "농산": [
     "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
     "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
@@ -112,7 +110,7 @@ export default function CleaningChecklist() {
 
   const [step, setStep] = useState<"zone" | "items" | "done">("zone");
   const [selectedZone, setSelectedZone] = useState("");
-  const [inspectionTime, setInspectionTime] = useState<"오픈" | "마감">("오픈");
+  const inspectionTime = "오픈" as const;
   const [itemData, setItemData] = useState<Record<string, ItemData>>({});
   const [uploadingItem, setUploadingItem] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -255,33 +253,6 @@ export default function CleaningChecklist() {
                     })()}
                   </div>
                   <p className="text-muted-foreground">점검할 매장 구역을 선택하세요.</p>
-                </div>
-
-                {/* Inspection time toggle */}
-                <div className="flex bg-muted p-1.5 rounded-2xl gap-1">
-                  <button
-                    onClick={() => setInspectionTime("오픈")}
-                    className={`flex-1 py-3.5 text-base font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                      inspectionTime === "오픈"
-                        ? "bg-white shadow-sm"
-                        : "text-muted-foreground"
-                    }`}
-                    style={inspectionTime === "오픈" ? { color: "#006341" } : {}}
-                    data-testid="btn-time-open"
-                  >
-                    <Sun className="w-4 h-4" /> 오픈 전
-                  </button>
-                  <button
-                    onClick={() => setInspectionTime("마감")}
-                    className={`flex-1 py-3.5 text-base font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                      inspectionTime === "마감"
-                        ? "bg-white text-secondary shadow-sm"
-                        : "text-muted-foreground"
-                    }`}
-                    data-testid="btn-time-close"
-                  >
-                    <Moon className="w-4 h-4" /> 마감
-                  </button>
                 </div>
 
                 {/* Zone list */}
