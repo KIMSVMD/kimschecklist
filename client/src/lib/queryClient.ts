@@ -1,6 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-const API_BASE = "https://kimschecklist.onrender.com";
+const API_BASE = "";
 
 export function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem('admin_token');

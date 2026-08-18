@@ -20,14 +20,17 @@ import { calcCleaningScore, scoreColor } from "@/lib/scoring";
 const ZONES = ["공통", "농산", "축산", "수산", "공산"];
 
 const ZONE_ITEMS: Record<string, string[]> = {
-  "공통": ["카트 정리 상태"],
+  "공통": [
+    "카트 정리 상태", "카트/장바구니 보관구역", "유/무인 계산대",
+    "매장 바닥(델리 등)", "상온 매대(델리 등)", "냉장 S/C(델리 등)",
+  ],
   "농산": [
-    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
+    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
   ],
   "축산": [
-    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
+    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
   ],
   "수산": [
     "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
@@ -37,6 +40,27 @@ const ZONE_ITEMS: Record<string, string[]> = {
     "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
     "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
   ],
+};
+
+const ITEM_DESCRIPTIONS: Record<string, Record<string, string>> = {
+  "농산": {
+    "바닥 청결": "블랙 스팟이나 물기, 음식물은 없는가?",
+    "진열대 청결(상온)": "상온매대에 먼지나, 이물질, 오염물질은 없는가?",
+    "진열대 청결(냉장,냉동 S/C)": "냉장·냉동 S/C에 먼지나, 이물질, 오염물질은 없는가?",
+    "냉동평대(이동식)": "평대 내외부는 스티커자국, 이물질, 흙, 오염물은 없는가?",
+    "행사매대 주변 청결": "먼지나 이물질, 시식용품(종이컵, 이쑤시개 등)은 없는가?",
+    "메인 통로 청결": "주동선상에 먼지, 스티커, 종이 등 떨어져 있지 않은가?",
+    "쇼케이스 외관 및 하단": "쇼케이스 흡입구나 외관에 먼지나, 흙, 오염물은 없는가?",
+  },
+  "축산": {
+    "바닥 청결": "블랙 스팟이나 물기, 음식물은 없는가?",
+    "진열대 청결(상온)": "상온매대에 먼지나, 이물질, 오염물질은 없는가?",
+    "진열대 청결(냉장,냉동 S/C)": "냉장·냉동 S/C에 먼지나, 이물질, 오염물질은 없는가?",
+    "냉동평대(이동식)": "평대 내외부는 스티커자국, 이물질, 흙, 오염물은 없는가?",
+    "행사매대 주변 청결": "먼지나 이물질, 시식용품(종이컵, 이쑤시개 등)은 없는가?",
+    "메인 통로 청결": "주동선상에 먼지, 스티커, 종이 등 떨어져 있지 않은가?",
+    "쇼케이스 외관 및 하단": "쇼케이스 흡입구나 외관에 먼지나, 흙, 오염물은 없는가?",
+  },
 };
 
 type ItemData = {
@@ -376,7 +400,14 @@ export default function CleaningChecklist() {
                         data-testid={`card-item-${idx}`}
                       >
                         <div className="flex items-center justify-between px-5 py-4">
-                          <span className="text-lg font-bold text-secondary flex-1">{item}</span>
+                          <div className="flex-1 pr-3">
+                            <span className="text-lg font-bold text-secondary block">{item}</span>
+                            {ITEM_DESCRIPTIONS[selectedZone]?.[item] && (
+                              <span className="text-xs text-muted-foreground block mt-0.5">
+                                {ITEM_DESCRIPTIONS[selectedZone][item]}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex gap-2.5">
                             <button
                               onClick={() => handleStatusSet(item, "ok")}

@@ -6,7 +6,7 @@ export function useProducts(category: string) {
   return useQuery<Product[]>({
     queryKey: ["/api/products", category],
     queryFn: async () => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/products?category=${encodeURIComponent(category)}`, {
+      const res = await fetch(`/api/products?category=${encodeURIComponent(category)}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error(await res.text());
@@ -22,7 +22,7 @@ export function useProductByName(category: string, groupName: string, productNam
     queryFn: async () => {
       const params = new URLSearchParams({ category, groupName });
       if (productName) params.set("productName", productName);
-      const res = await fetch(`https://kimschecklist.onrender.com/api/products/find?${params}`, { credentials: "include" });
+      const res = await fetch(`/api/products/find?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
