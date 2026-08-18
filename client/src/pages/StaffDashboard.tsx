@@ -489,28 +489,6 @@ export default function StaffDashboard() {
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
-              {/* 오픈 / 마감 chips — own row, fills full width */}
-              <div className="flex gap-1.5">
-                {(['전체', '오픈', '마감'] as const).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setFilterTime(t)}
-                    className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                      filterTime === t
-                        ? t === '오픈' ? 'bg-amber-400 text-white'
-                          : t === '마감' ? 'bg-secondary text-white'
-                          : 'bg-black text-white'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                    data-testid={`btn-staff-filter-time-${t}`}
-                  >
-                    {t === '오픈' && <Sun className="w-3 h-3" />}
-                    {t === '마감' && <Moon className="w-3 h-3" />}
-                    {t}
-                  </button>
-                ))}
-              </div>
-
               {/* Zone filter chips */}
               <div className="flex gap-1 pb-3">
                 <button
