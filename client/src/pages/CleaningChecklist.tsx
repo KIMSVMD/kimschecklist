@@ -83,9 +83,12 @@ const ITEM_DESCRIPTIONS: Record<string, Record<string, string>> = {
 
 type ItemData = {
   status: "ok" | "issue" | null;
-  photoUrl?: string | null;
+  beforePhotoUrl?: string | null;
+  afterPhotoUrl?: string | null;
   memo?: string | null;
 };
+
+type PhotoSlot = "before" | "after";
 
 function getKSTDraftDateStr() {
   const now = new Date();
@@ -154,7 +157,7 @@ export default function CleaningChecklist() {
   const [selectedZone, setSelectedZone] = useState("");
   const inspectionTime = "오픈" as const;
   const [itemData, setItemData] = useState<Record<string, ItemData>>({});
-  const [uploadingItem, setUploadingItem] = useState<string | null>(null);
+  const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const currentItems = ZONE_ITEMS[selectedZone] || [];
@@ -205,25 +208,28 @@ export default function CleaningChecklist() {
     }));
   };
 
-  const handlePhotoUpload = async (item: string, file: File) => {
-    setUploadingItem(item);
+  const handlePhotoUpload = async (item: string, slot: PhotoSlot, file: File) => {
+    const slotKey = `${item}:${slot}`;
+    setUploadingSlot(slotKey);
     try {
       const { uploadFile } = await import("@/lib/upload");
       const objectPath = await uploadFile(file);
-      setItemData(prev => ({ ...prev, [item]: { ...prev[item], photoUrl: objectPath } }));
+      const field = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
+      setItemData(prev => ({ ...prev, [item]: { ...prev[item], [field]: objectPath } }));
     } catch {
       toast({ title: "사진 업로드 실패", variant: "destructive" });
     } finally {
-      setUploadingItem(null);
+      setUploadingSlot(null);
     }
   };
 
   const handleSubmit = async () => {
-    const items: Record<string, { status: string; photoUrl?: string | null; memo?: string | null }> = {};
+    const items: Record<string, { status: string; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null; memo?: string | null }> = {};
     currentItems.forEach(item => {
       items[item] = {
         status: itemData[item]?.status || "ok",
-        photoUrl: itemData[item]?.photoUrl || null,
+        beforePhotoUrl: itemData[item]?.beforePhotoUrl || null,
+        afterPhotoUrl: itemData[item]?.afterPhotoUrl || null,
         memo: itemData[item]?.memo || null,
       };
     });
@@ -248,6 +254,58 @@ export default function CleaningChecklist() {
   };
 
   const getDraftInfo = (zone: string) => getDraftState(branch, zone, inspectionTime);
+
+  const renderPhotoSlot = (
+    item: string,
+    slot: PhotoSlot,
+    label: string,
+    url: string | null | undefined,
+    theme: "emerald" | "red",
+  ) => {
+    const key = `${item}:${slot}`;
+    const isUploading = uploadingSlot === key;
+    const emptyBorder = theme === "emerald" ? "border-emerald-200 bg-emerald-50/50" : "border-red-300 bg-red-50";
+    const filledBorder = theme === "emerald" ? "border-emerald-400 bg-emerald-50" : "border-primary/40 bg-primary/5";
+    const spinColor = theme === "emerald" ? "text-emerald-500" : "text-primary";
+    const iconColor = theme === "emerald" ? "text-emerald-400" : "text-red-400";
+    const labelColor = theme === "emerald" ? "text-emerald-500" : "text-red-500";
+    return (
+      <div key={key} className="relative">
+        <button
+          type="button"
+          onClick={() => fileRefs.current[key]?.click()}
+          className={`w-full h-24 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.98] ${url ? filledBorder : emptyBorder}`}
+        >
+          <span className={`absolute top-1.5 left-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/80 ${labelColor}`}>
+            {label}
+          </span>
+          {isUploading ? (
+            <Loader2 className={`w-6 h-6 animate-spin ${spinColor}`} />
+          ) : url ? (
+            <div className="relative w-full h-full">
+              <img src={url} className="w-full h-full object-cover rounded-xl" alt={label} />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
+                <span className="text-white text-xs font-bold">변경</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <Camera className={`w-5 h-5 ${iconColor}`} />
+              <span className={`text-xs font-medium ${labelColor}`}>{label} 촬영</span>
+            </>
+          )}
+        </button>
+        <input
+          ref={el => { fileRefs.current[key] = el; }}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, slot, f); }}
+        />
+      </div>
+    );
+  };
 
   const progressWidth = step === "zone" ? "33%" : step === "items" ? "66%" : "100%";
 
@@ -463,38 +521,12 @@ export default function CleaningChecklist() {
                             >
                               <div className="px-5 pb-4 border-t border-emerald-200">
                                 <p className="text-xs font-bold text-emerald-600 pt-3 mb-2 flex items-center gap-1">
-                                  <Camera className="w-3.5 h-3.5" /> 사진 첨부 (선택)
+                                  <Camera className="w-3.5 h-3.5" /> 전/후 사진 (선택)
                                 </p>
-                                <button
-                                  onClick={() => fileRefs.current[item]?.click()}
-                                  className={`w-full h-20 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
-                                    data?.photoUrl ? "border-emerald-400 bg-emerald-50" : "border-emerald-200 bg-emerald-50/50"
-                                  }`}
-                                >
-                                  {uploadingItem === item ? (
-                                    <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
-                                  ) : data?.photoUrl ? (
-                                    <div className="relative w-full h-full">
-                                      <img src={data.photoUrl} className="w-full h-full object-cover rounded-xl" alt="Ok photo" />
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
-                                        <span className="text-white text-xs font-bold">사진 변경</span>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <Camera className="w-5 h-5 text-emerald-400" />
-                                      <span className="text-xs font-medium text-emerald-500">사진 추가</span>
-                                    </>
-                                  )}
-                                </button>
-                                <input
-                                  ref={el => { fileRefs.current[item] = el; }}
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  className="hidden"
-                                  onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, f); }}
-                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "emerald")}
+                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "emerald")}
+                                </div>
                               </div>
                             </motion.div>
                           )}
@@ -510,36 +542,10 @@ export default function CleaningChecklist() {
                                 <p className="text-sm font-bold text-primary pt-3 flex items-center gap-1.5">
                                   <AlertCircle className="w-4 h-4" /> 문제 상세 기록
                                 </p>
-                                <button
-                                  onClick={() => fileRefs.current[item]?.click()}
-                                  className={`w-full h-28 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all active:scale-[0.98] ${
-                                    data?.photoUrl ? "border-primary/40 bg-primary/5" : "border-red-300 bg-red-50"
-                                  }`}
-                                >
-                                  {uploadingItem === item ? (
-                                    <Loader2 className="w-7 h-7 animate-spin text-primary" />
-                                  ) : data?.photoUrl ? (
-                                    <div className="relative w-full h-full">
-                                      <img src={data.photoUrl} className="w-full h-full object-cover rounded-xl" alt="Issue photo" />
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
-                                        <span className="text-white text-sm font-bold">사진 변경</span>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <Camera className="w-7 h-7 text-red-400" />
-                                      <span className="text-sm font-bold text-red-500">문제 사진 촬영</span>
-                                    </>
-                                  )}
-                                </button>
-                                <input
-                                  ref={el => { fileRefs.current[item] = el; }}
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  className="hidden"
-                                  onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, f); }}
-                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "red")}
+                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "red")}
+                                </div>
                                 <textarea
                                   placeholder="문제 내용을 간략히 메모하세요..."
                                   value={data?.memo || ""}

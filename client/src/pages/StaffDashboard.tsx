@@ -1358,7 +1358,7 @@ export default function StaffDashboard() {
                   )
                 ) : (
                   dayFilteredRecords.map((record, i) => {
-                    const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null }>) || {};
+                    const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
                     const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
                     const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;
                     const isOk = record.overallStatus === 'ok';
@@ -1408,17 +1408,30 @@ export default function StaffDashboard() {
                             <div>
                               <p className="text-xs font-bold text-muted-foreground mb-2">문제 항목</p>
                               <div className="flex flex-wrap gap-1.5">
-                                {issueItems.map(([name, v]) => (
-                                  <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5 w-full">
-                                    {v.photoUrl && (
-                                      <PhotoThumbnail src={v.photoUrl} className="block mb-1.5">
-                                        <img src={v.photoUrl} alt={name} className="w-full h-24 object-cover rounded-lg" />
-                                      </PhotoThumbnail>
-                                    )}
-                                    <span className="text-xs font-bold text-red-600">{name}</span>
-                                    {v.memo && <p className="text-[10px] text-red-400 mt-0.5">{v.memo}</p>}
-                                  </div>
-                                ))}
+                                {issueItems.map(([name, v]) => {
+                                  const before = v.beforePhotoUrl ?? v.photoUrl ?? null;
+                                  const after = v.afterPhotoUrl ?? null;
+                                  return (
+                                    <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5 w-full">
+                                      {(before || after) && (
+                                        <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                                          {before && (
+                                            <PhotoThumbnail src={before} className="block">
+                                              <img src={before} alt={`${name} 청소 전`} className="w-full h-24 object-cover rounded-lg" />
+                                            </PhotoThumbnail>
+                                          )}
+                                          {after && (
+                                            <PhotoThumbnail src={after} className="block">
+                                              <img src={after} alt={`${name} 청소 후`} className="w-full h-24 object-cover rounded-lg" />
+                                            </PhotoThumbnail>
+                                          )}
+                                        </div>
+                                      )}
+                                      <span className="text-xs font-bold text-red-600">{name}</span>
+                                      {v.memo && <p className="text-[10px] text-red-400 mt-0.5">{v.memo}</p>}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}

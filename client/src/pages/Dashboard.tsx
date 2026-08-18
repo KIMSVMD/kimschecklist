@@ -1348,12 +1348,17 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
   });
 
   // Issue list for selected date
-  const issues: { recordId: number; zone: string; item: string; memo?: string | null; photoUrl?: string | null; time: string }[] = [];
+  const issues: { recordId: number; zone: string; item: string; memo?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null; time: string }[] = [];
   dayRecords.forEach(r => {
     if (r.items) {
       Object.entries(r.items as Record<string, any>).forEach(([item, data]) => {
         if (data.status === 'issue') {
-          issues.push({ recordId: r.id, zone: r.zone, item, memo: data.memo, photoUrl: data.photoUrl, time: r.inspectionTime });
+          issues.push({
+            recordId: r.id, zone: r.zone, item, memo: data.memo,
+            beforePhotoUrl: data.beforePhotoUrl ?? data.photoUrl ?? null,
+            afterPhotoUrl: data.afterPhotoUrl ?? null,
+            time: r.inspectionTime,
+          });
         }
       });
     }
@@ -1548,10 +1553,19 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
                     className="bg-white rounded-2xl border-2 border-red-200 overflow-hidden shadow-sm"
                   >
                     <div className="flex gap-3 p-4">
-                      {issue.photoUrl && (
-                        <PhotoThumbnail src={issue.photoUrl} className="w-20 h-20 shrink-0">
-                          <img src={issue.photoUrl} className="w-20 h-20 rounded-xl object-cover border border-border" alt="Issue" />
-                        </PhotoThumbnail>
+                      {(issue.beforePhotoUrl || issue.afterPhotoUrl) && (
+                        <div className="flex gap-1.5 shrink-0">
+                          {issue.beforePhotoUrl && (
+                            <PhotoThumbnail src={issue.beforePhotoUrl} className="w-20 h-20">
+                              <img src={issue.beforePhotoUrl} className="w-20 h-20 rounded-xl object-cover border border-border" alt="청소 전" />
+                            </PhotoThumbnail>
+                          )}
+                          {issue.afterPhotoUrl && (
+                            <PhotoThumbnail src={issue.afterPhotoUrl} className="w-20 h-20">
+                              <img src={issue.afterPhotoUrl} className="w-20 h-20 rounded-xl object-cover border border-border" alt="청소 후" />
+                            </PhotoThumbnail>
+                          )}
+                        </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
