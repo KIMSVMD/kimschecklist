@@ -1,0 +1,2090 @@
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
+import { Layout } from "@/components/Layout";
+import { useChecklists, useDeleteChecklist, useUpdateChecklistItemStatus, useUpdateChecklistScore, useUpdateChecklistAdScore, useUpdateChecklistQualityScore } from "@/hooks/use-checklists";
+import { useAdminStatus, useValidGuideProducts } from "@/hooks/use-guides";
+import { useCleaningInspections, useDeleteCleaning, useUpdateCleaningItemStatus } from "@/hooks/use-cleaning";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
+import { calcCleaningScore, scoreColor, computeRelativeGrades, gradeColor } from "@/lib/scoring";
+import {
+  Filter, Image as ImageIcon, AlertCircle, Pencil, Trash2, Loader2,
+  CheckCircle2, XCircle, BarChart3, Droplets, Sun, Moon,
+  ChevronLeft, ChevronRight, Calendar, Bell, Star,
+  ClipboardList, UploadCloud, Reply, Clock, Trophy,
+} from "lucide-react";
+import { PhotoThumbnail } from "@/components/PhotoLightbox";
+import { VMCommentThread } from "@/components/VMCommentThread";
+import { motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
+import { CleaningCommentThread } from "@/components/CleaningCommentThread";
+import { useAdminNotifications } from "@/hooks/use-notifications";
+import { NotificationPanel } from "@/components/NotificationPanel";
+import { QualityPhotoSlider } from "@/components/QualityPhotoSlider";
+
+const CATEGORIES = ['농산', '수산', '축산', '공산'];
+const QUALITY_CATEGORIES = ['채소', '청과', '수산', '축산'];
+const BRANCHES = ['전체', '강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정', '부산대', '인천', '고잔', '중계', '김포', '청주'];
+const ZONES = ['공통', '농산', '축산', '수산', '공산'];
+
+function AdminScoreInput({
+  id, existingScore, staffItems, existingAdminItems
+}: {
+  id: number;
+  existingScore?: number | null;
+  staffItems: Record<string, string>;
+  existingAdminItems?: Record<string, 'ok' | 'notok'> | null;
+}) {
+  const { toast } = useToast();
+  const scoreMutation = useUpdateChecklistScore();
+  const itemKeys = Object.keys(staffItems);
+  const totalItems = itemKeys.length;
+  const [open, setOpen] = useState(existingScore == null && totalItems > 0);
+
+  const initSel = () => Object.fromEntries(
+    itemKeys.map(k => {
+      if (existingAdminItems?.[k]) return [k, existingAdminItems[k]];
+      const sv = staffItems[k];
+      return [k, (sv === 'ok' || sv === 'excellent') ? 'ok' : 'notok'];
+    })
+  );
+
+  const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok'>>(initSel);
+
+  const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
+  const calcScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
+
+  const scoreColorClass = (s: number) =>
+    s >= 90 ? 'text-blue-600 bg-blue-50 border-blue-300' :
+    s >= 70 ? 'text-amber-600 bg-amber-50 border-amber-300' :
+    'text-primary bg-red-50 border-red-300';
+
+  const handleSave = async () => {
+    const score = calcScore();
+    try {
+      await scoreMutation.mutateAsync({ id, adminScore: score, adminItems: adminSel });
+      toast({ title: `○ ${okCount}/${totalItems} → ${score}점 확정` });
+      setOpen(false);
+    } catch {
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  const score = existingScore != null ? existingScore : null;
+  const confirmedOk = existingAdminItems ? Object.values(existingAdminItems).filter(v => v === 'ok').length : null;
+
+  return (
+    <div className="mt-3 border-t border-border/50 pt-3">
+      {/* Header trigger */}
+      <button
+        onClick={() => { if (!open) setAdminSel(initSel()); setOpen(o => !o); }}
+        className={`w-full flex items-center justify-between py-2 px-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+          score != null ? `${scoreColorClass(score)} border` : 'bg-muted text-muted-foreground hover:text-secondary'
+        }`}
+        data-testid={`btn-score-open-${id}`}
+      >
+        <div className="flex items-center gap-2">
+          <Star className="w-4 h-4" />
+          {score != null
+            ? <span>○ {confirmedOk}/{totalItems} → {score}점 {open ? '(수정 중)' : '(확정)'}</span>
+            : <span>관리자 평가 (항목 수정 후 확정)</span>}
+        </div>
+        <span className="text-[11px] opacity-50">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {/* Compact per-item grid */}
+      {open && totalItems > 0 && (
+        <div className="mt-2 space-y-1">
+          {/* Live score bar */}
+          <div className={`flex items-center justify-between px-3 py-2 rounded-xl border font-bold text-sm mb-2 ${scoreColorClass(calcScore())}`}>
+            <span>○ {okCount}개 / {totalItems}개</span>
+            <span className="text-lg font-black">{calcScore()}점</span>
+          </div>
+
+          {itemKeys.map(key => {
+            const staffVal = staffItems[key];
+            const isStaffOk = staffVal === 'ok' || staffVal === 'excellent';
+            const adminVal = adminSel[key];
+            return (
+              <div key={key} className="flex items-center gap-2 py-1.5 px-2 rounded-xl bg-muted/30 border border-border/40">
+                {/* Staff mark */}
+                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border ${
+                  isStaffOk ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-red-50 border-red-200 text-primary'
+                }`}>
+                  {isStaffOk ? '○' : '✗'}
+                </span>
+                {/* Item name */}
+                <span className="flex-1 text-xs font-medium text-secondary leading-snug min-w-0">{key}</span>
+                {/* Admin toggle buttons */}
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'ok'
+                        ? 'bg-blue-500 border-blue-600 text-white'
+                        : 'bg-white border-border text-muted-foreground hover:border-blue-300 hover:text-blue-500'
+                    }`}
+                    data-testid={`btn-admin-ok-${id}-${key}`}
+                  >○</button>
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'notok'
+                        ? 'bg-red-500 border-red-600 text-white'
+                        : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
+                    }`}
+                    data-testid={`btn-admin-notok-${id}-${key}`}
+                  >✗</button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Confirm row */}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={scoreMutation.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-primary text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-score-save-${id}`}
+            >
+              {scoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
+              {calcScore()}점으로 확정
+            </button>
+            <button onClick={() => setOpen(false)}
+              className="px-3 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {totalItems === 0 && (
+        <div className="mt-2 px-3 py-2 rounded-xl bg-muted/40 text-xs text-muted-foreground">
+          항목 없음 — 자동 계산 점수: <span className="font-black">0점</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminAdScoreInput({
+  id, existingScore, staffAdItems, existingAdminItems
+}: {
+  id: number;
+  existingScore?: number | null;
+  staffAdItems: Record<string, string>;
+  existingAdminItems?: Record<string, 'ok' | 'notok'> | null;
+}) {
+  const { toast } = useToast();
+  const adScoreMutation = useUpdateChecklistAdScore();
+  const [open, setOpen] = useState(existingScore == null);
+  const [manualScore, setManualScore] = useState<string>(existingScore != null ? String(existingScore) : '');
+  const itemKeys = Object.keys(staffAdItems);
+  const totalItems = itemKeys.length;
+
+  const initSel = () => Object.fromEntries(
+    itemKeys.map(k => {
+      if (existingAdminItems?.[k]) return [k, existingAdminItems[k]];
+      const sv = staffAdItems[k];
+      return [k, (sv === 'ok' || sv === 'excellent') ? 'ok' : 'notok'];
+    })
+  );
+
+  const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok'>>(initSel);
+  const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
+  const calcScore = () => totalItems > 0 ? Math.round((okCount / totalItems) * 100) : 0;
+
+  const scoreColorClass = (s: number) =>
+    s >= 90 ? 'text-amber-600 bg-amber-50 border-amber-300' :
+    s >= 70 ? 'text-orange-600 bg-orange-50 border-orange-300' :
+    'text-primary bg-red-50 border-red-300';
+
+  const handleSave = async () => {
+    const score = calcScore();
+    try {
+      await adScoreMutation.mutateAsync({ id, adAdminScore: score, adAdminItems: adminSel });
+      toast({ title: `광고 ○ ${okCount}/${totalItems} → ${score}점 확정` });
+      setOpen(false);
+    } catch {
+      toast({ title: "저장 실패", variant: "destructive" });
+    }
+  };
+
+  const score = existingScore != null ? existingScore : null;
+  const confirmedOk = existingAdminItems ? Object.values(existingAdminItems).filter(v => v === 'ok').length : null;
+
+  return (
+    <div className="mt-3 border-t border-amber-200/60 pt-3">
+      <button
+        onClick={() => { if (!open) setAdminSel(initSel()); setOpen(o => !o); }}
+        className={`w-full flex items-center justify-between py-2 px-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] ${
+          score != null ? `${scoreColorClass(score)} border` : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+        }`}
+        data-testid={`btn-ad-score-open-${id}`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm">📢</span>
+          {score != null
+            ? <span>광고 ○ {confirmedOk}/{totalItems} → {score}점 {open ? '(수정 중)' : '(확정)'}</span>
+            : <span>광고 평가 (항목 확인 후 확정)</span>}
+        </div>
+        <span className="text-[11px] opacity-50">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && totalItems > 0 && (
+        <div className="mt-2 space-y-1">
+          <div className={`flex items-center justify-between px-3 py-2 rounded-xl border font-bold text-sm mb-2 ${scoreColorClass(calcScore())}`}>
+            <span>○ {okCount}개 / {totalItems}개</span>
+            <span className="text-lg font-black">{calcScore()}점</span>
+          </div>
+          {itemKeys.map(key => {
+            const staffVal = staffAdItems[key];
+            const isStaffOk = staffVal === 'ok' || staffVal === 'excellent';
+            const adminVal = adminSel[key];
+            return (
+              <div key={key} className="flex items-center gap-2 py-1.5 px-2 rounded-xl bg-amber-50/40 border border-amber-200/40">
+                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border ${
+                  isStaffOk ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-red-50 border-red-200 text-primary'
+                }`}>
+                  {isStaffOk ? '○' : '✗'}
+                </span>
+                <span className="flex-1 text-xs font-medium text-secondary leading-snug min-w-0">{key}</span>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'ok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'ok' ? 'bg-amber-500 border-amber-600 text-white' : 'bg-white border-border text-muted-foreground hover:border-amber-300 hover:text-amber-500'
+                    }`}
+                    data-testid={`btn-admin-ad-ok-${id}-${key}`}
+                  >○</button>
+                  <button
+                    onClick={() => setAdminSel(s => ({ ...s, [key]: 'notok' }))}
+                    className={`w-9 h-8 rounded-lg border-2 font-black text-sm flex items-center justify-center transition-all active:scale-90 ${
+                      adminVal === 'notok' ? 'bg-red-500 border-red-600 text-white' : 'bg-white border-border text-muted-foreground hover:border-red-300 hover:text-primary'
+                    }`}
+                    data-testid={`btn-admin-ad-notok-${id}-${key}`}
+                  >✗</button>
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={adScoreMutation.isPending}
+              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-black text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-ad-score-save-${id}`}
+            >
+              {adScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>📢</span>}
+              광고 {calcScore()}점으로 확정
+            </button>
+            <button onClick={() => setOpen(false)}
+              className="px-3 py-2.5 rounded-xl bg-muted text-muted-foreground font-bold text-sm active:scale-[0.98]">
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {open && totalItems === 0 && (
+        <div className="mt-2 space-y-2">
+          <p className="text-xs text-muted-foreground px-1">항목이 없는 광고 가이드입니다. 사진 확인 후 직접 점수를 입력하세요.</p>
+          <div className="flex gap-2 items-center">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={manualScore}
+              onChange={e => setManualScore(e.target.value)}
+              placeholder="0–100"
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-amber-200 text-base font-bold focus:outline-none focus:border-amber-400 text-center bg-amber-50"
+              data-testid={`input-manual-ad-score-${id}`}
+            />
+            <span className="font-bold text-muted-foreground text-lg">점</span>
+            <button
+              onClick={async () => {
+                const s = Math.min(100, Math.max(0, parseInt(manualScore) || 0));
+                try {
+                  await adScoreMutation.mutateAsync({ id, adAdminScore: s, adAdminItems: {} });
+                  toast({ title: `광고 ${s}점으로 확정` });
+                  setOpen(false);
+                } catch {
+                  toast({ title: "저장 실패", variant: "destructive" });
+                }
+              }}
+              disabled={adScoreMutation.isPending || manualScore === ''}
+              className="px-4 py-3 rounded-xl bg-amber-500 text-white font-black text-sm flex items-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+              data-testid={`btn-manual-ad-score-save-${id}`}
+            >
+              {adScoreMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>📢</span>}
+              확정
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const QUALITY_GRADE_SCORES_DASH: Record<string, number> = { A: 100, B: 85, C: 70, E: 40 };
+const CRIT_PFXS_DASH = ['선도', '상해', '규격', '혼입율', '형상'];
+
+function parseCritDash(t: string): string | null {
+  return CRIT_PFXS_DASH.find(c => t === c || t.startsWith(c + ':') || t.startsWith(c + ' ')) ?? null;
+}
+
+function gradeScoreDash(g?: string): number {
+  return QUALITY_GRADE_SCORES_DASH[g || ''] ?? 0;
+}
+
+const BULK_CRIT_MAP_DASH: Record<string, string[]> = {
+  청과: ['선도', '상해', '규격', '혼입율'],
+  채소: ['선도', '상해', '규격', '혼입율'],
+  수산: ['선도', '상해', '규격', '혼입율'],
+  축산: ['색택', '마블링', '선도'],
+};
+
+function calcOverallQualityScoreDash(items: Record<string, any>): number {
+  // 새 일괄 품질 형식: __category + 품목별 기준 등급
+  if ('__category' in items) {
+    const category = items.__category as string;
+    const products = Object.keys(items).filter(k => k !== '__category');
+    const storeScores: number[] = [];
+
+    for (const product of products) {
+      const d = items[product];
+      if (!d || typeof d !== 'object') continue;
+
+      let storeScore: number;
+
+      if (category === '축산') {
+        const bloodspot = typeof d.__bloodspot === 'number' ? d.__bloodspot : 0;
+        const criteriaScores = ['색택', '마블링', '선도']
+          .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
+          .filter((s): s is number => s !== undefined);
+        if (criteriaScores.length === 0) continue;
+        storeScore = Math.max(0, Math.round(
+          criteriaScores.reduce((a, b) => a + b, 0) / 3 - bloodspot * 2
+        ));
+      } else {
+        const expired = typeof d.__expired === 'number' ? d.__expired : 0;
+        const moldy = typeof d.__moldy === 'number' ? d.__moldy : 0;
+        const criteriaScores = ['선도', '상해']
+          .map(k => QUALITY_GRADE_SCORES_DASH[d[k]])
+          .filter((s): s is number => s !== undefined);
+        if (criteriaScores.length === 0) continue;
+        storeScore = Math.max(0, Math.round(
+          criteriaScores.reduce((a, b) => a + b, 0) / criteriaScores.length - expired * 2 - moldy * 5
+        ));
+      }
+
+      // 환산비율합계: 매장점수 0인 품목 제외 (AVERAGEIF <> 0)
+      if (storeScore > 0) storeScores.push(storeScore);
+    }
+
+    if (storeScores.length === 0) return 0;
+    return Math.round(storeScores.reduce((a, b) => a + b, 0) / storeScores.length);
+  }
+
+  // 구형 형식: {grade, note} per item
+  const expired = typeof items.__expired === 'number' ? items.__expired : 0;
+  const moldy = typeof items.__moldy === 'number' ? items.__moldy : 0;
+  const guideItems = Object.keys(items).filter(k => k !== '__expired' && k !== '__moldy');
+  const vals = guideItems.map(k => items[k]).filter(v => v !== null && v !== undefined);
+  if (vals.length === 0) return 0;
+
+  const isNewFmt = vals.some(v => typeof v === 'object' && v !== null && 'grade' in v);
+
+  if (isNewFmt) {
+    const gradedItems = guideItems.filter(k => items[k]?.grade && items[k]?.grade !== '');
+    if (gradedItems.length === 0) return 0;
+    const base = gradedItems.reduce((s, k) => s + gradeScoreDash(items[k].grade), 0) / gradedItems.length;
+    return Math.max(0, Math.round(base) - expired * 2 - moldy * 5);
+  }
+
+  return 0;
+}
+
+function calcQualityScoreTotalDash(items: Record<string, any>): number {
+  if (!('__category' in items)) return 0;
+  const products = Object.keys(items).filter(k => k !== '__category' && k !== '__expired' && k !== '__moldy');
+  const allCrit = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
+  const scoreTotals: number[] = [];
+  for (const product of products) {
+    const d = items[product];
+    if (!d || typeof d !== 'object') continue;
+    const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
+    if (graded.length === 0) continue;
+    const productScoreTotal = Math.round(graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / 2);
+    if (productScoreTotal > 0) scoreTotals.push(productScoreTotal);
+  }
+  if (scoreTotals.length === 0) return 0;
+  return Math.round(scoreTotals.reduce((a, b) => a + b, 0) / scoreTotals.length);
+}
+
+function getQualityGradeDash(score: number, _category?: string): string {
+  if (score >= 100) return 'A';
+  if (score >= 85) return 'B';
+  if (score >= 70) return 'C';
+  if (score > 55) return 'D';
+  if (score >= 40) return 'E';
+  return 'E';
+}
+
+function gradeColorDash(grade: string): string {
+  if (grade === 'A') return 'bg-purple-600 text-white';
+  if (grade === 'B') return 'bg-purple-400 text-white';
+  if (grade === 'C') return 'bg-amber-400 text-white';
+  if (grade === 'D') return 'bg-orange-500 text-white';
+  if (grade === 'E') return 'bg-red-500 text-white';
+  return 'bg-gray-400 text-white';
+}
+
+function AdminQualityScoreInput({
+  existingScore, staffQualityItems, weightedScore
+}: {
+  id: number;
+  existingScore?: number | null;
+  staffQualityItems: Record<string, any>;
+  existingAdminItems?: Record<string, any> | null;
+  weightedScore?: string | null;
+}) {
+  const itemKeys = Object.keys(staffQualityItems).filter(k => k !== '__expired' && k !== '__moldy' && k !== '__bloodspot' && k !== '__category');
+  const totalItems = itemKeys.length;
+  const category = staffQualityItems.__category as string | undefined;
+  const savedExpired = category !== '축산' ? (typeof staffQualityItems.__expired === 'number' ? staffQualityItems.__expired : 0) : 0;
+  const savedMoldy = category !== '축산' ? (typeof staffQualityItems.__moldy === 'number' ? staffQualityItems.__moldy : 0) : 0;
+  const savedBloodspot = category === '축산' ? (typeof staffQualityItems.__bloodspot === 'number' ? staffQualityItems.__bloodspot : 0) : 0;
+
+  const firstVal = totalItems > 0 ? staffQualityItems[itemKeys[0]] : null;
+  const isNewFormat = firstVal !== null && typeof firstVal === 'object';
+
+  const autoScore = isNewFormat ? calcOverallQualityScoreDash(staffQualityItems) : (existingScore ?? 0);
+  const displayScore = existingScore != null ? existingScore : autoScore;
+
+  const totalScoreTotal = (() => {
+    const allCrit = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
+    const perProductTotals = itemKeys.reduce((acc, k) => {
+      const d = staffQualityItems[k] as Record<string, any>;
+      if (!d || typeof d !== 'object') return acc;
+      const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
+      if (graded.length === 0) return acc;
+      const productTotal = Math.round(graded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / 2);
+      if (productTotal > 0) acc.push(productTotal);
+      return acc;
+    }, [] as number[]);
+    if (perProductTotals.length === 0) return 0;
+    return Math.round(perProductTotals.reduce((a, b) => a + b, 0) / perProductTotals.length);
+  })();
+
+  const scoreColorClass = (s: number) =>
+    s >= 90 ? 'text-purple-700 bg-purple-50 border-purple-300' :
+    s >= 70 ? 'text-purple-600 bg-purple-50 border-purple-200' :
+    'text-primary bg-red-50 border-red-300';
+
+  return (
+    <div className="mt-3 border-t border-purple-200/60 pt-3">
+      {/* 자동 계산 점수 */}
+      <div className={`flex items-center justify-between px-4 py-3 rounded-xl border font-bold ${scoreColorClass(displayScore)}`}>
+        <span className="text-sm">자동 계산 ({totalItems}개 항목)</span>
+        <span className="text-sm font-black">
+          점수총계 {totalScoreTotal}점 / 매장점수 {displayScore}점
+        </span>
+      </div>
+      {/* 품목별 등급 */}
+      {isNewFormat && totalItems > 0 && (
+        <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
+          {itemKeys.map(key => {
+            const d = staffQualityItems[key] as Record<string, any>;
+            if (!d || typeof d !== 'object') return null;
+            const isNewItemFmt = 'grade' in d || 'note' in d;
+            const isOldCritFmt = '선도' in d || '상해' in d;
+            if (isNewItemFmt) {
+              const g = d.grade || '';
+              const s = gradeScoreDash(g);
+              const criterion = parseCritDash(key);
+              return (
+                <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-secondary flex-1 leading-snug">{key}</span>
+                    {g && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {criterion && <span className="font-black bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-md">{criterion}</span>}
+                        <span className={`font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(g)}`}>{g}</span>
+                        <span className={`font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(g)}`}>{s}점</span>
+                      </div>
+                    )}
+                  </div>
+                  {d.note && <div className="text-muted-foreground">{d.note}</div>}
+                </div>
+              );
+            }
+            if (isOldCritFmt) {
+              const allCrit = ['선도', '상해', '규격', '혼입율', '색택', '마블링'];
+              const graded = allCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
+              const scoreTotal = Math.round(graded.reduce((sum, c) => sum + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / 2);
+              const mainCrit = category === '축산' ? ['색택', '마블링', '선도'] : ['선도', '상해'];
+              const mainGraded = mainCrit.filter(c => QUALITY_GRADE_SCORES_DASH[d[c]] !== undefined);
+              const bloodspot = category === '축산' ? (typeof d.__bloodspot === 'number' ? d.__bloodspot : 0) : 0;
+              const exp = category !== '축산' ? (typeof d.__expired === 'number' ? d.__expired : 0) : 0;
+              const mld = category !== '축산' ? (typeof d.__moldy === 'number' ? d.__moldy : 0) : 0;
+              const penalty = category === '축산' ? bloodspot * 2 : exp * 2 + mld * 5;
+              const storeScore = mainGraded.length > 0
+                ? Math.max(0, Math.round(mainGraded.reduce((s, c) => s + QUALITY_GRADE_SCORES_DASH[d[c]], 0) / mainGraded.length - penalty))
+                : 0;
+              const g = getQualityGradeDash(scoreTotal, category);
+              return (
+                <div key={key} className="px-3 py-2 rounded-xl bg-purple-50/40 border border-purple-200/40 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-secondary shrink-0">{key}</span>
+                    <span className="font-black text-right leading-snug">
+                      점수총계 {scoreTotal}점 / 매장점수 {storeScore}점 / <span className={`px-1.5 py-0.5 rounded-md ${gradeColorDash(g)}`}>{g}등급</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(['선도','상해','규격','혼입율','색택','마블링'] as const).map(c => {
+                      const grade = d[c];
+                      if (!grade) return null;
+                      return (
+                        <span key={c} className="inline-flex items-center gap-1 text-xs">
+                          <span className="font-semibold text-secondary/70">{c}</span>
+                          <span className={`font-black px-1.5 py-0.5 rounded-md ${gradeColorDash(grade)}`}>{grade}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {(bloodspot > 0 || exp > 0 || mld > 0) && (
+                    <div className="flex gap-2 pt-0.5 flex-wrap">
+                      {bloodspot > 0 && <span className="text-red-600 font-bold">갈색/암적색/녹색/핏물 {bloodspot}개 (-{bloodspot * 2}점)</span>}
+                      {exp > 0 && <span className="text-orange-600 font-bold">진열기한 경과 {exp}개 (-{exp * 2}점)</span>}
+                      {mld > 0 && <span className="text-red-600 font-bold">곰팡이 {mld}개 (-{mld * 5}점)</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })}
+          {(savedBloodspot > 0 || savedExpired > 0 || savedMoldy > 0) && (
+            <div className="flex gap-3 px-3 py-2 text-xs font-bold border border-red-200/60 rounded-xl bg-red-50/40 flex-wrap">
+              {savedBloodspot > 0 && <span className="text-red-600">갈색/암적색/녹색/핏물 {savedBloodspot}개 (-{savedBloodspot * 2}점)</span>}
+              {savedExpired > 0 && <span className="text-orange-600">진열기한 경과 {savedExpired}개 (-{savedExpired * 2}점)</span>}
+              {savedMoldy > 0 && <span className="text-red-600">곰팡이 {savedMoldy}개 (-{savedMoldy * 5}점)</span>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VMTab({ highlightId, highlightBranch, unreadCount = 0, onBellClick }: { highlightId?: number; highlightBranch?: string; unreadCount?: number; onBellClick?: () => void }) {
+  const now = new Date();
+  const [filterBranch, setFilterBranch] = useState('전체');
+  const [filterCategory, setFilterCategory] = useState('전체');
+  const [filterProduct, setFilterProduct] = useState('전체');
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
+  const [viewFilter, setViewFilter] = useState<'all' | 'vm' | 'quality'>('all');
+  const { toast } = useToast();
+
+  const currentYear = now.getFullYear();
+  const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
+  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  useEffect(() => {
+    setFilterProduct('전체');
+  }, [filterCategory, filterBranch]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    setFilterBranch(highlightBranch ?? '전체');
+    setFilterCategory('전체');
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`vm-card-${highlightId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2500);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightId, highlightBranch]);
+
+  const deleteMutation = useDeleteChecklist();
+  const itemStatusMutation = useUpdateChecklistItemStatus();
+
+  const handleItemToggle = async (id: number, itemName: string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'ok' ? 'notok' : 'ok';
+    try {
+      await itemStatusMutation.mutateAsync({ id, itemName, newStatus: nextStatus });
+      toast({ title: nextStatus === 'ok' ? "일치로 변경됨" : "불일치로 변경됨" });
+    } catch {
+      toast({ title: "변경 실패", variant: "destructive" });
+    }
+  };
+
+  const { data: allChecklists, isLoading } = useChecklists({
+    branch: filterBranch !== '전체' ? filterBranch : undefined,
+    category: filterCategory !== '전체' ? filterCategory : undefined,
+  });
+
+  // 선택 카테고리 전체 데이터 — 순위 계산용 (전체 선택 시 품질은 채소, 나머지는 농산 기본)
+  const effectiveCat = filterCategory !== '전체' ? filterCategory : (viewFilter === 'quality' ? '채소' : '농산');
+  const { data: agriAll } = useChecklists({ category: effectiveCat });
+  const { data: validGuideProducts = [] } = useValidGuideProducts(filterYear, filterMonth);
+
+  // 탭별 가이드 상품 세트를 미리 분리
+  const vmGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType !== 'ad' && g.guideType !== 'quality').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
+  const adGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType === 'ad').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
+  const qualityGuideSet = useMemo(() => {
+    const seasonal = new Set<string>(), regular = new Set<string>();
+    validGuideProducts.filter(g => g.guideType === 'quality').forEach(g => {
+      if (g.hasDateRange) seasonal.add(g.product); else regular.add(g.product);
+    });
+    return { seasonal, regular };
+  }, [validGuideProducts]);
+
+  // 카테고리 내 상품 목록 (날짜 무관, 선택된 카테고리/지점 기준)
+  const availableProducts = useMemo(() => {
+    const CAT_ORDER = ['농산', '수산', '축산', '공산'];
+    const productCatMap = new Map<string, string>();
+    (allChecklists ?? []).forEach(item => {
+      if (item.product && !productCatMap.has(item.product)) {
+        productCatMap.set(item.product, (item as any).category ?? '');
+      }
+    });
+    const sorted = Array.from(productCatMap.keys()).sort((a, b) => {
+      const oA = CAT_ORDER.indexOf(productCatMap.get(a) ?? '');
+      const oB = CAT_ORDER.indexOf(productCatMap.get(b) ?? '');
+      return (oA === -1 ? 99 : oA) - (oB === -1 ? 99 : oB);
+    });
+    return ['전체', ...sorted];
+  }, [allChecklists]);
+
+  // Filter by year/month and product client-side
+  const CATEGORY_ORDER = ['농산', '수산', '축산', '공산'];
+  const checklists = (allChecklists ?? []).filter(item => {
+    const itemYear = (item as any).year;
+    const itemMonth = (item as any).month;
+    let matchesDate: boolean;
+    if (itemYear && itemMonth) {
+      matchesDate = itemYear === filterYear && itemMonth === filterMonth;
+    } else {
+      const d = new Date(item.createdAt);
+      matchesDate = d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth;
+    }
+    if (!matchesDate) return false;
+    if (filterProduct !== '전체' && item.product !== filterProduct) return false;
+    const cType = (item as any).checklistType || 'vm';
+    if (viewFilter === 'quality') return cType === 'quality';
+    if (viewFilter === 'vm') return cType !== 'quality';
+    return true;
+  }).sort((a, b) => {
+    const cTypeA = (a as any).checklistType || 'vm';
+    const cTypeB = (b as any).checklistType || 'vm';
+    const getGuideSet = (cType: string) =>
+      cType === 'ad' ? adGuideSet : cType === 'quality' ? qualityGuideSet : vmGuideSet;
+    const guidePriority = (product: string, cType: string) => {
+      const gs = getGuideSet(cType);
+      if (gs.seasonal.has(product)) return 0;
+      if (gs.regular.has(product)) return 1;
+      return 2;
+    };
+    const pA = guidePriority(a.product ?? '', cTypeA);
+    const pB = guidePriority(b.product ?? '', cTypeB);
+    if (pA !== pB) return pA - pB;
+    if (filterBranch === '전체') {
+      const catA = CATEGORY_ORDER.indexOf((a as any).category ?? '');
+      const catB = CATEGORY_ORDER.indexOf((b as any).category ?? '');
+      const oA = catA === -1 ? 99 : catA;
+      const oB = catB === -1 ? 99 : catB;
+      if (oA !== oB) return oA - oB;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  // 농산 기준 월별 순위 계산
+  const agriPeriod = (agriAll ?? []).filter(item => {
+    const itemYear = (item as any).year;
+    const itemMonth = (item as any).month;
+    if (itemYear && itemMonth) return itemYear === filterYear && itemMonth === filterMonth;
+    const d = new Date(item.createdAt);
+    return d.getFullYear() === filterYear && d.getMonth() + 1 === filterMonth;
+  });
+
+  const vmRanking = (() => {
+    const byBranch: Record<string, number[]> = {};
+    agriPeriod.forEach(item => {
+      if ((item as any).checklistType === 'ad') return;
+      const score = (item as any).adminScore as number | null;
+      if (score == null) return;
+      const br = (item as any).branch as string;
+      if (!br) return;
+      (byBranch[br] = byBranch[br] ?? []).push(score);
+    });
+    return Object.entries(byBranch)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length }))
+      .sort((a, b) => b.avg - a.avg);
+  })();
+
+  const adRanking = (() => {
+    const byBranch: Record<string, number[]> = {};
+    agriPeriod.forEach(item => {
+      const score = (item as any).adAdminScore as number | null;
+      if (score == null) return;
+      const br = (item as any).branch as string;
+      if (!br) return;
+      (byBranch[br] = byBranch[br] ?? []).push(score);
+    });
+    return Object.entries(byBranch)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length }))
+      .sort((a, b) => b.avg - a.avg);
+  })();
+
+  const qualityRanking = (() => {
+    const byBranch: Record<string, number[]> = {};
+    agriPeriod.forEach(item => {
+      const score = (item as any).qualityAdminScore as number | null;
+      if (score == null) return;
+      const br = (item as any).branch as string;
+      if (!br) return;
+      (byBranch[br] = byBranch[br] ?? []).push(score);
+    });
+    return Object.entries(byBranch)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length }))
+      .sort((a, b) => b.avg - a.avg);
+  })();
+
+  const showLeaderboard = false;
+
+  const handleDelete = async (id: number, label: string) => {
+    if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: "삭제 완료", description: "점검 기록이 삭제되었습니다." });
+    } catch {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    }
+  };
+
+  return (
+    <>
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-4 space-y-3 shadow-sm w-full">
+        {/* Year / Month / View filter — one row */}
+        <div className="flex gap-2 items-center">
+          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+          <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0"
+            data-testid="select-filter-year">
+            {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
+          </select>
+          <select value={filterMonth} onChange={e => setFilterMonth(Number(e.target.value))}
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0"
+            data-testid="select-filter-month">
+            {monthOptions.map(m => <option key={m} value={m}>{m}월</option>)}
+          </select>
+          <select value={viewFilter} onChange={e => setViewFilter(e.target.value as 'all' | 'vm' | 'quality')}
+            className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0"
+            data-testid="select-view-filter">
+            <option value="all">전체</option>
+            <option value="vm">진열(+광고)</option>
+            <option value="quality">품질</option>
+          </select>
+          <div className="flex-1" />
+          {/* Notification bell */}
+          <button
+            onClick={onBellClick}
+            disabled={unreadCount === 0}
+            className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+              unreadCount > 0 ? 'bg-white border border-border shadow-sm active:scale-95' : 'bg-muted cursor-default'
+            }`}
+            data-testid="btn-notification-bell"
+          >
+            <Bell className={`w-4 h-4 ${unreadCount > 0 ? 'text-primary' : 'text-muted-foreground/40'}`} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[9px] font-black flex items-center justify-center leading-none" data-testid="badge-unread-count">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+        {/* Branch / Category filter */}
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+          <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)}
+            className="flex-1 min-w-0 bg-muted border-none rounded-xl px-2 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
+            data-testid="select-filter-branch">
+            {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
+          </select>
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+            className="flex-1 min-w-0 bg-muted border-none rounded-xl px-2 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
+            data-testid="select-filter-category">
+            <option value="전체">전체 카테고리</option>
+            {(viewFilter === 'quality' ? QUALITY_CATEGORIES : CATEGORIES).map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select
+            value={filterProduct}
+            onChange={e => setFilterProduct(e.target.value)}
+            className="flex-1 min-w-0 bg-muted border-none rounded-xl px-2 py-2.5 font-medium focus:ring-2 focus:ring-primary/50 outline-none text-secondary text-sm"
+            data-testid="select-filter-product"
+          >
+            {availableProducts.map(p => (
+              <option key={p} value={p}>{p === '전체' ? '전체 상품' : p}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="px-4 md:px-[50px] py-4 space-y-4 w-full">
+        {/* ── 지점 순위 리더보드 (지점 미선택 + VM/광고 탭) ── */}
+        {showLeaderboard ? (() => {
+          const ranking = viewFilter === 'quality' ? qualityRanking : vmRanking;
+          const title = viewFilter === 'quality' ? '품질 점수 순위' : '진열 점수 순위';
+          const accentClass = viewFilter === 'quality' ? 'text-purple-700' : 'text-primary';
+          const topBg = viewFilter === 'quality' ? 'from-purple-500/10 to-purple-500/5 border-purple-300/20' : 'from-primary/10 to-primary/5 border-primary/20';
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 pt-1 pb-2">
+                <Trophy className={`w-5 h-5 ${accentClass}`} />
+                <h2 className={`text-base font-black ${accentClass}`}>{filterYear}년 {filterMonth}월 {title}</h2>
+                <span className="text-[11px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full ml-1">{effectiveCat} 기준</span>
+              </div>
+              {ranking.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <Trophy className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="font-medium">이번 달 확정 점수 데이터가 없습니다.</p>
+                  <p className="text-sm mt-1">관리자 점수 확정 후 순위가 표시됩니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {ranking.map(({ branch, avg, count }, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
+                    const isTop3 = idx < 3;
+                    const avgColor = avg >= 90 ? 'text-emerald-600' : avg >= 70 ? 'text-amber-600' : 'text-red-500';
+                    return (
+                      <button
+                        key={branch}
+                        onClick={() => setFilterBranch(branch)}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${
+                          isTop3
+                            ? `bg-gradient-to-r ${topBg} shadow-md`
+                            : 'bg-white border-border/50 hover:border-border'
+                        }`}
+                        data-testid={`btn-rank-${branch}`}
+                      >
+                        <div className="w-9 text-center shrink-0">
+                          {medal
+                            ? <span className="text-2xl leading-none">{medal}</span>
+                            : <span className="text-base font-black text-muted-foreground">{idx + 1}</span>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold text-secondary text-base">{branch}점</span>
+                          <span className="text-xs text-muted-foreground ml-2">{count}건 평균</span>
+                        </div>
+                        <div className="flex items-baseline gap-0.5 shrink-0">
+                          <span className={`text-2xl font-black ${avgColor}`}>{avg}</span>
+                          <span className="text-xs text-muted-foreground font-medium">점</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-center text-xs text-muted-foreground pt-2">지점을 탭하면 해당 지점의 점검 내역을 볼 수 있습니다.</p>
+            </div>
+          );
+        })() : isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+            데이터를 불러오는 중...
+          </div>
+        ) : !checklists.length ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+              <AlertCircle className="w-8 h-8 opacity-50" />
+            </div>
+            <p className="font-medium text-lg">{filterYear}년 {filterMonth}월 점검 기록이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {checklists.map((item, index) => {
+            const hasNotok = item.items && Object.values(item.items as Record<string, string>).some(v => v === 'notok');
+            const adminScore = (item as any).adminScore as number | null | undefined;
+            const adAdminScore = (item as any).adAdminScore as number | null | undefined;
+            const qualityAdminScore = (item as any).qualityAdminScore as number | null | undefined;
+            const hasAdItems = !!(
+              (item as any).checklistType === 'ad'
+                ? (item.items && Object.keys(item.items as object).length > 0) || item.photoUrl || (item as any).photoUrls?.length || item.notes
+                : ((item as any).adItems && Object.keys((item as any).adItems).length > 0) || ((item as any).adPhotoUrls && (item as any).adPhotoUrls.length > 0) || (item as any).adNotes
+            );
+            const hasQualityItems = !!(((item as any).qualityItems && Object.keys((item as any).qualityItems).length > 0) || ((item as any).qualityPhotoUrls && (item as any).qualityPhotoUrls.length > 0) || (item as any).qualityNotes);
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                key={item.id}
+                id={`vm-card-${item.id}`}
+                className={`bg-white rounded-3xl overflow-hidden shadow-lg shadow-black/5 transition-all ${hasNotok ? 'border-2 border-red-400' : 'border border-border/50 hover:shadow-xl'}`}
+                data-testid={`card-checklist-${item.id}`}
+              >
+                {(() => {
+                  const photos: string[] = (item as any).photoUrls?.length ? (item as any).photoUrls : item.photoUrl ? [item.photoUrl] : [];
+                  if (photos.length === 0) return (
+                    <div className="w-full h-32 bg-muted/50 flex flex-col items-center justify-center text-muted-foreground border-b border-border/50">
+                      <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
+                      <span className="text-sm font-medium">사진 없음</span>
+                    </div>
+                  );
+                  if (photos.length === 1) return (
+                    <PhotoThumbnail src={photos[0]} className="w-full h-48 bg-muted relative block">
+                      <img src={photos[0]} alt="Checklist" className="w-full h-full object-cover" />
+                      {hasNotok && (
+                        <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" /> 불일치 항목 있음
+                        </div>
+                      )}
+                    </PhotoThumbnail>
+                  );
+                  return (
+                    <div className="relative border-b border-border/50">
+                      <div className="flex gap-1 overflow-x-auto no-scrollbar p-1">
+                        {photos.map((url, pi) => (
+                          <PhotoThumbnail key={pi} src={url} className="shrink-0 w-36 h-36 rounded-2xl overflow-hidden block">
+                            <img src={url} alt={`사진 ${pi + 1}`} className="w-full h-full object-cover" />
+                          </PhotoThumbnail>
+                        ))}
+                      </div>
+                      {hasNotok && (
+                        <div className="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-bold shadow-md flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" /> 불일치 항목 있음
+                        </div>
+                      )}
+                      <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full">{photos.length}장</div>
+                    </div>
+                  );
+                })()}
+
+                <div className="p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{item.category}</span>
+                        {(item as any).checklistType === 'ad' && (
+                          <span className="text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">📢 광고점검</span>
+                        )}
+                        {(item as any).checklistType === 'quality' && (
+                          <span className="text-xs font-bold text-purple-700 bg-purple-100 border border-purple-300 px-2 py-0.5 rounded-md">⭐ 품질점검</span>
+                        )}
+                      </div>
+                      <h3 className="text-xl font-black text-secondary leading-tight">
+                        {item.branch}점 <span className="font-medium text-muted-foreground text-lg ml-1">| {item.product}</span>
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {(item as any).checklistType === 'quality' ? (() => {
+                        const qItems = (item as any).qualityItems as Record<string, any> | null;
+                        const isBulkQ = !!(qItems && '__category' in qItems);
+                        if (!isBulkQ || !qItems) return null;
+                        const liveStoreScore = Math.min(100, Math.max(0, calcOverallQualityScoreDash(qItems)));
+                        const qScore = qualityAdminScore != null ? Math.min(100, Math.max(0, qualityAdminScore)) : liveStoreScore;
+                        const qScoreTotal = calcQualityScoreTotalDash(qItems);
+                        if (qScore === 0 && qScoreTotal === 0) return null;
+                        return (
+                          <div className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1 ${
+                            qScore >= 90 ? 'bg-purple-50 border-purple-200 text-purple-700' :
+                            qScore >= 70 ? 'bg-orange-50 border-orange-200 text-orange-700' :
+                            'bg-red-50 border-red-200 text-primary'
+                          }`} data-testid={`text-quality-score-${item.id}`}>
+                            점수총계 {qScoreTotal}점 / 매장점수 {qScore}점
+                          </div>
+                        );
+                      })() : (() => {
+                        const hasAd = hasAdItems && viewFilter !== 'quality' && (item as any).checklistType !== 'ad';
+                        const displayScore = adminScore != null && adAdminScore != null && hasAd
+                          ? Math.round((adminScore + adAdminScore) / 2)
+                          : adminScore ?? (hasAd ? adAdminScore : null) ?? null;
+                        const isAvg = adminScore != null && adAdminScore != null && hasAd;
+                        return displayScore != null ? (
+                          <div className={`px-3 py-1.5 rounded-xl border text-sm font-black flex items-center gap-1 ${
+                            displayScore >= 80 ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                            displayScore >= 60 ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                            'bg-red-50 border-red-200 text-primary'
+                          }`} data-testid={`text-admin-score-${item.id}`}>
+                            <Star className="w-3.5 h-3.5" />{displayScore}점
+                            {isAvg && <span className="text-[10px] font-medium opacity-70 ml-0.5">평균</span>}
+                          </div>
+                        ) : (
+                          <div className="px-3 py-1.5 rounded-xl bg-muted border border-border text-xs text-muted-foreground font-medium">미평가</div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Year/Month display */}
+                  {((item as any).year && (item as any).month) && (
+                    <p className="text-xs font-bold text-primary/70 mb-2 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {(item as any).year}년 {(item as any).month}월 점검
+                    </p>
+                  )}
+
+                  {(item as any).checklistType !== 'ad' && viewFilter !== 'quality' && item.items && Object.keys(item.items as object).length > 0 && (
+                    <div className="mt-3">
+                      {hasAdItems && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex-1 h-px bg-primary/20" />
+                          <span className="text-[11px] font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">진열 점검</span>
+                          <div className="flex-1 h-px bg-primary/20" />
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(item.items as Record<string, string>).map(([name, status]) => {
+                          const adminItems = (item as any).adminItems as Record<string, 'ok' | 'notok'> | null;
+                          const adminVal = adminItems?.[name];
+                          const staffIsOk = status === 'ok' || status === 'excellent';
+                          const adminIsOk = adminVal === 'ok';
+                          const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                          return (
+                            <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                              wasChanged
+                                ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                : staffIsOk ? 'bg-blue-50 border-blue-200 text-blue-600'
+                                : 'bg-red-50 border-red-200 text-red-600'
+                            }`}>
+                              {name}:&nbsp;
+                              {wasChanged ? (
+                                <>
+                                  <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                  <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                  <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                </>
+                              ) : (
+                                <span>{staffIsOk ? '○' : '✗'}</span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-sm text-muted-foreground font-medium flex items-center gap-2 mt-4">
+                    {format(new Date(item.createdAt), 'yyyy년 MM월 dd일 HH:mm', { locale: ko })}
+                  </p>
+
+                  {(item as any).checklistType !== 'ad' && viewFilter !== 'quality' && item.notes && (
+                    <div className="mt-4 p-4 bg-muted/50 rounded-2xl text-secondary text-sm border border-border">
+                      <strong className="block mb-1 text-xs text-muted-foreground">요청/특이사항:</strong>
+                      {item.notes}
+                    </div>
+                  )}
+
+                  {(item as any).checklistType !== 'ad' && (item as any).checklistType !== 'quality' && viewFilter !== 'quality' && (
+                    <AdminScoreInput
+                      id={item.id}
+                      existingScore={(item as any).adminScore}
+                      staffItems={(item.items as Record<string, string>) || {}}
+                      existingAdminItems={(item as any).adminItems as Record<string, 'ok' | 'notok'> | null}
+                    />
+                  )}
+
+                  {(() => {
+                    const isOldAdType = (item as any).checklistType === 'ad';
+                    const adItems = isOldAdType
+                      ? (item.items as Record<string, string> | null)
+                      : (item as any).adItems as Record<string, string> | null;
+                    const adPhotoUrls = isOldAdType
+                      ? ((item as any).photoUrls as string[] | null) ?? (item.photoUrl ? [(item.photoUrl as string)] : null)
+                      : (item as any).adPhotoUrls as string[] | null;
+                    const adNotes = isOldAdType ? (item.notes as string | null) : (item as any).adNotes as string | null;
+                    const hasAdItems = adItems && Object.keys(adItems).length > 0;
+                    const hasAdPhotos = adPhotoUrls && adPhotoUrls.length > 0;
+                    const hasAdData = hasAdItems || hasAdPhotos || adNotes;
+                    // 품질 필터·품질 체크리스트는 제외, 사진 유무와 무관하게 점수 입력 항상 표시
+                    if (viewFilter === 'quality' || (item as any).checklistType === 'quality') return null;
+                    const adAdminItems = (item as any).adAdminItems as Record<string, 'ok' | 'notok'> | null;
+                    return (
+                      <>
+                        {hasAdData && (
+                          <>
+                            {/* 광고 구분선 */}
+                            <div className="mt-5 flex items-center gap-2">
+                              <div className="flex-1 h-px bg-amber-200" />
+                              <span className="text-[11px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">📢 광고(+셀링) 점검</span>
+                              <div className="flex-1 h-px bg-amber-200" />
+                            </div>
+                            {/* 광고 사진 */}
+                            {hasAdPhotos && (
+                              <div className="mt-3 flex gap-1.5 overflow-x-auto no-scrollbar">
+                                {adPhotoUrls!.map((url, pi) => (
+                                  <PhotoThumbnail key={pi} src={url} className="shrink-0 w-28 h-28 rounded-2xl overflow-hidden block">
+                                    <img src={url} alt={`광고사진 ${pi + 1}`} className="w-full h-full object-cover" />
+                                  </PhotoThumbnail>
+                                ))}
+                              </div>
+                            )}
+                            {hasAdItems && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {Object.entries(adItems!).map(([name, status]) => {
+                                  const adminVal = adAdminItems?.[name];
+                                  const staffIsOk = status === 'ok';
+                                  const adminIsOk = adminVal === 'ok';
+                                  const wasChanged = adminVal != null && adminIsOk !== staffIsOk;
+                                  return (
+                                    <span key={name} className={`text-[10px] px-2 py-1 rounded-full font-bold border inline-flex items-center gap-1 ${
+                                      wasChanged ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                      : staffIsOk ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                      : 'bg-red-50 border-red-200 text-red-600'
+                                    }`}>
+                                      {name}:&nbsp;
+                                      {wasChanged ? (
+                                        <>
+                                          <span className="line-through opacity-50">{staffIsOk ? '○' : '✗'}</span>
+                                          <span>→ {adminIsOk ? '○' : '✗'}</span>
+                                          <span className="text-[9px] bg-amber-200 text-amber-800 px-1 rounded-full ml-0.5">수정</span>
+                                        </>
+                                      ) : (
+                                        <span>{staffIsOk ? '○' : '✗'}</span>
+                                      )}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {adNotes && (
+                              <div className="mt-3 p-3 bg-amber-50/80 rounded-2xl border border-amber-200">
+                                <strong className="block mb-1 text-[11px] text-amber-700 font-black">📢 광고 특이사항:</strong>
+                                <p className="text-sm text-secondary">{adNotes}</p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {(adGuideSet.seasonal.has(item.product) || adGuideSet.regular.has(item.product)) && (
+                          <AdminAdScoreInput
+                            id={item.id}
+                            existingScore={(item as any).adAdminScore}
+                            staffAdItems={adItems || {}}
+                            existingAdminItems={adAdminItems}
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {(() => {
+                    const qualityItems = (item as any).qualityItems as Record<string, any> | null;
+                    const qualityPhotoUrls = (item as any).qualityPhotoUrls as string[] | null;
+                    const qualityNotes = (item as any).qualityNotes as string | null;
+                    const hasQualityItemsInner = qualityItems && Object.keys(qualityItems).length > 0;
+                    const hasQualityPhotos = qualityPhotoUrls && qualityPhotoUrls.length > 0;
+                    const hasQualityData = hasQualityItemsInner || hasQualityPhotos || qualityNotes;
+                    if (!hasQualityData || viewFilter === 'vm' || (item as any).checklistType === 'ad') return null;
+                    const qualityAdminItems = (item as any).qualityAdminItems as Record<string, any> | null;
+                    return (
+                      <>
+                        {qualityNotes && (
+                          <div className="mt-3 p-3 bg-purple-50/80 rounded-2xl border border-purple-200">
+                            <strong className="block mb-1 text-[11px] text-purple-700 font-black">⭐ 품질 특이사항:</strong>
+                            <p className="text-sm text-secondary">{qualityNotes}</p>
+                          </div>
+                        )}
+                        {hasQualityPhotos && (
+                          <div className="mt-3">
+                            <strong className="block mb-2 text-[11px] text-purple-700 font-black">📸 품질 현장 사진:</strong>
+                            <QualityPhotoSlider urls={qualityPhotoUrls!} />
+                          </div>
+                        )}
+                        <AdminQualityScoreInput
+                          id={item.id}
+                          existingScore={(item as any).qualityAdminScore}
+                          staffQualityItems={qualityItems || {}}
+                          existingAdminItems={qualityAdminItems}
+                          weightedScore={(item as any).qualityWeightedScore}
+                        />
+                      </>
+                    );
+                  })()}
+
+                  <div className="mt-3">
+                    <VMCommentThread
+                      checklistId={item.id}
+                      adminComment={(item as any).adminComment}
+                      confirmed={(item as any).commentConfirmed}
+                      isAdmin={true}
+                      forceShow={true}
+                    />
+                  </div>
+
+                  <div className="flex gap-3 mt-4">
+                    <Link href={(item as any).checklistType === 'quality' ? `/checklist/quality-edit/${item.id}` : `/checklist/edit/${item.id}`} className="flex-1">
+                      <button
+                        className="w-full py-3 rounded-2xl border-2 border-border bg-muted text-secondary font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:border-primary/40 hover:text-primary"
+                        data-testid={`button-edit-checklist-${item.id}`}
+                      >
+                        <Pencil className="w-5 h-5" /> 수정
+                      </button>
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(item.id, `${item.branch} ${item.product}`)}
+                      disabled={deleteMutation.isPending}
+                      className="py-3 px-5 rounded-2xl border-2 border-red-200 bg-red-50 text-red-500 font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 hover:border-red-400 disabled:opacity-50"
+                      data-testid={`button-delete-checklist-${item.id}`}
+                    >
+                      <Trash2 className="w-5 h-5" /> 삭제
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function toLocalDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highlightId?: number; highlightDate?: string; highlightBranch?: string }) {
+  const todayStr = toLocalDateStr(new Date());
+  const [filterBranch, setFilterBranch] = useState('');
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!highlightId) return;
+    if (highlightBranch) setFilterBranch(highlightBranch);
+    setFilterTime('전체');
+    if (highlightDate) setSelectedDate(highlightDate);
+
+    const scrollToCard = () => {
+      const el = document.getElementById(`cleaning-card-${highlightId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-emerald-500', 'ring-offset-2');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-emerald-500', 'ring-offset-2'), 2500);
+        return true;
+      }
+      return false;
+    };
+
+    // Try at 400ms, then retry at 800ms if data hasn't loaded yet
+    const t1 = setTimeout(() => {
+      if (!scrollToCard()) {
+        const t2 = setTimeout(scrollToCard, 400);
+        return () => clearTimeout(t2);
+      }
+    }, 400);
+    return () => clearTimeout(t1);
+  }, [highlightId, highlightDate, highlightBranch]);
+  const deleteMutation = useDeleteCleaning();
+  const itemStatusMutation = useUpdateCleaningItemStatus();
+
+  const handleItemResolve = async (id: number, itemName: string) => {
+    try {
+      await itemStatusMutation.mutateAsync({ id, itemName, newStatus: 'ok' });
+      toast({ title: "항목 완료 처리됨", description: `'${itemName}' 항목이 이상없음으로 변경됐습니다.` });
+    } catch {
+      toast({ title: "변경 실패", variant: "destructive" });
+    }
+  };
+  const isToday = selectedDate === todayStr;
+
+  const { data: rawRecords = [], isLoading } = useCleaningInspections(
+    filterBranch ? { branch: filterBranch } : {}
+  );
+  // "입구" 구역은 "공통"으로 이름이 변경됨. 과거 기록도 동일한 구역으로 취급.
+  const allRecords = rawRecords.map(r => r.zone === '입구' ? { ...r, zone: '공통' } : r);
+
+  // Records for the selected date, filtered by inspection time
+  const dayRecords = allRecords.filter(r => {
+    if (toLocalDateStr(new Date(r.createdAt)) !== selectedDate) return false;
+    if (filterTime !== '전체' && r.inspectionTime !== filterTime) return false;
+    return true;
+  });
+
+  const goBack = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(toLocalDateStr(d));
+  };
+  const goForward = () => {
+    if (isToday) return;
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 1);
+    setSelectedDate(toLocalDateStr(d));
+  };
+
+  const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+
+  // Zone status summary for selected date (latest record per zone, for grid display)
+  const zoneStatus: Record<string, { status: string; time: string; id: number } | null> = {};
+  ZONES.forEach(z => { zoneStatus[z] = null; });
+  dayRecords.forEach(r => {
+    if (!zoneStatus[r.zone] || new Date(r.createdAt) > new Date((zoneStatus[r.zone] as any).createdAt)) {
+      zoneStatus[r.zone] = { status: r.overallStatus, time: r.inspectionTime, id: r.id };
+    }
+  });
+
+  // Issue list for selected date
+  const issues: { recordId: number; zone: string; item: string; memo?: string | null; photoUrl?: string | null; time: string }[] = [];
+  dayRecords.forEach(r => {
+    if (r.items) {
+      Object.entries(r.items as Record<string, any>).forEach(([item, data]) => {
+        if (data.status === 'issue') {
+          issues.push({ recordId: r.id, zone: r.zone, item, memo: data.memo, photoUrl: data.photoUrl, time: r.inspectionTime });
+        }
+      });
+    }
+  });
+
+  // Completion rate calculation:
+  // - Denominator = ZONES × times (2 when '전체', 1 when specific time)
+  // - Each slot earns (non-issue items / total items) points — issues reduce the rate
+  const relevantTimes = filterTime === '전체' ? ['오픈', '마감'] : [filterTime];
+  const totalSlots = ZONES.length * relevantTimes.length;
+
+  // Build slot map: latest record per (zone × time) pair
+  const slotMap: Record<string, typeof dayRecords[0] | null> = {};
+  ZONES.forEach(z => relevantTimes.forEach(t => { slotMap[`${z}_${t}`] = null; }));
+  // Use all day records for the selected date (ignoring filterTime so we can look at both)
+  allRecords
+    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .forEach(r => {
+      const key = `${r.zone}_${r.inspectionTime}`;
+      if (key in slotMap) {
+        if (!slotMap[key] || new Date(r.createdAt) > new Date(slotMap[key]!.createdAt)) {
+          slotMap[key] = r;
+        }
+      }
+    });
+
+  let completionScore = 0;
+  let completedSlotCount = 0;
+  Object.values(slotMap).forEach(record => {
+    if (record) {
+      completedSlotCount++;
+      const items = record.items as Record<string, { status: string }> || {};
+      const total = Object.keys(items).length;
+      const issueCount = Object.values(items).filter((v: any) => v.status === 'issue').length;
+      const quality = total > 0 ? (total - issueCount) / total : 1;
+      completionScore += quality;
+    }
+  });
+
+  const completionRate = totalSlots > 0 ? Math.round((completionScore / totalSlots) * 100) : 0;
+  const completedZones = ZONES.filter(z => zoneStatus[z] !== null).length;
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("이 점검 기록을 삭제하시겠습니까?")) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: "삭제 완료" });
+    } catch {
+      toast({ title: "삭제 실패", variant: "destructive" });
+    }
+  };
+
+  return (
+    <>
+      {/* Branch filter + date navigator — single row */}
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-border/50 px-4 md:px-[50px] py-3">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+          <select
+            value={filterBranch}
+            onChange={e => setFilterBranch(e.target.value)}
+            className={`bg-muted border-none rounded-xl px-3 py-2.5 font-medium outline-none text-sm shrink-0 ${filterBranch ? 'text-secondary' : 'text-muted-foreground'}`}
+            data-testid="select-cleaning-branch"
+          >
+            <option value="">지점 선택</option>
+            {BRANCHES.filter(b => b !== '전체').map(b => (
+              <option key={b} value={b}>{b}점</option>
+            ))}
+          </select>
+
+          {filterBranch && (<>
+            <div className="flex items-center gap-1 bg-muted rounded-xl px-2 py-1.5 flex-1 min-w-0">
+              <button
+                onClick={goBack}
+                className="w-7 h-7 rounded-lg bg-white flex items-center justify-center shadow-sm active:scale-95 transition-all shrink-0"
+                data-testid="btn-date-prev"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 text-secondary" />
+              </button>
+              <div className="flex-1 text-center min-w-0">
+                <p className="font-bold text-secondary text-sm whitespace-nowrap truncate">
+                  {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
+                </p>
+              </div>
+              <button
+                onClick={goForward}
+                disabled={isToday}
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed bg-white shadow-sm shrink-0"
+                data-testid="btn-date-next"
+              >
+                <ChevronRight className="w-3.5 h-3.5 text-secondary" />
+              </button>
+            </div>
+
+            <select
+              value={filterTime}
+              onChange={e => setFilterTime(e.target.value as '전체' | '오픈' | '마감')}
+              className="bg-muted border-none rounded-xl px-3 py-2.5 font-medium text-sm outline-none text-secondary shrink-0"
+              data-testid="select-filter-time"
+            >
+              <option value="전체">전체</option>
+              <option value="오픈">☀ 오픈</option>
+              <option value="마감">🌙 마감</option>
+            </select>
+          </>)}
+        </div>
+      </div>
+
+      <div className="px-4 md:px-[50px] py-4 space-y-5 w-full">
+      {!filterBranch ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4 text-muted-foreground">
+          <Droplets className="w-12 h-12 text-emerald-300" />
+          <p className="text-base font-semibold">지점을 선택해 주세요</p>
+          <p className="text-sm text-center">위 드롭다운에서 지점을 선택하면<br />청소 점검 현황을 확인할 수 있습니다.</p>
+        </div>
+      ) : isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
+          </div>
+      ) : (<>
+            {/* Summary card for selected date */}
+            <div className="bg-white border border-border rounded-3xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Droplets className="w-5 h-5 text-primary" />
+                <h3 className="text-base font-black text-secondary">
+                  {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 청소 점검 현황
+                </h3>
+              </div>
+              <div className="flex gap-2.5 mb-4">
+                <div className="flex-1 bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 text-center">
+                  <p className="text-2xl font-black text-emerald-600">{completedSlotCount}<span className="text-sm font-medium text-emerald-400">/{totalSlots}</span></p>
+                  <p className="text-xs text-emerald-600/70 font-semibold mt-0.5">점검 완료</p>
+                </div>
+                <div className="flex-1 bg-red-50 border border-red-100 rounded-2xl p-3.5 text-center">
+                  <p className="text-2xl font-black text-red-500">{issues.length}</p>
+                  <p className="text-xs text-red-500/70 font-semibold mt-0.5">문제 발생</p>
+                </div>
+                <div className="flex-1 bg-gray-50 border border-gray-100 rounded-2xl p-3.5 text-center">
+                  <p className="text-2xl font-black text-secondary">{completionRate}<span className="text-sm font-medium text-muted-foreground">%</span></p>
+                  <p className="text-xs text-muted-foreground font-semibold mt-0.5">완료율</p>
+                </div>
+              </div>
+
+              {/* Zone status */}
+              <div className="grid grid-cols-5 gap-2">
+                {ZONES.map(zone => {
+                  const s = zoneStatus[zone];
+                  return (
+                    <div
+                      key={zone}
+                      className={`rounded-2xl p-3 text-center border-2 ${
+                        !s ? 'border-border bg-muted/50' :
+                        s.status === 'ok' ? 'border-emerald-300 bg-emerald-50' :
+                        'border-red-300 bg-red-50'
+                      }`}
+                    >
+                      <div className="flex justify-center mb-1">
+                        {!s ? (
+                          <div className="w-6 h-6 rounded-full border-2 border-border" />
+                        ) : s.status === 'ok' ? (
+                          <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                        ) : (
+                          <XCircle className="w-6 h-6 text-primary" />
+                        )}
+                      </div>
+                      <p className="text-xs font-bold text-secondary">{zone}</p>
+                      {s && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-0.5">
+                          {s.time === '오픈' ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+                          {s.time}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Issues for selected date */}
+            {issues.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-black text-secondary flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-primary" />
+                  {isToday ? '오늘' : format(selectedDateObj, 'M월 d일', { locale: ko })} 발생한 문제
+                </h3>
+                {issues.map((issue, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="bg-white rounded-2xl border-2 border-red-200 overflow-hidden shadow-sm"
+                  >
+                    <div className="flex gap-3 p-4">
+                      {issue.photoUrl && (
+                        <PhotoThumbnail src={issue.photoUrl} className="w-20 h-20 shrink-0">
+                          <img src={issue.photoUrl} className="w-20 h-20 rounded-xl object-cover border border-border" alt="Issue" />
+                        </PhotoThumbnail>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-red-100 text-primary">{issue.zone}</span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            {issue.time === '오픈' ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+                            {issue.time}
+                          </span>
+                        </div>
+                        <p className="font-bold text-secondary truncate">{issue.item}</p>
+                        {issue.memo && (
+                          <p className="text-sm text-muted-foreground mt-1 truncate">{issue.memo}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleItemResolve(issue.recordId, issue.item)}
+                        disabled={itemStatusMutation.isPending}
+                        className="shrink-0 self-center flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-emerald-50 border-2 border-emerald-300 text-emerald-700 hover:bg-emerald-100 active:scale-[0.96] transition-all disabled:opacity-50"
+                        data-testid={`btn-resolve-issue-${i}`}
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span className="text-[10px] font-black">완료처리</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* Records for selected date */}
+            {dayRecords.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-black text-secondary">
+                  {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 점검 기록
+                </h3>
+                {[...dayRecords].sort((a, b) => {
+                  if (a.overallStatus === 'issue' && b.overallStatus !== 'issue') return -1;
+                  if (a.overallStatus !== 'issue' && b.overallStatus === 'issue') return 1;
+                  return 0;
+                }).map((record, i) => {
+                  const items = record.items as Record<string, { status: string; memo?: string | null }> || {};
+                  const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue' || v.status === 'partial');
+                  const cleanScore = calcCleaningScore(items);
+                  return (
+                    <motion.div
+                      key={record.id}
+                      id={`cleaning-card-${record.id}`}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.03 }}
+                      className={`bg-white rounded-2xl border-2 overflow-hidden shadow-sm transition-all ${
+                        record.overallStatus === 'issue' ? 'border-red-200' : 'border-emerald-200'
+                      }`}
+                      data-testid={`card-cleaning-${record.id}`}
+                    >
+                      <div className="p-4 flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${record.overallStatus === 'ok' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-primary'}`}>
+                              {record.overallStatus === 'ok' ? 'OK' : 'ISSUE'}
+                            </span>
+                            <span className="font-black text-secondary">{record.branch}점</span>
+                            <span className="font-bold text-secondary">· {record.zone}</span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              {record.inspectionTime === '오픈' ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+                              {record.inspectionTime}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}
+                          </p>
+                          {issueItems.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {issueItems.map(([name, v]) => (
+                                <button
+                                  key={name}
+                                  onClick={() => handleItemResolve(record.id, name)}
+                                  disabled={itemStatusMutation.isPending}
+                                  className={`group flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border font-bold transition-all active:scale-95 disabled:opacity-50 ${v.status === 'partial' ? 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100' : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'}`}
+                                  data-testid={`btn-badge-resolve-${record.id}-${name}`}
+                                  title={`'${name}' 완료처리`}
+                                >
+                                  {name}
+                                  <CheckCircle2 className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          {Object.keys(items).length > 0 && (
+                            <div className={`px-2.5 py-1.5 rounded-xl border text-sm font-black ${scoreColor(cleanScore)}`}
+                              data-testid={`text-cleaning-score-${record.id}`}>
+                              {cleanScore}점
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleDelete(record.id)}
+                            disabled={deleteMutation.isPending}
+                            className="p-2 rounded-xl bg-muted text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                            data-testid={`button-delete-cleaning-${record.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="px-4 pb-4 space-y-2">
+                        <CleaningCommentThread
+                          cleaningId={record.id}
+                          adminComment={(record as any).adminComment}
+                          confirmed={(record as any).commentConfirmed}
+                          isAdmin={true}
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
+            {dayRecords.length === 0 && !isLoading && (
+              isToday ? (
+                <div className="bg-white border border-border rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-5">
+                  <div className="space-y-1.5">
+                    <p className="text-xl font-black text-secondary">{filterBranch}</p>
+                    <p className="text-sm text-muted-foreground font-medium">오늘 청소 점검 기록이 없습니다</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-14 text-muted-foreground space-y-3">
+                  <div className="w-14 h-14 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-gray-300" />
+                  </div>
+                  <p className="font-semibold text-base text-center text-muted-foreground">
+                    {format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
+                  </p>
+                  <button
+                    onClick={() => setSelectedDate(todayStr)}
+                    className="text-sm font-bold underline underline-offset-2"
+                    style={{ color: '#006341' }}
+                    data-testid="btn-admin-cleaning-back-today"
+                  >
+                    오늘로 돌아가기
+                  </button>
+                </div>
+              )
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+type ActivityItem = {
+  activityType: 'vm_submit' | 'cleaning_submit' | 'vm_reply' | 'cleaning_reply' | 'vm_edit';
+  branch: string;
+  description: string;
+  category?: string;
+  zone?: string;
+  content?: string;
+  relatedId: number;
+  createdAt: string;
+};
+
+function RankingTab() {
+  const now = new Date();
+  const [rankYear, setRankYear] = useState(now.getFullYear());
+  const [rankMonth, setRankMonth] = useState(now.getMonth() + 1);
+  const [rankType, setRankType] = useState<'vm' | 'ad' | 'quality'>('vm');
+  const [rankCategory, setRankCategory] = useState('농산');
+  const [rankProduct, setRankProduct] = useState('전체');
+  const { data: validGuideProducts = [] } = useValidGuideProducts(rankYear, rankMonth);
+  const availableRankProducts = useMemo(() => {
+    const filtered = validGuideProducts.filter((p: any) => p.category === rankCategory);
+    return ['전체', ...Array.from(new Set(filtered.map((p: any) => p.product as string)))];
+  }, [validGuideProducts, rankCategory]);
+  const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
+  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  const ALL_BRANCHES = BRANCHES.slice(1);
+  const STORE_TYPE_ORDER: Record<string, number> = {};
+  // 대형→중형→소형, 각 그룹 내 서울→수도권→지방 순
+  const SORTED_BRANCHES = [
+    '강남','강서','불광','송파','신구로', // 대형 서울
+    '야탑','부천','평촌','분당',           // 대형 수도권
+    '구의',                               // 중형 서울
+    '일산','광명','쇼핑','산본','동수원',  // 중형 수도권
+    '유성','수성','해운대','괴정',         // 중형 지방
+    '중계',                                // 소형 서울
+    '인천',,'고잔','김포',           // 소형 수도권
+    '부산대','청주',                       // 소형 지방
+  ];
+  SORTED_BRANCHES.forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
+
+  const { data: agriAll, isLoading } = useChecklists({ category: rankCategory });
+
+  const agriPeriod = (agriAll ?? []).filter(item => {
+    const itemYear = (item as any).year;
+    const itemMonth = (item as any).month;
+    const matchDate = itemYear && itemMonth
+      ? itemYear === rankYear && itemMonth === rankMonth
+      : (() => { const d = new Date(item.createdAt); return d.getFullYear() === rankYear && d.getMonth() + 1 === rankMonth; })();
+    if (!matchDate) return false;
+    if (rankProduct !== '전체' && (item as any).product !== rankProduct) return false;
+    return true;
+  });
+
+  const ranking = useMemo(() => {
+    const byBranch: Record<string, number[]> = {};
+    const pendingSet = new Set<string>();
+    agriPeriod.forEach(item => {
+      const br = (item as any).branch as string;
+      if (!br) return;
+      let score: number | null = null;
+      if (rankType === 'vm') {
+        if ((item as any).checklistType === 'ad' || (item as any).checklistType === 'quality') return;
+        score = (item as any).adminScore as number | null;
+      } else if (rankType === 'ad') {
+        score = (item as any).adAdminScore as number | null;
+      } else {
+        score = (item as any).qualityAdminScore as number | null;
+      }
+      if (score != null) {
+        (byBranch[br] = byBranch[br] ?? []).push(score);
+        pendingSet.delete(br);
+      } else if (!byBranch[br]) {
+        pendingSet.add(br);
+      }
+    });
+    const scoredList = Object.entries(byBranch)
+      .map(([branch, scores]) => ({ branch, avg: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), count: scores.length, status: 'scored' as const }))
+      .sort((a, b) => b.avg - a.avg || (STORE_TYPE_ORDER[a.branch] ?? 99) - (STORE_TYPE_ORDER[b.branch] ?? 99));
+    const pendingList = ALL_BRANCHES.filter(br => pendingSet.has(br))
+      .sort((a, b) => (STORE_TYPE_ORDER[a] ?? 99) - (STORE_TYPE_ORDER[b] ?? 99))
+      .map(branch => ({ branch, avg: null as number | null, count: 0, status: 'pending' as const }));
+    const scoredSet = new Set(Object.keys(byBranch));
+    const noneList = ALL_BRANCHES.filter(br => !scoredSet.has(br) && !pendingSet.has(br))
+      .sort((a, b) => (STORE_TYPE_ORDER[a] ?? 99) - (STORE_TYPE_ORDER[b] ?? 99))
+      .map(branch => ({ branch, avg: null as number | null, count: 0, status: 'none' as const }));
+    return [...scoredList, ...pendingList, ...noneList];
+  }, [agriPeriod, rankType]);
+
+  return (
+    <div className="px-4 md:px-[50px] py-3 space-y-2 w-full">
+      {/* Year / Month / Type + Category + Product — one row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+        <select value={rankYear} onChange={e => setRankYear(Number(e.target.value))}
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
+          {yearOptions.map(y => <option key={y} value={y}>{y}년</option>)}
+        </select>
+        <select value={rankMonth} onChange={e => setRankMonth(Number(e.target.value))}
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
+          {monthOptions.map(m => <option key={m} value={m}>{m}월</option>)}
+        </select>
+        <select value={rankType} onChange={e => {
+          const v = e.target.value as 'vm' | 'ad' | 'quality';
+          setRankType(v);
+          if (v === 'quality' && !QUALITY_CATEGORIES.includes(rankCategory)) setRankCategory('채소');
+        }}
+          className="bg-muted border-none rounded-xl px-3 py-2.5 font-bold text-sm outline-none text-secondary shrink-0">
+          <option value="vm">진열(+광고)</option>
+          <option value="quality">품질</option>
+        </select>
+        <select value={rankCategory} onChange={e => { setRankCategory(e.target.value); setRankProduct('전체'); }}
+          className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium text-sm outline-none text-secondary min-w-[120px]"
+          data-testid="select-rank-category">
+          {(rankType === 'quality' ? QUALITY_CATEGORIES : CATEGORIES).map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select value={rankProduct} onChange={e => setRankProduct(e.target.value)}
+          className="flex-1 bg-muted border-none rounded-xl px-3 py-2.5 font-medium text-sm outline-none text-secondary min-w-[120px]"
+          data-testid="select-rank-product">
+          {availableRankProducts.map(p => (
+            <option key={p} value={p}>{p === '전체' ? '전체 상품' : p}</option>
+          ))}
+        </select>
+      </div>
+      {/* Grade legend */}
+      <div className="flex items-center gap-1.5">
+        {(['A', 'B', 'C'] as const).map(g => (
+          <span key={g} className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${gradeColor(g)}`}>{g}</span>
+        ))}
+        <span className="text-[10px] text-muted-foreground">상위20%/50% 상대평가</span>
+      </div>
+
+      {/* Ranking list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-0.5">
+          {(() => {
+            const gradeMap = computeRelativeGrades(
+              ranking.filter(r => r.status === 'scored').map(r => r.avg),
+            );
+            let position = 0;
+            let displayRank = 0;
+            let prevAvg: number | null = null;
+            return ranking.map(({ branch, avg, count, status }) => {
+              const isScored = status === 'scored';
+              const isPending = status === 'pending';
+              if (isScored) {
+                position++;
+                if (avg !== prevAvg) {
+                  displayRank = position;
+                  prevAvg = avg;
+                }
+              }
+              const medal = displayRank === 1 && isScored ? '🥇' : displayRank === 2 && isScored ? '🥈' : displayRank === 3 && isScored ? '🥉' : null;
+              const grade = avg != null ? (gradeMap.get(avg) ?? null) : null;
+              const gColor = gradeColor(grade);
+              const avgColor = avg != null ? (avg >= 80 ? 'text-blue-600' : avg >= 60 ? 'text-amber-600' : 'text-red-500') : '';
+              const rowBg = isScored
+                ? (displayRank <= 3 ? 'bg-gradient-to-r from-primary/5 to-transparent border-primary/15' : 'bg-white border-border/40')
+                : isPending ? 'bg-muted/30 border-border/20'
+                : 'bg-muted/10 border-transparent';
+              return (
+                <div key={branch}
+                  className={`flex items-center gap-2 px-2.5 py-1 rounded-xl border ${rowBg}`}
+                  data-testid={`row-ranking-${branch}`}>
+                  {/* Rank */}
+                  <div className="w-6 text-center shrink-0">
+                    {medal
+                      ? <span className="text-base leading-none">{medal}</span>
+                      : isScored
+                        ? <span className="text-xs font-black text-muted-foreground">{displayRank}</span>
+                        : <span className="text-xs font-black text-muted-foreground/20">-</span>
+                    }
+                  </div>
+                  {/* Branch */}
+                  <div className="flex-1 min-w-0">
+                    <span className={`font-bold text-sm ${isScored ? 'text-secondary' : 'text-muted-foreground/50'}`}>{branch}점</span>
+                  </div>
+                  {/* Score */}
+                  <div className="w-12 text-right shrink-0">
+                    {isScored ? (
+                      <span className={`text-sm font-black ${avgColor}`}>{avg}<span className="text-[10px] font-medium text-muted-foreground ml-0.5">점</span></span>
+                    ) : isPending ? (
+                      <span className="text-[10px] font-bold text-muted-foreground">미평가</span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-muted-foreground/30">미점검</span>
+                    )}
+                  </div>
+                  {/* Grade */}
+                  <div className="w-8 text-center shrink-0">
+                    {grade ? (
+                      <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${gColor}`}>{grade}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/20">-</span>
+                    )}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+      <p className="text-center text-[10px] text-muted-foreground">
+        {rankCategory}{rankProduct !== '전체' ? ` · ${rankProduct}` : ''} 기준 · 관리자 입력 점수
+      </p>
+    </div>
+  );
+}
+
+function ActivityTab() {
+  const [selectedBranch, setSelectedBranch] = useState('전체');
+
+  const { data: activities = [], isLoading } = useQuery<ActivityItem[]>({
+    queryKey: ['/api/admin/activity-log', selectedBranch],
+    queryFn: () =>
+      fetch(`/api/admin/activity-log?branch=${encodeURIComponent(selectedBranch)}`, { credentials: 'include' })
+        .then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
+  const typeConfig: Record<ActivityItem['activityType'], { label: string; icon: React.ReactNode; color: string }> = {
+    vm_submit: { label: 'VM 점검 제출', icon: <UploadCloud className="w-4 h-4" />, color: 'bg-blue-100 text-blue-700' },
+    cleaning_submit: { label: '청소 점검 제출', icon: <UploadCloud className="w-4 h-4" />, color: 'bg-emerald-100 text-emerald-700' },
+    vm_reply: { label: 'VM 댓글', icon: <Reply className="w-4 h-4" />, color: 'bg-purple-100 text-purple-700' },
+    cleaning_reply: { label: '청소 댓글', icon: <Reply className="w-4 h-4" />, color: 'bg-orange-100 text-orange-700' },
+    vm_edit: { label: 'VM 점검 수정', icon: <Pencil className="w-4 h-4" />, color: 'bg-yellow-100 text-yellow-700' },
+  };
+
+  return (
+    <div className="px-4 md:px-[50px] py-4 space-y-4 w-full">
+      {/* Branch filter */}
+      <select
+        value={selectedBranch}
+        onChange={e => setSelectedBranch(e.target.value)}
+        className="w-full px-4 py-3 rounded-xl border-2 border-border text-base focus:outline-none focus:border-primary bg-white"
+        data-testid="select-activity-branch"
+      >
+        {BRANCHES.map(b => <option key={b} value={b}>{b === '전체' ? '전체 지점' : `${b}점`}</option>)}
+      </select>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : activities.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p>활동 기록이 없습니다.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {activities.map((item, idx) => {
+            const cfg = typeConfig[item.activityType];
+            return (
+              <div
+                key={idx}
+                className="bg-white rounded-2xl border border-border p-4 flex items-start gap-3 shadow-sm"
+                data-testid={`activity-item-${idx}`}
+              >
+                <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${cfg.color}`}>
+                  {cfg.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${cfg.color}`}>{cfg.label}</span>
+                    <span className="text-sm font-bold text-secondary">{item.branch}점</span>
+                    {item.category && (
+                      <span className="text-xs text-muted-foreground font-medium">{item.category}</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold text-secondary truncate">{item.description}</p>
+                  {item.content && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">"{item.content}"</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {format(new Date(item.createdAt), 'M월 d일 HH:mm', { locale: ko })}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const [, setLocation] = useLocation();
+  const { data: adminStatus, isLoading: authLoading } = useAdminStatus();
+  const [activeTab, setActiveTab] = useState<'ranking' | 'vm' | 'cleaning' | 'activity'>('ranking');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [highlightTarget, setHighlightTarget] = useState<{ type: 'vm' | 'cleaning'; id: number; date?: string; branch?: string } | null>(null);
+  const { notifications, unreadCount, dismiss, dismissAll } = useAdminNotifications();
+
+  useEffect(() => {
+    if (!authLoading && !adminStatus?.isAdmin) {
+      setLocation("/admin/login");
+    }
+  }, [adminStatus, authLoading, setLocation]);
+
+  const handleBellClick = () => {
+    if (unreadCount === 0) return;
+    setNotifOpen(true);
+  };
+
+  if (authLoading) {
+    return (
+      <Layout title="관리자 대시보드" showBack={true}>
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!adminStatus?.isAdmin) return null;
+
+  return (
+    <Layout title="관리자 대시보드" showBack={true}>
+      <NotificationPanel
+        open={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        notifications={notifications}
+        onDismiss={dismiss}
+        onDismissAll={dismissAll}
+        onNavigate={(target, key) => {
+          dismiss(key);
+          setActiveTab(target.type as 'vm' | 'cleaning');
+          const id = target.type === 'vm' ? target.checklistId : target.cleaningId;
+          if (id != null) setHighlightTarget({ type: target.type, id, date: target.date, branch: target.branch });
+          setNotifOpen(false);
+        }}
+      />
+      <div className="flex flex-col h-full bg-background">
+        {/* Tab switcher */}
+        <div className="flex px-4 md:px-[50px] border-b border-border items-center">
+          {(['ranking', 'vm', 'cleaning', 'activity'] as const).map((tab) => {
+            const cfg: Record<string, { label: string; icon: JSX.Element }> = {
+              ranking: { label: '점별 순위', icon: <Trophy className="w-4 h-4" /> },
+              vm:      { label: '점검',     icon: <BarChart3 className="w-4 h-4" /> },
+              cleaning:{ label: '청소',     icon: <Droplets className="w-4 h-4" /> },
+              activity:{ label: '활동',     icon: <ClipboardList className="w-4 h-4" /> },
+            };
+            const { label, icon } = cfg[tab];
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 flex items-center justify-center gap-1 pb-3 pt-3 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                  activeTab === tab ? 'border-black text-black' : 'border-transparent text-muted-foreground'
+                }`}
+                style={{ fontWeight: activeTab === tab ? 700 : 500 }}
+                data-testid={`tab-${tab}`}
+              >
+                {icon} {label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === 'ranking' ? (
+            <RankingTab />
+          ) : activeTab === 'vm' ? (
+            <VMTab highlightId={highlightTarget?.type === 'vm' ? highlightTarget.id : undefined} highlightBranch={highlightTarget?.type === 'vm' ? highlightTarget.branch : undefined} unreadCount={unreadCount} onBellClick={handleBellClick} />
+          ) : activeTab === 'cleaning' ? (
+            <CleaningTab highlightId={highlightTarget?.type === 'cleaning' ? highlightTarget.id : undefined} highlightDate={highlightTarget?.type === 'cleaning' ? highlightTarget.date : undefined} highlightBranch={highlightTarget?.type === 'cleaning' ? highlightTarget.branch : undefined} />
+          ) : (
+            <ActivityTab />
+          )}
+        </div>
+      </div>
+    </Layout>
+  );
+}
