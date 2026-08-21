@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useCreateCleaning, useCleaningInspections } from "@/hooks/use-cleaning";
+import { useCreateCleaning, useCleaningInspections, checkCleaningPhotoHash } from "@/hooks/use-cleaning";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -92,7 +92,9 @@ const ITEM_DESCRIPTIONS: Record<string, Record<string, string>> = {
 type ItemData = {
   status: "ok" | "issue" | null;
   beforePhotoUrl?: string | null;
+  beforePhotoHash?: string | null;
   afterPhotoUrl?: string | null;
+  afterPhotoHash?: string | null;
   memo?: string | null;
 };
 
@@ -220,10 +222,29 @@ export default function CleaningChecklist() {
     const slotKey = `${item}:${slot}`;
     setUploadingSlot(slotKey);
     try {
-      const { uploadFile } = await import("@/lib/upload");
+      const { uploadFile, hashFile } = await import("@/lib/upload");
+      const hash = await hashFile(file);
+
+      const otherField = slot === "before" ? "afterPhotoHash" : "beforePhotoHash";
+      if (itemData[item]?.[otherField] === hash) {
+        toast({ title: "전/후 사진이 같습니다", description: "다른 사진을 올려주세요.", variant: "destructive" });
+        return;
+      }
+
+      const { duplicate, match } = await checkCleaningPhotoHash(hash);
+      if (duplicate) {
+        toast({
+          title: "이미 업로드된 사진입니다",
+          description: match ? `${match.branch}점 · ${match.zone} · ${match.item}에서 이미 사용된 사진이에요. 새로 촬영해주세요.` : "새로 촬영해주세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const objectPath = await uploadFile(file);
-      const field = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
-      setItemData(prev => ({ ...prev, [item]: { ...prev[item], [field]: objectPath } }));
+      const urlField = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
+      const hashField = slot === "before" ? "beforePhotoHash" : "afterPhotoHash";
+      setItemData(prev => ({ ...prev, [item]: { ...prev[item], [urlField]: objectPath, [hashField]: hash } }));
     } catch {
       toast({ title: "사진 업로드 실패", variant: "destructive" });
     } finally {
@@ -232,12 +253,14 @@ export default function CleaningChecklist() {
   };
 
   const handleSubmit = async () => {
-    const items: Record<string, { status: string; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null; memo?: string | null }> = {};
+    const items: Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; memo?: string | null }> = {};
     currentItems.forEach(item => {
       items[item] = {
         status: itemData[item]?.status || "ok",
         beforePhotoUrl: itemData[item]?.beforePhotoUrl || null,
+        beforePhotoHash: itemData[item]?.beforePhotoHash || null,
         afterPhotoUrl: itemData[item]?.afterPhotoUrl || null,
+        afterPhotoHash: itemData[item]?.afterPhotoHash || null,
         memo: itemData[item]?.memo || null,
       };
     });

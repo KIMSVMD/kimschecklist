@@ -75,6 +75,7 @@ export interface IStorage {
   updateProductFiles(id: number, fileUrls: string[]): Promise<Product>;
   deleteProduct(id: number): Promise<void>;
   getCleaningInspections(filters?: { branch?: string; date?: string }): Promise<CleaningInspection[]>;
+  findCleaningPhotoHash(hash: string): Promise<{ branch: string; zone: string; item: string; slot: "before" | "after"; createdAt: Date } | null>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
   updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined>;
   deleteCleaningInspection(id: number): Promise<void>;
@@ -240,6 +241,22 @@ export class DatabaseStorage implements IStorage {
       return rows;
     }
     return query;
+  }
+
+  async findCleaningPhotoHash(hash: string): Promise<{ branch: string; zone: string; item: string; slot: "before" | "after"; createdAt: Date } | null> {
+    const rows = await db.select().from(cleaningInspections);
+    for (const row of rows) {
+      const items = (row.items as Record<string, any>) || {};
+      for (const [itemName, data] of Object.entries(items)) {
+        if (data?.beforePhotoHash === hash) {
+          return { branch: row.branch, zone: row.zone, item: itemName, slot: "before", createdAt: row.createdAt };
+        }
+        if (data?.afterPhotoHash === hash) {
+          return { branch: row.branch, zone: row.zone, item: itemName, slot: "after", createdAt: row.createdAt };
+        }
+      }
+    }
+    return null;
   }
 
   async upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }> {

@@ -18,6 +18,16 @@ export function useCleaningInspections(filters?: { branch?: string; date?: strin
   });
 }
 
+export async function checkCleaningPhotoHash(hash: string): Promise<{ duplicate: boolean; match: { branch: string; zone: string; item: string; slot: "before" | "after"; createdAt: string } | null }> {
+  const res = await fetch("/api/cleaning/check-photo-hash", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    body: JSON.stringify({ hash }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export function useCreateCleaning() {
   return useMutation({
     mutationFn: (data: InsertCleaning) =>

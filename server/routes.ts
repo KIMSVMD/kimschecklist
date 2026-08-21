@@ -368,6 +368,19 @@ export async function registerRoutes(
     }
   });
 
+  app.post('/api/cleaning/check-photo-hash', async (req, res) => {
+    try {
+      const { hash } = req.body;
+      if (!hash || typeof hash !== 'string') {
+        return res.status(400).json({ message: 'hash is required' });
+      }
+      const match = await storage.findCleaningPhotoHash(hash);
+      res.json({ duplicate: !!match, match: match ?? null });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post('/api/cleaning', async (req, res) => {
     try {
       const input = insertCleaningSchema.parse(req.body);

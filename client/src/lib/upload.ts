@@ -7,3 +7,9 @@ export async function uploadFile(file: File): Promise<string> {
   await uploadBytes(fileRef, file);
   return await getDownloadURL(fileRef);
 }
+
+export async function hashFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
