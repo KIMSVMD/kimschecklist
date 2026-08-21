@@ -112,10 +112,21 @@ function getKSTDraftDateStr() {
   return iso.split("T")[0];
 }
 
-function getKSTDateStr() {
+// Monday-start calendar week containing `d`
+function getMondayOfWeek(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+// Week 1 = the calendar week (Mon–Sun) containing the 1st of the month
+function getCurrentMonthWeek() {
   const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().split("T")[0];
+  const firstMonday = getMondayOfWeek(new Date(now.getFullYear(), now.getMonth(), 1));
+  const thisMonday = getMondayOfWeek(now);
+  const week = Math.round((thisMonday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return { month: now.getMonth() + 1, week };
 }
 
 type DraftStore = {
@@ -174,13 +185,18 @@ export default function CleaningChecklist() {
   const allChecked = currentItems.every(item => itemData[item]?.status != null);
   const issueCount = Object.values(itemData).filter(v => v.status === "issue").length;
 
-  const today = getKSTDateStr();
-  const { data: todayRecords = [] } = useCleaningInspections(branch ? { branch } : {});
+  const { data: branchRecords = [] } = useCleaningInspections(branch ? { branch } : {});
+  const weekStart = getMondayOfWeek(new Date());
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+  const currentMonthWeek = getCurrentMonthWeek();
+
   const zoneScores: Record<string, number | null> = {};
   ZONES.forEach(z => { zoneScores[z] = null; });
-  (todayRecords as any[]).filter(r => {
-    return new Date(r.createdAt).toISOString().split("T")[0] === today
-      && r.inspectionTime === inspectionTime;
+  (branchRecords as any[]).filter(r => {
+    const d = new Date(r.createdAt);
+    return d >= weekStart && d <= weekEnd && r.inspectionTime === inspectionTime;
   }).forEach(r => {
     const items = r.items as Record<string, { status: string }> || {};
     const score = calcCleaningScore(items);
@@ -207,6 +223,13 @@ export default function CleaningChecklist() {
   }, [itemData, step, selectedZone, inspectionTime, branch]);
 
   const handleZoneSelect = (zone: string) => {
+    if (zoneScores[zone] !== null) {
+      toast({
+        title: `${currentMonthWeek.month}월 ${currentMonthWeek.week}주차 점검은 이미 완료되었습니다`,
+        description: "다음 주에 다시 점검할 수 있어요.",
+      });
+      return;
+    }
     setSelectedZone(zone);
     setStep("items");
   };
@@ -377,7 +400,7 @@ export default function CleaningChecklist() {
                       return (
                         <div className={`px-3 py-1.5 rounded-xl border font-black text-base ${scoreColor(avg)}`}
                           data-testid="text-avg-score">
-                          평균 {avg}점
+                          이번주 평균 {avg}점
                         </div>
                       );
                     })()}
@@ -389,14 +412,16 @@ export default function CleaningChecklist() {
                 <div className="flex flex-col gap-3">
                   {ZONES.map(zone => {
                     const zs = zoneScores[zone];
+                    const weekDone = zs !== null;
                     const draftInfo = getDraftInfo(zone);
                     return (
                       <button
                         key={zone}
                         onClick={() => handleZoneSelect(zone)}
-                        className="flex items-center justify-between p-5 rounded-3xl border-2 border-border bg-white text-secondary transition-all active:scale-[0.98] shadow-sm"
+                        className={`flex items-center justify-between p-5 rounded-3xl border-2 border-border bg-white text-secondary transition-all active:scale-[0.98] shadow-sm ${weekDone ? "opacity-70" : ""}`}
                         style={{}}
                         onMouseEnter={e => {
+                          if (weekDone) return;
                           (e.currentTarget as HTMLElement).style.borderColor = "#006341";
                           (e.currentTarget as HTMLElement).style.backgroundColor = "#f0faf5";
                         }}
@@ -412,12 +437,16 @@ export default function CleaningChecklist() {
                           </div>
                           <div className="text-left">
                             <span className="text-lg font-bold text-secondary block">{zone}</span>
-                            {draftInfo.hasData && draftInfo.submitted && (
+                            {weekDone ? (
+                              <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                                이번주 완료
+                              </span>
+                            ) : draftInfo.hasData && draftInfo.submitted && (
                               <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                                 제출완료
                               </span>
                             )}
-                            {draftInfo.hasData && !draftInfo.submitted && (
+                            {!weekDone && draftInfo.hasData && !draftInfo.submitted && (
                               <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                                 작성 중
                               </span>
