@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import {
@@ -10,6 +10,8 @@ import {
   useDeleteGuide,
 } from "@/hooks/use-guides";
 import { useProducts, useCreateProduct, useDeleteProduct, useUpsertProductFile, useUpdateProductFiles } from "@/hooks/use-products";
+import { useCleaningInspections } from "@/hooks/use-cleaning";
+import { calcCleaningScore, scoreColor } from "@/lib/scoring";
 import type { Guide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -34,7 +36,17 @@ import {
   Tag,
   Ruler,
   MapPin as MapPinIcon,
+  Droplets,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 
@@ -1348,6 +1360,140 @@ function QualityProductManager() {
   );
 }
 
+// Monday-start calendar week containing `d` (used to bucket cleaning records by week)
+function getMondayOfWeek(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+const CLEANING_TREND_WEEKS = 8;
+
+function CleaningManager() {
+  const [selectedBranch, setSelectedBranch] = useState('전체');
+  const { data: records = [], isLoading } = useCleaningInspections();
+
+  const branches = useMemo(
+    () => [...new Set(records.map(r => r.branch))].sort(),
+    [records]
+  );
+
+  const weeklyTrend = useMemo(() => {
+    const weeks: { key: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = CLEANING_TREND_WEEKS - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i * 7);
+      const monday = getMondayOfWeek(d);
+      weeks.push({ key: monday.toISOString().slice(0, 10), label: `${monday.getMonth() + 1}/${monday.getDate()}` });
+    }
+    const buckets: Record<string, number[]> = {};
+    weeks.forEach(w => { buckets[w.key] = []; });
+    records
+      .filter(r => selectedBranch === '전체' || r.branch === selectedBranch)
+      .forEach(r => {
+        const key = getMondayOfWeek(new Date(r.createdAt)).toISOString().slice(0, 10);
+        if (!(key in buckets)) return;
+        const items = (r.items as Record<string, { status: string }>) || {};
+        if (Object.keys(items).length > 0) buckets[key].push(calcCleaningScore(items));
+      });
+    return weeks.map(w => {
+      const scores = buckets[w.key];
+      return {
+        label: w.label,
+        score: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+      };
+    });
+  }, [records, selectedBranch]);
+
+  const branchScores = useMemo(() => {
+    const fourWeeksAgo = new Date();
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    const byBranch: Record<string, number[]> = {};
+    records
+      .filter(r => new Date(r.createdAt) >= fourWeeksAgo)
+      .forEach(r => {
+        const items = (r.items as Record<string, { status: string }>) || {};
+        if (Object.keys(items).length === 0) return;
+        (byBranch[r.branch] ??= []).push(calcCleaningScore(items));
+      });
+    return branches
+      .map(branch => {
+        const scores = byBranch[branch] || [];
+        const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+        return { branch, avg, count: scores.length };
+      })
+      .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1));
+  }, [records, branches]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Branch score table */}
+      <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
+        <div className="px-4 py-3 bg-emerald-50 border-b border-border flex items-center justify-between">
+          <span className="font-black text-emerald-700 text-base">지점별 청소 점수</span>
+          <span className="text-xs text-muted-foreground font-medium">최근 4주 평균</span>
+        </div>
+        {branchScores.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 없습니다.</div>
+        ) : (
+          <div className="divide-y divide-border/50">
+            {branchScores.map(({ branch, avg, count }) => (
+              <div key={branch} className="flex items-center justify-between px-4 py-3 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-bold text-secondary truncate">{branch}점</span>
+                  <span className="text-xs text-muted-foreground">{count}건</span>
+                </div>
+                {avg !== null ? (
+                  <span className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(avg)}`}>{avg}점</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">기록 없음</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Weekly trend chart */}
+      <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <span className="font-black text-secondary text-base">주간 점수 추이</span>
+          <select
+            value={selectedBranch}
+            onChange={e => setSelectedBranch(e.target.value)}
+            className="text-sm font-bold px-3 py-1.5 rounded-lg border border-border bg-white"
+            data-testid="select-cleaning-trend-branch"
+          >
+            <option value="전체">전체 평균</option>
+            {branches.map(b => <option key={b} value={b}>{b}점</option>)}
+          </select>
+        </div>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={weeklyTrend} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: any) => (v == null ? '기록 없음' : `${v}점`)} />
+              <Line type="monotone" dataKey="score" stroke="#006341" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GuideAdmin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -1358,7 +1504,7 @@ export default function GuideAdmin() {
   const updateMutation = useUpdateGuide();
   const deleteMutation = useDeleteGuide();
 
-  const [activeTab, setActiveTab] = useState<'guides' | 'products'>('guides');
+  const [activeTab, setActiveTab] = useState<'guides' | 'products' | 'cleaning'>('guides');
   const [productSubTab, setProductSubTab] = useState<'vm' | 'quality'>('vm');
   const [guideCategory, setGuideCategory] = useState<string>('전체');
   const [guideTypeFilter, setGuideTypeFilter] = useState<'vm' | 'ad' | 'quality'>('vm');
@@ -1549,6 +1695,15 @@ export default function GuideAdmin() {
           >
             <Package className="w-5 h-5" /> 상품 관리
           </button>
+          <button
+            onClick={() => setActiveTab('cleaning')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
+              activeTab === 'cleaning' ? 'bg-white text-primary shadow-sm' : 'bg-transparent text-muted-foreground hover:bg-white/60'
+            }`}
+            data-testid="tab-cleaning"
+          >
+            <Droplets className="w-5 h-5" /> 청소 관리
+          </button>
         </div>
 
         {/* Guide type filter — outside scroll so border spans full width */}
@@ -1571,7 +1726,9 @@ export default function GuideAdmin() {
         )}
 
         <div className="flex-1 overflow-y-auto px-4 md:px-[50px] pt-4 pb-6 space-y-4 w-full">
-          {activeTab === 'products' ? (
+          {activeTab === 'cleaning' ? (
+            <CleaningManager />
+          ) : activeTab === 'products' ? (
             <div className="space-y-4">
               {/* 상품관리 서브탭: 진열(+광고) / 품질 */}
               <div className="flex gap-2">
