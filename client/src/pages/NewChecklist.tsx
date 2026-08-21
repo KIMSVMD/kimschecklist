@@ -101,6 +101,23 @@ function ItemText({ text }: { text: string }) {
   );
 }
 
+// Monday-start calendar week containing `d`
+function getMondayOfWeek(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+// Week 1 = the calendar week (Mon–Sun) containing the 1st of the month
+function getCurrentMonthWeek() {
+  const now = new Date();
+  const firstMonday = getMondayOfWeek(new Date(now.getFullYear(), now.getMonth(), 1));
+  const thisMonday = getMondayOfWeek(now);
+  const week = Math.round((thisMonday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return { month: now.getMonth() + 1, week };
+}
+
 export default function NewChecklist() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -111,6 +128,7 @@ export default function NewChecklist() {
   const nowDate = new Date();
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
   const [selMonth, setSelMonth] = useState(nowDate.getMonth() + 1);
+  const currentMonthWeek = getCurrentMonthWeek();
 
   const prevMonth = () => {
     if (selMonth === 1) { setSelYear(y => y - 1); setSelMonth(12); }
@@ -376,7 +394,10 @@ export default function NewChecklist() {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                 className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-6"
               >
-                <div className="space-y-1.5">
+                <div className="space-y-2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+                    {currentMonthWeek.month}월 {currentMonthWeek.week}주차 점검
+                  </span>
                   <p className="font-black text-2xl text-secondary">{branch}점</p>
                   <p className="text-muted-foreground text-sm">매장 청소 점검을 시작하세요</p>
                 </div>
