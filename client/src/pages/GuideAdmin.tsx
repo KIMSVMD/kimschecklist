@@ -1369,9 +1369,11 @@ function getMondayOfWeek(d: Date) {
 }
 
 const CLEANING_TREND_WEEKS = 8;
+const CLEANING_ZONES = ['공통', '농산', '축산', '수산', '공산'];
 
 function CleaningManager() {
   const [selectedBranch, setSelectedBranch] = useState('전체');
+  const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
   const { data: records = [], isLoading } = useCleaningInspections();
 
   const branches = useMemo(
@@ -1427,6 +1429,21 @@ function CleaningManager() {
       .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1));
   }, [records, branches]);
 
+  const branchZoneScores = useMemo(() => {
+    const fourWeeksAgo = new Date();
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    const map: Record<string, Record<string, number[]>> = {};
+    records
+      .filter(r => new Date(r.createdAt) >= fourWeeksAgo)
+      .forEach(r => {
+        const items = (r.items as Record<string, { status: string }>) || {};
+        if (Object.keys(items).length === 0) return;
+        const byZone = (map[r.branch] ??= {});
+        (byZone[r.zone] ??= []).push(calcCleaningScore(items));
+      });
+    return map;
+  }, [records]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -1447,19 +1464,52 @@ function CleaningManager() {
           <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 없습니다.</div>
         ) : (
           <div className="divide-y divide-border/50">
-            {branchScores.map(({ branch, avg, count }) => (
-              <div key={branch} className="flex items-center justify-between px-4 py-3 gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm font-bold text-secondary truncate">{branch}점</span>
-                  <span className="text-xs text-muted-foreground">{count}건</span>
+            {branchScores.map(({ branch, avg, count }) => {
+              const isExpanded = expandedBranch === branch;
+              return (
+                <div key={branch}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedBranch(isExpanded ? null : branch)}
+                    className="w-full flex items-center justify-between px-4 py-3 gap-2 active:bg-muted/40 transition-colors"
+                    data-testid={`btn-cleaning-branch-${branch}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="text-sm font-bold text-secondary truncate">{branch}점</span>
+                      <span className="text-xs text-muted-foreground">{count}건</span>
+                    </div>
+                    {avg !== null ? (
+                      <span className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(avg)}`}>{avg}점</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">기록 없음</span>
+                    )}
+                  </button>
+                  {isExpanded && (
+                    <div className="grid grid-cols-5 gap-1.5 px-4 pb-3 bg-gray-50/60">
+                      {CLEANING_ZONES.map(zone => {
+                        const scores = branchZoneScores[branch]?.[zone] || [];
+                        const zoneAvg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+                        return (
+                          <div key={zone} className="rounded-xl border border-border bg-white p-2 text-center">
+                            <p className="text-[11px] font-bold text-muted-foreground mb-1 truncate">{zone}</p>
+                            {zoneAvg !== null ? (
+                              <span className={`inline-block px-1.5 py-0.5 rounded-lg border text-xs font-black ${scoreColor(zoneAvg)}`}>{zoneAvg}</span>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                {avg !== null ? (
-                  <span className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(avg)}`}>{avg}점</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">기록 없음</span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
