@@ -122,8 +122,17 @@ export default function NewChecklist() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const [branch, setBranch] = useState('');
+  const [branch, setBranch] = useState(() => {
+    try { return sessionStorage.getItem('newChecklistBranch') || ''; } catch { return ''; }
+  });
   const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>('vm');
+
+  useEffect(() => {
+    try {
+      if (branch) sessionStorage.setItem('newChecklistBranch', branch);
+      else sessionStorage.removeItem('newChecklistBranch');
+    } catch {}
+  }, [branch]);
 
   const nowDate = new Date();
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
