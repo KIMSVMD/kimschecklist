@@ -29,13 +29,37 @@ const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['채소', '청과', '수산', '축산'];
 const ZONES = ['공통', '농산', '수산', '축산', '공산'];
 
-function toLocalDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Monday-start calendar week containing `d`
+function getMonday(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+// Week 1 = the calendar week (Mon–Sun) containing the 1st of the month; may start in the prior month.
+function getWeekRangesInMonth(year: number, month: number) {
+  const lastDay = new Date(year, month, 0);
+  const ranges: { start: Date; end: Date }[] = [];
+  let cursor = getMonday(new Date(year, month - 1, 1));
+  while (cursor <= lastDay) {
+    const start = new Date(cursor);
+    const end = new Date(cursor);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    ranges.push({ start, end });
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return ranges;
+}
+
+function getCurrentWeekIndex(year: number, month: number, date: Date) {
+  const idx = getWeekRangesInMonth(year, month).findIndex(r => date >= r.start && date <= r.end);
+  return idx >= 0 ? idx + 1 : 1;
 }
 
 export default function StaffDashboard() {
-  const todayStr = toLocalDateStr(new Date());
-
   const [filterBranch, setFilterBranch] = useState('');
   const [filterCategory, setFilterCategory] = useState('전체');
   const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>(() => {
@@ -48,7 +72,9 @@ export default function StaffDashboard() {
   const nowDate = new Date();
   const [vmFilterYear, setVmFilterYear] = useState(nowDate.getFullYear());
   const [vmFilterMonth, setVmFilterMonth] = useState(nowDate.getMonth() + 1);
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [cleaningYear, setCleaningYear] = useState(nowDate.getFullYear());
+  const [cleaningMonth, setCleaningMonth] = useState(nowDate.getMonth() + 1);
+  const [cleaningWeek, setCleaningWeek] = useState(() => getCurrentWeekIndex(nowDate.getFullYear(), nowDate.getMonth() + 1, nowDate));
   const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const [filterZone, setFilterZone] = useState('전체');
   const [notifOpen, setNotifOpen] = useState(false);
@@ -98,8 +124,13 @@ export default function StaffDashboard() {
     }).forEach(n => dismiss(staffNotifKey(n)));
   };
 
-  const isToday = selectedDate === todayStr;
-  const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+  const cleaningWeekRanges = useMemo(() => getWeekRangesInMonth(cleaningYear, cleaningMonth), [cleaningYear, cleaningMonth]);
+  const totalCleaningWeeks = cleaningWeekRanges.length;
+  const currentWeekRange = cleaningWeekRanges[Math.min(cleaningWeek, totalCleaningWeeks) - 1] ?? cleaningWeekRanges[0];
+  const isCurrentWeek = (() => {
+    const t = new Date();
+    return t >= currentWeekRange.start && t <= currentWeekRange.end;
+  })();
 
   const prevVmMonth = () => {
     if (vmFilterMonth === 1) { setVmFilterYear(y => y - 1); setVmFilterMonth(12); }
@@ -112,16 +143,23 @@ export default function StaffDashboard() {
   const prevVmYear = () => setVmFilterYear(y => y - 1);
   const nextVmYear = () => setVmFilterYear(y => y + 1);
 
-  const goBack = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() - 1);
-    setSelectedDate(toLocalDateStr(d));
+  const prevCleaningMonth = () => {
+    if (cleaningMonth === 1) { setCleaningYear(y => y - 1); setCleaningMonth(12); }
+    else setCleaningMonth(m => m - 1);
+    setCleaningWeek(1);
   };
-  const goForward = () => {
-    if (isToday) return;
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + 1);
-    setSelectedDate(toLocalDateStr(d));
+  const nextCleaningMonth = () => {
+    if (cleaningMonth === 12) { setCleaningYear(y => y + 1); setCleaningMonth(1); }
+    else setCleaningMonth(m => m + 1);
+    setCleaningWeek(1);
+  };
+  const prevCleaningWeek = () => setCleaningWeek(w => Math.max(1, w - 1));
+  const nextCleaningWeek = () => setCleaningWeek(w => Math.min(totalCleaningWeeks, w + 1));
+  const goToCurrentWeek = () => {
+    const t = new Date();
+    setCleaningYear(t.getFullYear());
+    setCleaningMonth(t.getMonth() + 1);
+    setCleaningWeek(getCurrentWeekIndex(t.getFullYear(), t.getMonth() + 1, t));
   };
 
   const deleteMutation = useDeleteChecklist();
@@ -291,7 +329,7 @@ export default function StaffDashboard() {
     const map: Record<string, typeof cleaningRecords[0] | null> = {};
     relevantZones.forEach(z => relevantTimes.forEach(t => { map[`${z}_${t}`] = null; }));
     cleaningRecords
-      .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+      .filter(r => { const d = new Date(r.createdAt); return d >= currentWeekRange.start && d <= currentWeekRange.end; })
       .forEach(r => {
         const key = `${r.zone}_${r.inspectionTime}`;
         if (key in map) {
@@ -301,7 +339,7 @@ export default function StaffDashboard() {
         }
       });
     return map;
-  }, [cleaningRecords, selectedDate, filterTime, filterZone]);
+  }, [cleaningRecords, currentWeekRange, filterTime, filterZone]);
 
   let completionScore = 0;
   let completedSlotCount = 0;
@@ -318,7 +356,7 @@ export default function StaffDashboard() {
   const completionRate = totalSlots > 0 ? Math.round((completionScore / totalSlots) * 100) : 0;
 
   cleaningRecords
-    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .filter(r => { const d = new Date(r.createdAt); return d >= currentWeekRange.start && d <= currentWeekRange.end; })
     .filter(r => filterTime === '전체' || r.inspectionTime === filterTime)
     .filter(r => filterZone === '전체' || r.zone === filterZone)
     .forEach(r => {
@@ -329,11 +367,11 @@ export default function StaffDashboard() {
       }
     });
 
-  // Zone status grid (latest per zone for selected date, no time filter for grid display)
+  // Zone status grid (latest per zone for selected week, no time filter for grid display)
   const zoneStatus: Record<string, 'ok' | 'issue' | null> = {};
   ZONES.forEach(z => { zoneStatus[z] = null; });
   cleaningRecords
-    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .filter(r => { const d = new Date(r.createdAt); return d >= currentWeekRange.start && d <= currentWeekRange.end; })
     .forEach(r => {
       if (zoneStatus[r.zone] === null || r.overallStatus === 'issue') {
         zoneStatus[r.zone] = r.overallStatus as 'ok' | 'issue';
@@ -341,8 +379,8 @@ export default function StaffDashboard() {
     });
 
   // Filtered list shown in card list
-  const dayFilteredRecords = cleaningRecords
-    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+  const weekFilteredRecords = cleaningRecords
+    .filter(r => { const d = new Date(r.createdAt); return d >= currentWeekRange.start && d <= currentWeekRange.end; })
     .filter(r => filterTime === '전체' || r.inspectionTime === filterTime)
     .filter(r => filterZone === '전체' || r.zone === filterZone);
 
@@ -474,20 +512,31 @@ export default function StaffDashboard() {
             </div>
           )}
 
-          {/* Date navigator + time filter — cleaning tab */}
+          {/* Month/Week navigator + time filter — cleaning tab */}
           {activeTab === 'cleaning' && (
             <div className="space-y-2 pt-3">
-              {/* Date navigator — full width */}
-              <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
-                <button onClick={goBack} className="active:scale-95 transition-all" data-testid="btn-staff-date-prev">
-                  <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <p className="font-bold text-foreground text-sm whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em' }}>
-                  {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
-                </p>
-                <button onClick={goForward} disabled={isToday} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-date-next">
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
+              {/* Month/Week navigator — mirrors the VM/Quality year/month layout */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 w-32 shrink-0 justify-between">
+                  <button onClick={prevCleaningMonth} className="active:scale-95 transition-all" data-testid="btn-staff-cleaning-prev-month">
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  <span className="text-sm text-foreground whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{cleaningMonth}월</span>
+                  <button onClick={nextCleaningMonth} className="active:scale-95 transition-all" data-testid="btn-staff-cleaning-next-month">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
+                  <button onClick={prevCleaningWeek} disabled={cleaningWeek <= 1} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-cleaning-prev-week">
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  <p className="font-bold text-foreground text-sm whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em' }}>
+                    {isCurrentWeek ? '이번주 · ' : ''}{cleaningWeek}주차
+                  </p>
+                  <button onClick={nextCleaningWeek} disabled={cleaningWeek >= totalCleaningWeeks} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-cleaning-next-week">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
               {/* Zone filter chips */}
               <div className="flex gap-1 pb-3">
@@ -1248,7 +1297,7 @@ export default function StaffDashboard() {
                       <Droplets className="w-4 h-4 text-emerald-500" />
                     </div>
                     <h3 className="text-base font-black text-secondary">
-                      {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 청소 점검 현황
+                      {isCurrentWeek ? '이번주' : `${cleaningMonth}월 ${cleaningWeek}주차`} 청소 점검 현황
                     </h3>
                   </div>
                   <div className="flex gap-2.5 mb-4">
@@ -1298,8 +1347,8 @@ export default function StaffDashboard() {
                 </div>
 
                 {/* ── Record list ── */}
-                {dayFilteredRecords.length === 0 ? (
-                  isToday ? (
+                {weekFilteredRecords.length === 0 ? (
+                  isCurrentWeek ? (
                     <div className="bg-white border border-border rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-5">
                       <div className="space-y-1.5">
                         <p className="text-xl font-black text-secondary">{filterBranch}</p>
@@ -1322,20 +1371,20 @@ export default function StaffDashboard() {
                         <Calendar className="w-6 h-6 text-gray-300" />
                       </div>
                       <p className="font-semibold text-base text-center text-muted-foreground">
-                        {format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
+                        {cleaningMonth}월 {cleaningWeek}주차엔 청소 점검 기록이 없습니다
                       </p>
                       <button
-                        onClick={() => setSelectedDate(todayStr)}
+                        onClick={goToCurrentWeek}
                         className="text-sm font-bold underline underline-offset-2"
                         style={{ color: '#006341' }}
                         data-testid="btn-back-to-today"
                       >
-                        오늘로 돌아가기
+                        이번주로 돌아가기
                       </button>
                     </div>
                   )
                 ) : (
-                  dayFilteredRecords.map((record, i) => {
+                  weekFilteredRecords.map((record, i) => {
                     const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
                     const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
                     const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;
