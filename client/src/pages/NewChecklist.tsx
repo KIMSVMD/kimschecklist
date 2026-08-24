@@ -125,7 +125,13 @@ export default function NewChecklist() {
   const [branch, setBranch] = useState(() => {
     try { return sessionStorage.getItem('newChecklistBranch') || ''; } catch { return ''; }
   });
-  const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>('vm');
+  const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>(() => {
+    try {
+      const s = sessionStorage.getItem('newChecklistActiveTab');
+      if (s === 'vm' || s === 'quality' || s === 'cleaning') return s;
+    } catch {}
+    return 'vm';
+  });
 
   useEffect(() => {
     try {
@@ -133,6 +139,10 @@ export default function NewChecklist() {
       else sessionStorage.removeItem('newChecklistBranch');
     } catch {}
   }, [branch]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('newChecklistActiveTab', activeTab); } catch {}
+  }, [activeTab]);
 
   const nowDate = new Date();
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
