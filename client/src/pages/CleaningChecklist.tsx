@@ -183,6 +183,11 @@ export default function CleaningChecklist() {
 
   const currentItems = ZONE_ITEMS[selectedZone] || [];
   const allChecked = currentItems.every(item => itemData[item]?.status != null);
+  const itemsMissingPhotos = currentItems.filter(item => {
+    const d = itemData[item];
+    return d?.status != null && (!d.beforePhotoUrl || !d.afterPhotoUrl);
+  });
+  const canSubmit = allChecked && itemsMissingPhotos.length === 0;
   const issueCount = Object.values(itemData).filter(v => v.status === "issue").length;
 
   const { data: branchRecords = [] } = useCleaningInspections(branch ? { branch } : {});
@@ -580,12 +585,17 @@ export default function CleaningChecklist() {
                             >
                               <div className="px-5 pb-4 border-t border-emerald-200">
                                 <p className="text-xs font-bold text-emerald-600 pt-3 mb-2 flex items-center gap-1">
-                                  <Camera className="w-3.5 h-3.5" /> 전/후 사진 (선택)
+                                  <Camera className="w-3.5 h-3.5" /> 전/후 사진 (필수)
                                 </p>
                                 <div className="grid grid-cols-2 gap-2">
                                   {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "emerald")}
                                   {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "emerald")}
                                 </div>
+                                {(!data?.beforePhotoUrl || !data?.afterPhotoUrl) && (
+                                  <p className="text-xs text-primary font-bold mt-2 flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5" /> 전/후 사진을 모두 첨부해야 저장할 수 있어요
+                                  </p>
+                                )}
                               </div>
                             </motion.div>
                           )}
@@ -605,6 +615,11 @@ export default function CleaningChecklist() {
                                   {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "red")}
                                   {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "red")}
                                 </div>
+                                {(!data?.beforePhotoUrl || !data?.afterPhotoUrl) && (
+                                  <p className="text-xs text-primary font-bold flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5" /> 전/후 사진을 모두 첨부해야 저장할 수 있어요
+                                  </p>
+                                )}
                                 <textarea
                                   placeholder="문제 내용을 간략히 메모하세요..."
                                   value={data?.memo || ""}
@@ -633,7 +648,7 @@ export default function CleaningChecklist() {
 
                 <button
                   onClick={handleSubmit}
-                  disabled={!allChecked || createMutation.isPending}
+                  disabled={!canSubmit || createMutation.isPending}
                   className="w-full py-5 rounded-2xl text-white font-black text-xl shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-3"
                   style={{ background: "#006341" }}
                   data-testid="btn-submit-cleaning"
@@ -644,8 +659,12 @@ export default function CleaningChecklist() {
                     <>점검 완료 저장</>
                   )}
                 </button>
-                {!allChecked && (
+                {!allChecked ? (
                   <p className="text-center text-sm text-muted-foreground">모든 항목을 체크해주세요</p>
+                ) : itemsMissingPhotos.length > 0 && (
+                  <p className="text-center text-sm text-primary font-bold" data-testid="text-missing-photos">
+                    사진이 없는 항목: {itemsMissingPhotos.join(", ")}
+                  </p>
                 )}
               </motion.div>
             )}
