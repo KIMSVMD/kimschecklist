@@ -11,7 +11,7 @@ import {
 } from "@/hooks/use-guides";
 import { useProducts, useCreateProduct, useDeleteProduct, useUpsertProductFile, useUpdateProductFiles } from "@/hooks/use-products";
 import { useCleaningInspections } from "@/hooks/use-cleaning";
-import { calcCleaningScore, scoreColor } from "@/lib/scoring";
+import { calcCleaningScore, scoreColor, computeAbsoluteGrade, gradeColor } from "@/lib/scoring";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import type { Guide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -1377,16 +1377,51 @@ function getMondayOfWeek(d: Date) {
 const CLEANING_TREND_WEEKS = 8;
 const CLEANING_ZONES = ['공통', '농산', '축산', '수산', '공산'];
 
+// Week N = the Nth Monday-start calendar week of `weekStart`'s own month
+function getMonthWeekLabel(weekStart: Date) {
+  const year = weekStart.getFullYear();
+  const month = weekStart.getMonth() + 1;
+  const firstMonday = getMondayOfWeek(new Date(year, weekStart.getMonth(), 1));
+  const week = Math.round((weekStart.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return { year, month, week };
+}
+
 function CleaningManager() {
   const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos'>('score');
   const [selectedBranch, setSelectedBranch] = useState('전체');
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
+  const [scoreWeekStart, setScoreWeekStart] = useState(() => getMondayOfWeek(new Date()));
   const { data: records = [], isLoading } = useCleaningInspections();
 
   const branches = useMemo(
     () => [...new Set(records.map(r => r.branch))].sort(),
     [records]
   );
+
+  const scoreWeekEnd = useMemo(() => {
+    const e = new Date(scoreWeekStart);
+    e.setDate(e.getDate() + 6);
+    e.setHours(23, 59, 59, 999);
+    return e;
+  }, [scoreWeekStart]);
+  const prevScoreWeekStart = useMemo(() => {
+    const d = new Date(scoreWeekStart);
+    d.setDate(d.getDate() - 7);
+    return d;
+  }, [scoreWeekStart]);
+  const prevScoreWeekEnd = useMemo(() => {
+    const e = new Date(prevScoreWeekStart);
+    e.setDate(e.getDate() + 6);
+    e.setHours(23, 59, 59, 999);
+    return e;
+  }, [prevScoreWeekStart]);
+  const isCurrentScoreWeek = useMemo(() => {
+    const now = new Date();
+    return now >= scoreWeekStart && now <= scoreWeekEnd;
+  }, [scoreWeekStart, scoreWeekEnd]);
+  const scoreWeekLabel = useMemo(() => getMonthWeekLabel(scoreWeekStart), [scoreWeekStart]);
+  const goPrevScoreWeek = () => setScoreWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() - 7); return d; });
+  const goNextScoreWeek = () => setScoreWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() + 7); return d; });
 
   const weeklyTrend = useMemo(() => {
     const weeks: { key: string; label: string }[] = [];
@@ -1416,32 +1451,37 @@ function CleaningManager() {
     });
   }, [records, selectedBranch]);
 
-  const branchScores = useMemo(() => {
-    const fourWeeksAgo = new Date();
-    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+  const avgByBranchInRange = (start: Date, end: Date) => {
     const byBranch: Record<string, number[]> = {};
     records
-      .filter(r => new Date(r.createdAt) >= fourWeeksAgo)
+      .filter(r => { const d = new Date(r.createdAt); return d >= start && d <= end; })
       .forEach(r => {
         const items = (r.items as Record<string, { status: string }>) || {};
         if (Object.keys(items).length === 0) return;
         (byBranch[r.branch] ??= []).push(calcCleaningScore(items));
       });
+    return byBranch;
+  };
+
+  const branchScores = useMemo(() => {
+    const current = avgByBranchInRange(scoreWeekStart, scoreWeekEnd);
+    const prev = avgByBranchInRange(prevScoreWeekStart, prevScoreWeekEnd);
     return branches
       .map(branch => {
-        const scores = byBranch[branch] || [];
+        const scores = current[branch] || [];
         const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-        return { branch, avg, count: scores.length };
+        const prevScores = prev[branch] || [];
+        const prevAvg = prevScores.length > 0 ? Math.round(prevScores.reduce((a, b) => a + b, 0) / prevScores.length) : null;
+        const delta = avg !== null && prevAvg !== null ? avg - prevAvg : null;
+        return { branch, avg, count: scores.length, delta };
       })
       .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1));
-  }, [records, branches]);
+  }, [records, branches, scoreWeekStart, scoreWeekEnd, prevScoreWeekStart, prevScoreWeekEnd]);
 
   const branchZoneScores = useMemo(() => {
-    const fourWeeksAgo = new Date();
-    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
     const map: Record<string, Record<string, number[]>> = {};
     records
-      .filter(r => new Date(r.createdAt) >= fourWeeksAgo)
+      .filter(r => { const d = new Date(r.createdAt); return d >= scoreWeekStart && d <= scoreWeekEnd; })
       .forEach(r => {
         const items = (r.items as Record<string, { status: string }>) || {};
         if (Object.keys(items).length === 0) return;
@@ -1449,7 +1489,7 @@ function CleaningManager() {
         (byZone[r.zone] ??= []).push(calcCleaningScore(items));
       });
     return map;
-  }, [records]);
+  }, [records, scoreWeekStart, scoreWeekEnd]);
 
   if (isLoading) {
     return (
@@ -1486,19 +1526,33 @@ function CleaningManager() {
       {cleaningSubTab === 'photos' ? (
         <CleaningPhotoReview records={records} branches={branches} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
+      {/* Week navigator */}
+      <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
+        <button onClick={goPrevScoreWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-score-prev-week">
+          <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <span className="font-bold text-sm text-foreground">
+          {isCurrentScoreWeek ? '이번주 · ' : ''}{scoreWeekLabel.year}년 {scoreWeekLabel.month}월 {scoreWeekLabel.week}주차
+        </span>
+        <button onClick={goNextScoreWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-score-next-week">
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
+      </div>
+
       {/* Branch score table */}
       <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
         <div className="px-4 py-3 bg-emerald-50 border-b border-border flex items-center justify-between">
           <span className="font-black text-emerald-700 text-base">지점별 청소 점수</span>
-          <span className="text-xs text-muted-foreground font-medium">최근 4주 평균</span>
+          <span className="text-xs text-muted-foreground font-medium">전주 대비</span>
         </div>
         {branchScores.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 없습니다.</div>
         ) : (
           <div className="divide-y divide-border/50">
-            {branchScores.map(({ branch, avg, count }) => {
+            {branchScores.map(({ branch, avg, count, delta }, i) => {
               const isExpanded = expandedBranch === branch;
+              const grade = avg !== null ? computeAbsoluteGrade(avg) : null;
               return (
                 <div key={branch}>
                   <button
@@ -1508,6 +1562,7 @@ function CleaningManager() {
                     data-testid={`btn-cleaning-branch-${branch}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-mono text-muted-foreground w-4 shrink-0">{i + 1}</span>
                       {isExpanded ? (
                         <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
                       ) : (
@@ -1517,7 +1572,19 @@ function CleaningManager() {
                       <span className="text-xs text-muted-foreground">{count}건</span>
                     </div>
                     {avg !== null ? (
-                      <span className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(avg)}`}>{avg}점</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(avg)}`}>{avg}점</div>
+                          {delta !== null && delta !== 0 && (
+                            <div className={`text-[10px] font-bold mt-0.5 ${delta > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                              {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
+                            </div>
+                          )}
+                        </div>
+                        {grade && (
+                          <span className={`px-2 py-1 rounded-lg border text-xs font-black ${gradeColor(grade)}`}>{grade}</span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">기록 없음</span>
                     )}
