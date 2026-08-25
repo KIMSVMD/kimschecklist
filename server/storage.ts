@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "../shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, cleaningMonitoringFeedback, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply, type CleaningMonitoringFeedback, type InsertCleaningMonitoringFeedback } from "../shared/schema";
 import { desc, eq, asc, gte, and, sql, isNotNull } from "drizzle-orm";
 
 function filterGuidesByDate(rows: Guide[], year?: number, month?: number): Guide[] {
@@ -76,6 +76,8 @@ export interface IStorage {
   deleteProduct(id: number): Promise<void>;
   getCleaningInspections(filters?: { branch?: string; date?: string }): Promise<CleaningInspection[]>;
   findCleaningPhotoHash(hash: string): Promise<{ branch: string; zone: string; item: string; slot: "before" | "after"; createdAt: Date } | null>;
+  getCleaningMonitoringFeedback(filters?: { branch?: string; year?: number; month?: number }): Promise<CleaningMonitoringFeedback[]>;
+  upsertCleaningMonitoringFeedback(data: InsertCleaningMonitoringFeedback): Promise<CleaningMonitoringFeedback>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
   updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined>;
   deleteCleaningInspection(id: number): Promise<void>;
@@ -257,6 +259,39 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return null;
+  }
+
+  async getCleaningMonitoringFeedback(filters?: { branch?: string; year?: number; month?: number }): Promise<CleaningMonitoringFeedback[]> {
+    const conditions = [];
+    if (filters?.branch) conditions.push(eq(cleaningMonitoringFeedback.branch, filters.branch));
+    if (filters?.year) conditions.push(eq(cleaningMonitoringFeedback.year, filters.year));
+    if (filters?.month) conditions.push(eq(cleaningMonitoringFeedback.month, filters.month));
+    const query = db.select().from(cleaningMonitoringFeedback).orderBy(desc(cleaningMonitoringFeedback.createdAt));
+    if (conditions.length > 0) {
+      return await query.where(and(...conditions));
+    }
+    return await query;
+  }
+
+  async upsertCleaningMonitoringFeedback(data: InsertCleaningMonitoringFeedback): Promise<CleaningMonitoringFeedback> {
+    const existing = await db.select().from(cleaningMonitoringFeedback)
+      .where(and(
+        eq(cleaningMonitoringFeedback.branch, data.branch),
+        eq(cleaningMonitoringFeedback.year, data.year),
+        eq(cleaningMonitoringFeedback.month, data.month),
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(cleaningMonitoringFeedback)
+        .set({ photoUrls: data.photoUrls, comment: data.comment })
+        .where(eq(cleaningMonitoringFeedback.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [row] = await db.insert(cleaningMonitoringFeedback).values(data).returning();
+    return row;
   }
 
   async upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }> {

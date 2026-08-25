@@ -148,6 +148,25 @@ export const insertCleaningReplySchema = createInsertSchema(cleaningReplies).omi
 export type InsertCleaningReply = z.infer<typeof insertCleaningReplySchema>;
 export type CleaningReply = typeof cleaningReplies.$inferSelect;
 
+// HQ admin's on-site monthly monitoring visit — one per branch per month
+export const cleaningMonitoringFeedback = pgTable("cleaning_monitoring_feedback", {
+  id: serial("id").primaryKey(),
+  branch: text("branch").notNull(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+  photoUrls: text("photo_urls").array(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCleaningMonitoringFeedbackSchema = createInsertSchema(cleaningMonitoringFeedback).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCleaningMonitoringFeedback = z.infer<typeof insertCleaningMonitoringFeedbackSchema>;
+export type CleaningMonitoringFeedback = typeof cleaningMonitoringFeedback.$inferSelect;
+
 // Tracks when admin overrides an item's status (score change notifications for staff)
 export const staffScoreNotifications = pgTable("staff_score_notifications", {
   id: serial("id").primaryKey(),

@@ -11,6 +11,7 @@ import {
 } from "@/hooks/use-guides";
 import { useProducts, useCreateProduct, useDeleteProduct, useUpsertProductFile, useUpdateProductFiles } from "@/hooks/use-products";
 import { useCleaningInspections } from "@/hooks/use-cleaning";
+import { useCleaningMonitoringFeedback, useSaveCleaningMonitoringFeedback } from "@/hooks/use-cleaning-monitoring";
 import { calcCleaningScore, scoreColor, computeAbsoluteGrade, gradeColor } from "@/lib/scoring";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import type { Guide } from "@shared/schema";
@@ -1387,7 +1388,7 @@ function getMonthWeekLabel(weekStart: Date) {
 }
 
 function CleaningManager() {
-  const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos'>('score');
+  const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos' | 'monitoring'>('score');
   const [selectedBranch, setSelectedBranch] = useState('전체');
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
   const [scoreWeekStart, setScoreWeekStart] = useState(() => getMondayOfWeek(new Date()));
@@ -1521,10 +1522,21 @@ function CleaningManager() {
         >
           사진 확인
         </button>
+        <button
+          onClick={() => setCleaningSubTab('monitoring')}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+            cleaningSubTab === 'monitoring' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid="tab-cleaning-monitoring"
+        >
+          모니터링 피드백
+        </button>
       </div>
 
       {cleaningSubTab === 'photos' ? (
         <CleaningPhotoReview records={records} branches={branches} />
+      ) : cleaningSubTab === 'monitoring' ? (
+        <CleaningMonitoringManager branches={branches} />
       ) : (
         <div className="space-y-4">
       {/* Week navigator */}
@@ -1775,6 +1787,158 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CleaningMonitoringManager({ branches }: { branches: string[] }) {
+  const { toast } = useToast();
+  const [branch, setBranch] = useState(branches[0] || '');
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [comment, setComment] = useState('');
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!branch && branches.length > 0) setBranch(branches[0]);
+  }, [branches, branch]);
+
+  const { data: feedbackList = [], isLoading } = useCleaningMonitoringFeedback({ branch, year, month });
+  const existing = feedbackList[0];
+  const saveMutation = useSaveCleaningMonitoringFeedback();
+
+  useEffect(() => {
+    setComment(existing?.comment || '');
+    setPhotoUrls((existing?.photoUrls as string[]) || []);
+  }, [existing?.id, branch, year, month]);
+
+  const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
+  const nextMonth = () => { if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1); };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const uploaded = await Promise.all(Array.from(files).map(f => uploadFile(f)));
+      setPhotoUrls(prev => [...prev, ...uploaded]);
+    } catch {
+      toast({ title: '사진 업로드 실패', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = (url: string) => setPhotoUrls(prev => prev.filter(u => u !== url));
+
+  const handleSave = async () => {
+    if (!branch) { toast({ title: '지점을 선택해주세요', variant: 'destructive' }); return; }
+    try {
+      await saveMutation.mutateAsync({ branch, year, month, photoUrls, comment: comment.trim() || null });
+      toast({ title: '모니터링 피드백 저장 완료' });
+    } catch (err: any) {
+      toast({ title: '저장 실패', description: err?.message, variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <select
+        value={branch}
+        onChange={e => setBranch(e.target.value)}
+        className="w-full text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
+        data-testid="select-monitoring-branch"
+      >
+        {branches.length === 0 && <option value="">지점 없음</option>}
+        {branches.map(b => <option key={b} value={b}>{b}점</option>)}
+      </select>
+
+      <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
+        <button onClick={prevMonth} className="active:scale-95 transition-all" data-testid="btn-monitoring-prev-month">
+          <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <span className="font-bold text-sm text-foreground">{year}년 {month}월</span>
+        <button onClick={nextMonth} className="active:scale-95 transition-all" data-testid="btn-monitoring-next-month">
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-black text-secondary text-sm">{branch ? `${branch}점` : ''} {month}월 모니터링</span>
+            {existing ? (
+              <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">진행 완료</span>
+            ) : (
+              <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">미진행</span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {photoUrls.map(url => (
+              <div key={url} className="relative">
+                <img src={url} className="w-full h-24 object-cover rounded-xl border border-border" alt="모니터링 사진" />
+                <button
+                  type="button"
+                  onClick={() => handleRemovePhoto(url)}
+                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center"
+                  data-testid="btn-monitoring-remove-photo"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground"
+              data-testid="btn-monitoring-add-photo"
+            >
+              {uploading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <Plus className="w-5 h-5" />
+                  <span className="text-xs font-bold">사진 추가</span>
+                </>
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={e => handleFiles(e.target.files)}
+            />
+          </div>
+
+          <textarea
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            placeholder="청소가 부족한 부분이나 피드백을 입력하세요..."
+            className="w-full p-3 rounded-xl border-2 border-border text-sm focus:outline-none focus:border-primary transition-all resize-none h-24"
+            data-testid="textarea-monitoring-comment"
+          />
+
+          <button
+            onClick={handleSave}
+            disabled={saveMutation.isPending || !branch}
+            className="w-full py-3.5 rounded-xl text-white font-black text-sm active:scale-[0.98] transition-all disabled:opacity-50"
+            style={{ background: '#006341' }}
+            data-testid="btn-monitoring-save"
+          >
+            {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `${month}월 모니터링 피드백 저장`}
+          </button>
         </div>
       )}
     </div>

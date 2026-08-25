@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { api } from "../shared/routes";
-import { insertGuideSchema, insertProductSchema, insertCleaningSchema, staffScoreNotifications } from "../shared/schema";
+import { insertGuideSchema, insertProductSchema, insertCleaningSchema, insertCleaningMonitoringFeedbackSchema, staffScoreNotifications } from "../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import path from "path";
@@ -449,6 +449,34 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // HQ admin's monthly on-site monitoring visit feedback (once per branch per month)
+  app.get('/api/cleaning-monitoring', async (req, res) => {
+    try {
+      const filters: { branch?: string; year?: number; month?: number } = {};
+      if (req.query.branch) filters.branch = req.query.branch as string;
+      if (req.query.year) filters.year = parseInt(req.query.year as string);
+      if (req.query.month) filters.month = parseInt(req.query.month as string);
+      const rows = await storage.getCleaningMonitoringFeedback(filters);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post('/api/cleaning-monitoring', requireAdmin, async (req, res) => {
+    try {
+      const input = insertCleaningMonitoringFeedbackSchema.parse(req.body);
+      const record = await storage.upsertCleaningMonitoringFeedback(input);
+      res.json(record);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ message: err.errors[0].message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
     }
   });
 

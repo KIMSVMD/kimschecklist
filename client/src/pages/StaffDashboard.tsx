@@ -4,6 +4,7 @@ import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
 import { useValidGuideProducts } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning";
+import { useCleaningMonitoringFeedback } from "@/hooks/use-cleaning-monitoring";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { VMCommentThread } from "@/components/VMCommentThread";
@@ -272,6 +273,13 @@ export default function StaffDashboard() {
   const { data: cleaningRecords = [], isLoading: cleaningLoading } = useCleaningInspections(
     filterBranch ? { branch: filterBranch } : {}
   );
+
+  const currentFeedbackYear = new Date().getFullYear();
+  const currentFeedbackMonth = new Date().getMonth() + 1;
+  const { data: monitoringFeedback = [] } = useCleaningMonitoringFeedback(
+    filterBranch ? { branch: filterBranch, year: currentFeedbackYear, month: currentFeedbackMonth } : { year: currentFeedbackYear, month: currentFeedbackMonth }
+  );
+  const currentMonitoringFeedback = monitoringFeedback[0] ?? null;
 
   const handleDeleteVM = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?`)) return;
@@ -1345,6 +1353,44 @@ export default function StaffDashboard() {
                     })}
                   </div>
                 </div>
+
+                {/* ── 월별 모니터링 피드백 ── */}
+                {filterBranch && (
+                  currentMonitoringFeedback ? (
+                    <div className="bg-white border border-border rounded-3xl p-5 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-base font-black text-secondary">{currentFeedbackMonth}월 모니터링 피드백</h3>
+                        <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">진행 완료</span>
+                      </div>
+                      {(() => {
+                        const photos = (currentMonitoringFeedback.photoUrls as string[] | null) || [];
+                        return photos.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2">
+                            {photos.map(url => (
+                              <PhotoThumbnail key={url} src={url} className="block">
+                                <img src={url} className="w-full h-20 object-cover rounded-xl border border-border" alt="모니터링 사진" />
+                              </PhotoThumbnail>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      {currentMonitoringFeedback.comment && (
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{currentMonitoringFeedback.comment}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(currentMonitoringFeedback.createdAt), 'MM월 dd일 HH:mm', { locale: ko })} 방문
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-5 shadow-sm flex items-center gap-3">
+                      <AlertCircle className="w-6 h-6 text-primary shrink-0" />
+                      <div>
+                        <p className="text-sm font-black text-primary">{currentFeedbackMonth}월 모니터링 피드백이 아직 진행되지 않았습니다</p>
+                        <p className="text-xs text-red-400 mt-0.5">본사 방문 점검 후 이 자리에 결과가 표시됩니다.</p>
+                      </div>
+                    </div>
+                  )
+                )}
 
                 {/* ── Record list ── */}
                 {weekFilteredRecords.length === 0 ? (
