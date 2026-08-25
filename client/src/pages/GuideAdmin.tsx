@@ -1581,6 +1581,7 @@ function CleaningManager() {
 
 function CleaningPhotoReview({ records, branches }: { records: any[]; branches: string[] }) {
   const [branch, setBranch] = useState(branches[0] || '');
+  const [zoneFilter, setZoneFilter] = useState('전체');
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()));
 
   useEffect(() => {
@@ -1602,9 +1603,10 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
   const weekRecords = useMemo(() => {
     return records
       .filter(r => r.branch === branch)
+      .filter(r => zoneFilter === '전체' || r.zone === zoneFilter)
       .filter(r => { const d = new Date(r.createdAt); return d >= weekStart && d <= weekEnd; })
       .sort((a, b) => CLEANING_ZONES.indexOf(a.zone) - CLEANING_ZONES.indexOf(b.zone));
-  }, [records, branch, weekStart, weekEnd]);
+  }, [records, branch, zoneFilter, weekStart, weekEnd]);
 
   const goPrevWeek = () => setWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() - 7); return d; });
   const goNextWeek = () => setWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() + 7); return d; });
@@ -1613,15 +1615,26 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
 
   return (
     <div className="space-y-4">
-      <select
-        value={branch}
-        onChange={e => setBranch(e.target.value)}
-        className="w-full text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
-        data-testid="select-cleaning-photo-branch"
-      >
-        {branches.length === 0 && <option value="">지점 없음</option>}
-        {branches.map(b => <option key={b} value={b}>{b}점</option>)}
-      </select>
+      <div className="flex items-center gap-2">
+        <select
+          value={branch}
+          onChange={e => setBranch(e.target.value)}
+          className="flex-1 text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
+          data-testid="select-cleaning-photo-branch"
+        >
+          {branches.length === 0 && <option value="">지점 없음</option>}
+          {branches.map(b => <option key={b} value={b}>{b}점</option>)}
+        </select>
+        <select
+          value={zoneFilter}
+          onChange={e => setZoneFilter(e.target.value)}
+          className="flex-1 text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
+          data-testid="select-cleaning-photo-zone"
+        >
+          <option value="전체">전체 구역</option>
+          {CLEANING_ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+        </select>
+      </div>
 
       <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
         <button onClick={goPrevWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-photo-prev-week">
@@ -1638,7 +1651,9 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
       {!branch ? (
         <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 있는 지점이 없습니다.</div>
       ) : weekRecords.length === 0 ? (
-        <div className="text-center py-10 text-muted-foreground text-sm">이 기간엔 {branch}점 청소 점검 기록이 없습니다.</div>
+        <div className="text-center py-10 text-muted-foreground text-sm">
+          이 기간엔 {branch}점{zoneFilter !== '전체' ? ` · ${zoneFilter}` : ''} 청소 점검 기록이 없습니다.
+        </div>
       ) : (
         <div className="space-y-4">
           {weekRecords.map(record => {
