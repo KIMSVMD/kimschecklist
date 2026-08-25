@@ -1821,12 +1821,13 @@ function CleaningMonitoringManager({ branches }: { branches: string[] }) {
   const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1); };
 
-  const handleAddPhotos = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const handleAddPhotos = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList); // snapshot before any await — the input gets cleared right after this call
     setUploading(true);
     try {
       const { uploadFile } = await import("@/lib/upload");
-      const uploaded = await Promise.all(Array.from(files).map(f => uploadFile(f)));
+      const uploaded = await Promise.all(files.map(f => uploadFile(f)));
       setItems(prev => [...prev, ...uploaded.map(url => ({ photoUrl: url, comment: '' }))]);
     } catch {
       toast({ title: '사진 업로드 실패', variant: 'destructive' });
