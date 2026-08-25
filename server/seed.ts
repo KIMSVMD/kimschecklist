@@ -112,6 +112,22 @@ export async function seedProductsIfEmpty() {
     console.error("[seed] Failed to ensure cleaning_inspections table:", err);
   }
 
+  // 1b. Ensure cleaning_monitoring_feedback table exists
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS cleaning_monitoring_feedback (
+        id SERIAL PRIMARY KEY,
+        branch TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        month INTEGER NOT NULL,
+        items JSONB,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+  } catch (err) {
+    console.error("[seed] Failed to ensure cleaning_monitoring_feedback table:", err);
+  }
+
   // 2. Seed default products if table is empty
   try {
     const [{ value }] = await db.select({ value: count() }).from(products);
