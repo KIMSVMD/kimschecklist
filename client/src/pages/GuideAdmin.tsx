@@ -57,6 +57,13 @@ import {
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 
+const BRANCH_REGIONS: Record<string, string[]> = {
+  '대형점': ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로'],
+  '중형점': ['구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정'],
+  '소형점': ['부산대', '인천', '고잔', '중계', '김포', '청주'],
+};
+const ALL_BRANCHES = Object.values(BRANCH_REGIONS).flat();
+
 // ── 품질 가이드 전용 정적 데이터 ───────────────────────────────────────────────
 
 const QUALITY_CATEGORIES = ['청과', '채소', '수산', '축산', '공산'] as const;
@@ -1536,7 +1543,7 @@ function CleaningManager() {
       {cleaningSubTab === 'photos' ? (
         <CleaningPhotoReview records={records} branches={branches} />
       ) : cleaningSubTab === 'monitoring' ? (
-        <CleaningMonitoringManager branches={branches} />
+        <CleaningMonitoringManager />
       ) : (
         <div className="space-y-4">
       {/* Week navigator */}
@@ -1795,19 +1802,15 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
 
 type MonitoringItem = { photoUrl: string; comment: string };
 
-function CleaningMonitoringManager({ branches }: { branches: string[] }) {
+function CleaningMonitoringManager() {
   const { toast } = useToast();
-  const [branch, setBranch] = useState(branches[0] || '');
+  const [branch, setBranch] = useState(ALL_BRANCHES[0] || '');
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [items, setItems] = useState<MonitoringItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!branch && branches.length > 0) setBranch(branches[0]);
-  }, [branches, branch]);
 
   const { data: feedbackList = [], isLoading } = useCleaningMonitoringFeedback({ branch, year, month });
   const existing = feedbackList[0];
@@ -1860,8 +1863,11 @@ function CleaningMonitoringManager({ branches }: { branches: string[] }) {
         className="w-full text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
         data-testid="select-monitoring-branch"
       >
-        {branches.length === 0 && <option value="">지점 없음</option>}
-        {branches.map(b => <option key={b} value={b}>{b}점</option>)}
+        {Object.entries(BRANCH_REGIONS).map(([region, regionBranches]) => (
+          <optgroup key={region} label={region}>
+            {regionBranches.map(b => <option key={b} value={b}>{b}점</option>)}
+          </optgroup>
+        ))}
       </select>
 
       <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
