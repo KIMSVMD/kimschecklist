@@ -280,6 +280,7 @@ export default function StaffDashboard() {
     filterBranch ? { branch: filterBranch, year: currentFeedbackYear, month: currentFeedbackMonth } : { year: currentFeedbackYear, month: currentFeedbackMonth }
   );
   const currentMonitoringFeedback = monitoringFeedback[0] ?? null;
+  const monitoringFeedbackItems = (currentMonitoringFeedback?.items as { photoUrl: string; comment: string | null }[] | null) || [];
 
   const handleDeleteVM = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?`)) return;
@@ -1356,29 +1357,26 @@ export default function StaffDashboard() {
 
                 {/* ── 월별 모니터링 피드백 ── */}
                 {filterBranch && (
-                  currentMonitoringFeedback ? (
+                  monitoringFeedbackItems.length > 0 ? (
                     <div className="bg-white border border-border rounded-3xl p-5 shadow-sm space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="text-base font-black text-secondary">{currentFeedbackMonth}월 모니터링 피드백</h3>
-                        <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">진행 완료</span>
+                        <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">{monitoringFeedbackItems.length}건</span>
                       </div>
-                      {(() => {
-                        const photos = (currentMonitoringFeedback.photoUrls as string[] | null) || [];
-                        return photos.length > 0 && (
-                          <div className="grid grid-cols-3 gap-2">
-                            {photos.map(url => (
-                              <PhotoThumbnail key={url} src={url} className="block">
-                                <img src={url} className="w-full h-20 object-cover rounded-xl border border-border" alt="모니터링 사진" />
-                              </PhotoThumbnail>
-                            ))}
+                      <div className="space-y-3">
+                        {monitoringFeedbackItems.map((item, idx) => (
+                          <div key={idx} className="flex gap-3">
+                            <PhotoThumbnail src={item.photoUrl} className="block shrink-0">
+                              <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-xl border border-border" alt={`모니터링 사진 ${idx + 1}`} />
+                            </PhotoThumbnail>
+                            {item.comment && (
+                              <p className="text-sm text-muted-foreground flex-1 min-w-0">{item.comment}</p>
+                            )}
                           </div>
-                        );
-                      })()}
-                      {currentMonitoringFeedback.comment && (
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{currentMonitoringFeedback.comment}</p>
-                      )}
+                        ))}
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(currentMonitoringFeedback.createdAt), 'MM월 dd일 HH:mm', { locale: ko })} 방문
+                        {format(new Date(currentMonitoringFeedback!.createdAt), 'MM월 dd일 HH:mm', { locale: ko })} 방문
                       </p>
                     </div>
                   ) : (

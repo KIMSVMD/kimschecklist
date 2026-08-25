@@ -148,14 +148,14 @@ export const insertCleaningReplySchema = createInsertSchema(cleaningReplies).omi
 export type InsertCleaningReply = z.infer<typeof insertCleaningReplySchema>;
 export type CleaningReply = typeof cleaningReplies.$inferSelect;
 
-// HQ admin's on-site monthly monitoring visit — one per branch per month
+// HQ admin's on-site monthly monitoring visit — one record per branch per month,
+// holding a growing list of (photo + its own comment) entries from that visit
 export const cleaningMonitoringFeedback = pgTable("cleaning_monitoring_feedback", {
   id: serial("id").primaryKey(),
   branch: text("branch").notNull(),
   year: integer("year").notNull(),
   month: integer("month").notNull(),
-  photoUrls: text("photo_urls").array(),
-  comment: text("comment"),
+  items: jsonb("items").$type<{ photoUrl: string; comment: string | null }[]>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -1793,14 +1793,15 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
   );
 }
 
+type MonitoringItem = { photoUrl: string; comment: string };
+
 function CleaningMonitoringManager({ branches }: { branches: string[] }) {
   const { toast } = useToast();
   const [branch, setBranch] = useState(branches[0] || '');
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [comment, setComment] = useState('');
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [items, setItems] = useState<MonitoringItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1813,20 +1814,20 @@ function CleaningMonitoringManager({ branches }: { branches: string[] }) {
   const saveMutation = useSaveCleaningMonitoringFeedback();
 
   useEffect(() => {
-    setComment(existing?.comment || '');
-    setPhotoUrls((existing?.photoUrls as string[]) || []);
+    const loaded = (existing?.items as MonitoringItem[] | null) || [];
+    setItems(loaded.map(i => ({ photoUrl: i.photoUrl, comment: i.comment || '' })));
   }, [existing?.id, branch, year, month]);
 
   const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1); };
 
-  const handleFiles = async (files: FileList | null) => {
+  const handleAddPhotos = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploading(true);
     try {
       const { uploadFile } = await import("@/lib/upload");
       const uploaded = await Promise.all(Array.from(files).map(f => uploadFile(f)));
-      setPhotoUrls(prev => [...prev, ...uploaded]);
+      setItems(prev => [...prev, ...uploaded.map(url => ({ photoUrl: url, comment: '' }))]);
     } catch {
       toast({ title: '사진 업로드 실패', variant: 'destructive' });
     } finally {
@@ -1834,12 +1835,16 @@ function CleaningMonitoringManager({ branches }: { branches: string[] }) {
     }
   };
 
-  const handleRemovePhoto = (url: string) => setPhotoUrls(prev => prev.filter(u => u !== url));
+  const handleCommentChange = (idx: number, comment: string) => {
+    setItems(prev => prev.map((it, i) => (i === idx ? { ...it, comment } : it)));
+  };
+
+  const handleRemoveItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
 
   const handleSave = async () => {
     if (!branch) { toast({ title: '지점을 선택해주세요', variant: 'destructive' }); return; }
     try {
-      await saveMutation.mutateAsync({ branch, year, month, photoUrls, comment: comment.trim() || null });
+      await saveMutation.mutateAsync({ branch, year, month, items });
       toast({ title: '모니터링 피드백 저장 완료' });
     } catch (err: any) {
       toast({ title: '저장 실패', description: err?.message, variant: 'destructive' });
@@ -1876,41 +1881,46 @@ function CleaningMonitoringManager({ branches }: { branches: string[] }) {
         <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="font-black text-secondary text-sm">{branch ? `${branch}점` : ''} {month}월 모니터링</span>
-            {existing ? (
-              <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">진행 완료</span>
+            {items.length > 0 ? (
+              <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{items.length}건 진행</span>
             ) : (
               <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">미진행</span>
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            {photoUrls.map(url => (
-              <div key={url} className="relative">
-                <img src={url} className="w-full h-24 object-cover rounded-xl border border-border" alt="모니터링 사진" />
+          <div className="space-y-3">
+            {items.map((item, idx) => (
+              <div key={idx} className="flex gap-3 rounded-xl border border-border p-3">
+                <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-lg border border-border shrink-0" alt={`모니터링 사진 ${idx + 1}`} />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <textarea
+                    value={item.comment}
+                    onChange={e => handleCommentChange(idx, e.target.value)}
+                    placeholder="이 사진에 대한 피드백을 입력하세요..."
+                    className="w-full p-2.5 rounded-lg border border-border text-sm focus:outline-none focus:border-primary transition-all resize-none h-16"
+                    data-testid={`textarea-monitoring-comment-${idx}`}
+                  />
+                </div>
                 <button
                   type="button"
-                  onClick={() => handleRemovePhoto(url)}
-                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center"
-                  data-testid="btn-monitoring-remove-photo"
+                  onClick={() => handleRemoveItem(idx)}
+                  className="w-6 h-6 rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 flex items-center justify-center shrink-0"
+                  data-testid={`btn-monitoring-remove-${idx}`}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
+
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="h-24 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground"
+              disabled={uploading}
+              className="w-full py-3.5 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
               data-testid="btn-monitoring-add-photo"
             >
-              {uploading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  <span className="text-xs font-bold">사진 추가</span>
-                </>
-              )}
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              사진 추가하기
             </button>
             <input
               ref={fileInputRef}
@@ -1918,17 +1928,9 @@ function CleaningMonitoringManager({ branches }: { branches: string[] }) {
               accept="image/*"
               multiple
               className="hidden"
-              onChange={e => handleFiles(e.target.files)}
+              onChange={e => { handleAddPhotos(e.target.files); e.target.value = ''; }}
             />
           </div>
-
-          <textarea
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-            placeholder="청소가 부족한 부분이나 피드백을 입력하세요..."
-            className="w-full p-3 rounded-xl border-2 border-border text-sm focus:outline-none focus:border-primary transition-all resize-none h-24"
-            data-testid="textarea-monitoring-comment"
-          />
 
           <button
             onClick={handleSave}

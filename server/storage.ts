@@ -284,7 +284,7 @@ export class DatabaseStorage implements IStorage {
 
     if (existing.length > 0) {
       const [updated] = await db.update(cleaningMonitoringFeedback)
-        .set({ photoUrls: data.photoUrls, comment: data.comment })
+        .set({ items: data.items })
         .where(eq(cleaningMonitoringFeedback.id, existing[0].id))
         .returning();
       return updated;
