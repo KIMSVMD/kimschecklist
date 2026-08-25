@@ -12,8 +12,11 @@ import {
 import { useProducts, useCreateProduct, useDeleteProduct, useUpsertProductFile, useUpdateProductFiles } from "@/hooks/use-products";
 import { useCleaningInspections } from "@/hooks/use-cleaning";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
+import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import type { Guide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 import {
   Plus,
   Pencil,
@@ -24,6 +27,8 @@ import {
   Image as ImageIcon,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   BarChart3,
   Package,
   BookOpen,
@@ -37,6 +42,7 @@ import {
   Ruler,
   MapPin as MapPinIcon,
   Droplets,
+  AlertCircle,
 } from "lucide-react";
 import {
   LineChart,
@@ -1372,6 +1378,7 @@ const CLEANING_TREND_WEEKS = 8;
 const CLEANING_ZONES = ['공통', '농산', '축산', '수산', '공산'];
 
 function CleaningManager() {
+  const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos'>('score');
   const [selectedBranch, setSelectedBranch] = useState('전체');
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
   const { data: records = [], isLoading } = useCleaningInspections();
@@ -1453,7 +1460,33 @@ function CleaningManager() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Sub-tab: score overview / photo review */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setCleaningSubTab('score')}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+            cleaningSubTab === 'score' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid="tab-cleaning-score"
+        >
+          점수 현황
+        </button>
+        <button
+          onClick={() => setCleaningSubTab('photos')}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+            cleaningSubTab === 'photos' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid="tab-cleaning-photos"
+        >
+          사진 확인
+        </button>
+      </div>
+
+      {cleaningSubTab === 'photos' ? (
+        <CleaningPhotoReview records={records} branches={branches} />
+      ) : (
+        <div className="space-y-6">
       {/* Branch score table */}
       <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
         <div className="px-4 py-3 bg-emerald-50 border-b border-border flex items-center justify-between">
@@ -1540,6 +1573,128 @@ function CleaningManager() {
           </ResponsiveContainer>
         </div>
       </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CleaningPhotoReview({ records, branches }: { records: any[]; branches: string[] }) {
+  const [branch, setBranch] = useState(branches[0] || '');
+  const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()));
+
+  useEffect(() => {
+    if (!branch && branches.length > 0) setBranch(branches[0]);
+  }, [branches, branch]);
+
+  const weekEnd = useMemo(() => {
+    const e = new Date(weekStart);
+    e.setDate(e.getDate() + 6);
+    e.setHours(23, 59, 59, 999);
+    return e;
+  }, [weekStart]);
+
+  const isCurrentWeek = useMemo(() => {
+    const now = new Date();
+    return now >= weekStart && now <= weekEnd;
+  }, [weekStart, weekEnd]);
+
+  const weekRecords = useMemo(() => {
+    return records
+      .filter(r => r.branch === branch)
+      .filter(r => { const d = new Date(r.createdAt); return d >= weekStart && d <= weekEnd; })
+      .sort((a, b) => CLEANING_ZONES.indexOf(a.zone) - CLEANING_ZONES.indexOf(b.zone));
+  }, [records, branch, weekStart, weekEnd]);
+
+  const goPrevWeek = () => setWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() - 7); return d; });
+  const goNextWeek = () => setWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() + 7); return d; });
+
+  const weekLabel = `${weekStart.getMonth() + 1}/${weekStart.getDate()} ~ ${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`;
+
+  return (
+    <div className="space-y-4">
+      <select
+        value={branch}
+        onChange={e => setBranch(e.target.value)}
+        className="w-full text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
+        data-testid="select-cleaning-photo-branch"
+      >
+        {branches.length === 0 && <option value="">지점 없음</option>}
+        {branches.map(b => <option key={b} value={b}>{b}점</option>)}
+      </select>
+
+      <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
+        <button onClick={goPrevWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-photo-prev-week">
+          <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <span className="font-bold text-sm text-foreground">
+          {isCurrentWeek ? '이번주 · ' : ''}{weekLabel}
+        </span>
+        <button onClick={goNextWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-photo-next-week">
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
+      </div>
+
+      {!branch ? (
+        <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 있는 지점이 없습니다.</div>
+      ) : weekRecords.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground text-sm">이 기간엔 {branch}점 청소 점검 기록이 없습니다.</div>
+      ) : (
+        <div className="space-y-4">
+          {weekRecords.map(record => {
+            const items = (record.items as Record<string, any>) || {};
+            return (
+              <div key={record.id} className="rounded-2xl border border-border bg-white overflow-hidden shadow-sm">
+                <div className="px-4 py-2.5 bg-gray-50 border-b border-border flex items-center justify-between">
+                  <span className="font-black text-secondary text-sm">{record.zone}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}
+                  </span>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {Object.entries(items).map(([name, data]: [string, any]) => {
+                    const before = data?.beforePhotoUrl ?? data?.photoUrl ?? null;
+                    const after = data?.afterPhotoUrl ?? null;
+                    const hasPhoto = !!(before || after);
+                    return (
+                      <div key={name} className="p-3.5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-bold text-secondary">{name}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${data?.status === 'issue' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {data?.status === 'issue' ? '문제' : '정상'}
+                          </span>
+                        </div>
+                        {hasPhoto ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {before ? (
+                              <PhotoThumbnail src={before} className="block">
+                                <img src={before} alt={`${name} 전`} className="w-full h-28 object-cover rounded-xl border border-border" />
+                              </PhotoThumbnail>
+                            ) : (
+                              <div className="w-full h-28 rounded-xl border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">전 사진 없음</div>
+                            )}
+                            {after ? (
+                              <PhotoThumbnail src={after} className="block">
+                                <img src={after} alt={`${name} 후`} className="w-full h-28 object-cover rounded-xl border border-border" />
+                              </PhotoThumbnail>
+                            ) : (
+                              <div className="w-full h-28 rounded-xl border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">후 사진 없음</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 w-fit">
+                            <AlertCircle className="w-3.5 h-3.5" /> 사진 없음
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
