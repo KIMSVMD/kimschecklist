@@ -7,6 +7,7 @@ import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning"
 import { useCleaningMonitoringFeedback } from "@/hooks/use-cleaning-monitoring";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
+import { BranchCodeGate } from "@/components/BranchCodeGate";
 import { VMCommentThread } from "@/components/VMCommentThread";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -62,6 +63,20 @@ function getCurrentWeekIndex(year: number, month: number, date: Date) {
 
 export default function StaffDashboard() {
   const [filterBranch, setFilterBranch] = useState('');
+  const [branchVerified, setBranchVerified] = useState(false);
+  useEffect(() => {
+    if (!filterBranch) { setBranchVerified(false); return; }
+    try {
+      setBranchVerified(sessionStorage.getItem(`branchCodeVerified_${filterBranch}`) === '1');
+    } catch {
+      setBranchVerified(false);
+    }
+  }, [filterBranch]);
+  const handleBranchVerified = () => {
+    try { sessionStorage.setItem(`branchCodeVerified_${filterBranch}`, '1'); } catch {}
+    setBranchVerified(true);
+  };
+  const handleBranchCodeCancel = () => setFilterBranch('');
   const [filterCategory, setFilterCategory] = useState('전체');
   const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>(() => {
     try {
@@ -836,6 +851,8 @@ export default function StaffDashboard() {
               <p className="text-base">청소 점검 기록을 확인할 지점을 먼저 선택하세요</p>
             </div>
           )
+        ) : !branchVerified ? (
+          <BranchCodeGate branch={filterBranch} onVerified={handleBranchVerified} onCancel={handleBranchCodeCancel} />
         ) : (
           <div className="flex-1 overflow-y-auto p-4 md:px-[50px] space-y-4 w-full">
 

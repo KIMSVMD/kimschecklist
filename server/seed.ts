@@ -1,8 +1,37 @@
 import { db } from "./db";
-import { products, guides } from "../shared/schema";
+import { products, guides, branchAccessCodes } from "../shared/schema";
 import { count, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import type { InsertProduct } from "../shared/schema";
+
+const DEFAULT_BRANCH_CODES: { branch: string; code: string }[] = [
+  { branch: "강남", code: "8206" },
+  { branch: "강서", code: "8227" },
+  { branch: "야탑", code: "8202" },
+  { branch: "불광", code: "7217" },
+  { branch: "송파", code: "8224" },
+  { branch: "부천", code: "8222" },
+  { branch: "평촌", code: "8205" },
+  { branch: "분당", code: "7209" },
+  { branch: "신구로", code: "8242" },
+  { branch: "구의", code: "7921" },
+  { branch: "유성", code: "8243" },
+  { branch: "일산", code: "8201" },
+  { branch: "수성", code: "8502" },
+  { branch: "광명", code: "8217" },
+  { branch: "쇼핑", code: "8501" },
+  { branch: "해운대", code: "7214" },
+  { branch: "산본", code: "8215" },
+  { branch: "동수원", code: "8208" },
+  { branch: "괴정", code: "8218" },
+  { branch: "인천", code: "8203" },
+  { branch: "부산대", code: "8229" },
+  { branch: "고잔", code: "7219" },
+  { branch: "중계", code: "7204" },
+  { branch: "김포", code: "7912" },
+  { branch: "강북", code: "8504" },
+  { branch: "청주", code: "8241" },
+];
 
 const DEFAULT_PRODUCTS = [
   { category: "농산", groupName: "시즌", productName: "딸기" },
@@ -126,6 +155,19 @@ export async function seedProductsIfEmpty() {
     `);
   } catch (err) {
     console.error("[seed] Failed to ensure cleaning_monitoring_feedback table:", err);
+  }
+
+  // 1c. Ensure branch_access_codes table exists and seed initial codes
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS branch_access_codes (
+        branch TEXT PRIMARY KEY,
+        code TEXT NOT NULL
+      )
+    `);
+    await db.insert(branchAccessCodes).values(DEFAULT_BRANCH_CODES).onConflictDoNothing();
+  } catch (err) {
+    console.error("[seed] Failed to ensure/seed branch_access_codes table:", err);
   }
 
   // 2. Seed default products if table is empty

@@ -480,6 +480,18 @@ export async function registerRoutes(
     }
   });
 
+  // Branch access code verification (used to gate 새 점검 등록 / 점검 월별 피드백 per branch)
+  app.post('/api/branch-code/verify', async (req, res) => {
+    try {
+      const { branch, code } = req.body;
+      if (!branch || !code) return res.status(400).json({ message: "branch and code required" });
+      const valid = await storage.verifyBranchAccessCode(branch, String(code));
+      res.json({ valid });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Checklist routes
   app.get(api.checklists.list.path, async (req, res) => {
     const lists = await storage.getChecklists();

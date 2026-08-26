@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, cleaningMonitoringFeedback, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply, type CleaningMonitoringFeedback, type InsertCleaningMonitoringFeedback } from "../shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, cleaningMonitoringFeedback, branchAccessCodes, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply, type CleaningMonitoringFeedback, type InsertCleaningMonitoringFeedback } from "../shared/schema";
 import { desc, eq, asc, gte, and, sql, isNotNull } from "drizzle-orm";
 
 function filterGuidesByDate(rows: Guide[], year?: number, month?: number): Guide[] {
@@ -78,6 +78,7 @@ export interface IStorage {
   findCleaningPhotoHash(hash: string): Promise<{ branch: string; zone: string; item: string; slot: "before" | "after"; createdAt: Date } | null>;
   getCleaningMonitoringFeedback(filters?: { branch?: string; year?: number; month?: number }): Promise<CleaningMonitoringFeedback[]>;
   upsertCleaningMonitoringFeedback(data: InsertCleaningMonitoringFeedback): Promise<CleaningMonitoringFeedback>;
+  verifyBranchAccessCode(branch: string, code: string): Promise<boolean>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
   updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined>;
   deleteCleaningInspection(id: number): Promise<void>;
@@ -292,6 +293,11 @@ export class DatabaseStorage implements IStorage {
 
     const [row] = await db.insert(cleaningMonitoringFeedback).values(data).returning();
     return row;
+  }
+
+  async verifyBranchAccessCode(branch: string, code: string): Promise<boolean> {
+    const [row] = await db.select().from(branchAccessCodes).where(eq(branchAccessCodes.branch, branch));
+    return !!row && row.code === code;
   }
 
   async upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }> {

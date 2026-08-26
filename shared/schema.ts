@@ -167,6 +167,16 @@ export const insertCleaningMonitoringFeedbackSchema = createInsertSchema(cleanin
 export type InsertCleaningMonitoringFeedback = z.infer<typeof insertCleaningMonitoringFeedbackSchema>;
 export type CleaningMonitoringFeedback = typeof cleaningMonitoringFeedback.$inferSelect;
 
+// 4-digit access code per branch — required before starting/editing that branch's checklists
+export const branchAccessCodes = pgTable("branch_access_codes", {
+  branch: text("branch").primaryKey(),
+  code: text("code").notNull(),
+});
+
+export const insertBranchAccessCodeSchema = createInsertSchema(branchAccessCodes);
+export type InsertBranchAccessCode = z.infer<typeof insertBranchAccessCodeSchema>;
+export type BranchAccessCode = typeof branchAccessCodes.$inferSelect;
+
 // Tracks when admin overrides an item's status (score change notifications for staff)
 export const staffScoreNotifications = pgTable("staff_score_notifications", {
   id: serial("id").primaryKey(),

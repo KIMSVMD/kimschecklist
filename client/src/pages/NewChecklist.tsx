@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
+import { BranchCodeGate } from "@/components/BranchCodeGate";
 
 const REGIONS: Record<string, string[]> = {
   '대형점': ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로'],
@@ -143,6 +144,21 @@ export default function NewChecklist() {
   useEffect(() => {
     try { sessionStorage.setItem('newChecklistActiveTab', activeTab); } catch {}
   }, [activeTab]);
+
+  const [branchVerified, setBranchVerified] = useState(false);
+  useEffect(() => {
+    if (!branch) { setBranchVerified(false); return; }
+    try {
+      setBranchVerified(sessionStorage.getItem(`branchCodeVerified_${branch}`) === '1');
+    } catch {
+      setBranchVerified(false);
+    }
+  }, [branch]);
+  const handleBranchVerified = () => {
+    try { sessionStorage.setItem(`branchCodeVerified_${branch}`, '1'); } catch {}
+    setBranchVerified(true);
+  };
+  const handleBranchCodeCancel = () => setBranch('');
 
   const nowDate = new Date();
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
@@ -398,6 +414,12 @@ export default function NewChecklist() {
                 </div>
                 <p className="font-bold text-xl text-secondary">지점을 선택해주세요</p>
                 <p className="text-base">점검을 등록할 지점을 먼저 선택하세요</p>
+              </motion.div>
+            ) : !branchVerified ? (
+              <motion.div key="branch-code"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              >
+                <BranchCodeGate branch={branch} onVerified={handleBranchVerified} onCancel={handleBranchCodeCancel} />
               </motion.div>
             ) : activeTab === 'quality' ? (
               /* Quality tab — 카테고리별 일괄 점검 */
