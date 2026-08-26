@@ -492,6 +492,18 @@ export async function registerRoutes(
     }
   });
 
+  // Resolve which branch a code belongs to (used by 새 점검 등록's code-only entry)
+  app.post('/api/branch-code/lookup', async (req, res) => {
+    try {
+      const { code } = req.body;
+      if (!code) return res.status(400).json({ message: "code required" });
+      const branch = await storage.findBranchByAccessCode(String(code));
+      res.json({ branch });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Checklist routes
   app.get(api.checklists.list.path, async (req, res) => {
     const lists = await storage.getChecklists();

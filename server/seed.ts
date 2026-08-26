@@ -29,7 +29,6 @@ const DEFAULT_BRANCH_CODES: { branch: string; code: string }[] = [
   { branch: "고잔", code: "7219" },
   { branch: "중계", code: "7204" },
   { branch: "김포", code: "7912" },
-  { branch: "강북", code: "8504" },
   { branch: "청주", code: "8241" },
 ];
 

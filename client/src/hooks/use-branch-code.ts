@@ -10,3 +10,13 @@ export function useVerifyBranchCode() {
     },
   });
 }
+
+export function useLookupBranchByCode() {
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const res = await apiRequest("POST", "/api/branch-code/lookup", { code });
+      const data = await res.json();
+      return data.branch as string | null;
+    },
+  });
+}

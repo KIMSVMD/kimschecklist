@@ -79,6 +79,7 @@ export interface IStorage {
   getCleaningMonitoringFeedback(filters?: { branch?: string; year?: number; month?: number }): Promise<CleaningMonitoringFeedback[]>;
   upsertCleaningMonitoringFeedback(data: InsertCleaningMonitoringFeedback): Promise<CleaningMonitoringFeedback>;
   verifyBranchAccessCode(branch: string, code: string): Promise<boolean>;
+  findBranchByAccessCode(code: string): Promise<string | null>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
   updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined>;
   deleteCleaningInspection(id: number): Promise<void>;
@@ -298,6 +299,11 @@ export class DatabaseStorage implements IStorage {
   async verifyBranchAccessCode(branch: string, code: string): Promise<boolean> {
     const [row] = await db.select().from(branchAccessCodes).where(eq(branchAccessCodes.branch, branch));
     return !!row && row.code === code;
+  }
+
+  async findBranchByAccessCode(code: string): Promise<string | null> {
+    const [row] = await db.select().from(branchAccessCodes).where(eq(branchAccessCodes.code, code));
+    return row?.branch ?? null;
   }
 
   async upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }> {
