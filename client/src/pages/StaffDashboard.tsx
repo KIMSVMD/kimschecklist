@@ -295,7 +295,7 @@ export default function StaffDashboard() {
     filterBranch ? { branch: filterBranch, year: currentFeedbackYear, month: currentFeedbackMonth } : { year: currentFeedbackYear, month: currentFeedbackMonth }
   );
   const currentMonitoringFeedback = monitoringFeedback[0] ?? null;
-  const monitoringFeedbackItems = (currentMonitoringFeedback?.items as { photoUrl: string; comment: string | null }[] | null) || [];
+  const monitoringFeedbackItems = (currentMonitoringFeedback?.items as { zone: string; photoUrl: string; comment: string | null }[] | null) || [];
 
   const handleDeleteVM = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?`)) return;
@@ -1380,15 +1380,20 @@ export default function StaffDashboard() {
                         <h3 className="text-base font-black text-secondary">{currentFeedbackMonth}월 모니터링 피드백</h3>
                         <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">{monitoringFeedbackItems.length}건</span>
                       </div>
-                      <div className="space-y-3">
-                        {monitoringFeedbackItems.map((item, idx) => (
-                          <div key={idx} className="flex gap-3">
-                            <PhotoThumbnail src={item.photoUrl} className="block shrink-0">
-                              <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-xl border border-border" alt={`모니터링 사진 ${idx + 1}`} />
-                            </PhotoThumbnail>
-                            {item.comment && (
-                              <p className="text-sm text-muted-foreground flex-1 min-w-0">{item.comment}</p>
-                            )}
+                      <div className="space-y-4">
+                        {ZONES.filter(zone => monitoringFeedbackItems.some(i => i.zone === zone)).map(zone => (
+                          <div key={zone} className="space-y-2">
+                            <p className="text-xs font-bold text-muted-foreground">{zone}</p>
+                            {monitoringFeedbackItems.filter(i => i.zone === zone).map((item, idx) => (
+                              <div key={idx} className="flex gap-3">
+                                <PhotoThumbnail src={item.photoUrl} className="block shrink-0">
+                                  <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-xl border border-border" alt={`${zone} 모니터링 사진`} />
+                                </PhotoThumbnail>
+                                {item.comment && (
+                                  <p className="text-sm text-muted-foreground flex-1 min-w-0">{item.comment}</p>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         ))}
                       </div>

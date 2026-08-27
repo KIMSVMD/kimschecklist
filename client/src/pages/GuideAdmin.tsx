@@ -1800,7 +1800,7 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
   );
 }
 
-type MonitoringItem = { photoUrl: string; comment: string };
+type MonitoringItem = { zone: string; photoUrl: string; comment: string };
 
 function CleaningMonitoringManager() {
   const { toast } = useToast();
@@ -1809,8 +1809,8 @@ function CleaningMonitoringManager() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [items, setItems] = useState<MonitoringItem[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingZone, setUploadingZone] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: feedbackList = [], isLoading } = useCleaningMonitoringFeedback({ branch, year, month });
   const existing = feedbackList[0];
@@ -1818,24 +1818,24 @@ function CleaningMonitoringManager() {
 
   useEffect(() => {
     const loaded = (existing?.items as MonitoringItem[] | null) || [];
-    setItems(loaded.map(i => ({ photoUrl: i.photoUrl, comment: i.comment || '' })));
+    setItems(loaded.map(i => ({ zone: i.zone, photoUrl: i.photoUrl, comment: i.comment || '' })));
   }, [existing?.id, branch, year, month]);
 
   const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1); };
 
-  const handleAddPhotos = async (fileList: FileList | null) => {
+  const handleAddPhotos = async (zone: string, fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList); // snapshot before any await — the input gets cleared right after this call
-    setUploading(true);
+    setUploadingZone(zone);
     try {
       const { uploadFile } = await import("@/lib/upload");
       const uploaded = await Promise.all(files.map(f => uploadFile(f)));
-      setItems(prev => [...prev, ...uploaded.map(url => ({ photoUrl: url, comment: '' }))]);
+      setItems(prev => [...prev, ...uploaded.map(url => ({ zone, photoUrl: url, comment: '' }))]);
     } catch {
       toast({ title: '사진 업로드 실패', variant: 'destructive' });
     } finally {
-      setUploading(false);
+      setUploadingZone(null);
     }
   };
 
@@ -1885,8 +1885,8 @@ function CleaningMonitoringManager() {
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
-          <div className="flex items-center justify-between">
+        <>
+          <div className="flex items-center justify-between px-1">
             <span className="font-black text-secondary text-sm">{branch ? `${branch}점` : ''} {month}월 모니터링</span>
             {items.length > 0 ? (
               <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{items.length}건 진행</span>
@@ -1896,47 +1896,63 @@ function CleaningMonitoringManager() {
           </div>
 
           <div className="space-y-3">
-            {items.map((item, idx) => (
-              <div key={idx} className="flex gap-3 rounded-xl border border-border p-3">
-                <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-lg border border-border shrink-0" alt={`모니터링 사진 ${idx + 1}`} />
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <textarea
-                    value={item.comment}
-                    onChange={e => handleCommentChange(idx, e.target.value)}
-                    placeholder="이 사진에 대한 피드백을 입력하세요..."
-                    className="w-full p-2.5 rounded-lg border border-border text-sm focus:outline-none focus:border-primary transition-all resize-none h-16"
-                    data-testid={`textarea-monitoring-comment-${idx}`}
+            {CLEANING_ZONES.map(zone => {
+              const zoneItems = items
+                .map((item, idx) => ({ item, idx }))
+                .filter(({ item }) => item.zone === zone);
+              return (
+                <div key={zone} className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-secondary text-sm">{zone}</span>
+                    {zoneItems.length > 0 && (
+                      <span className="text-[11px] font-bold bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{zoneItems.length}건</span>
+                    )}
+                  </div>
+
+                  {zoneItems.map(({ item, idx }) => (
+                    <div key={idx} className="flex gap-3 rounded-xl border border-border p-3">
+                      <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-lg border border-border shrink-0" alt={`${zone} 모니터링 사진`} />
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <textarea
+                          value={item.comment}
+                          onChange={e => handleCommentChange(idx, e.target.value)}
+                          placeholder="이 사진에 대한 피드백을 입력하세요..."
+                          className="w-full p-2.5 rounded-lg border border-border text-sm focus:outline-none focus:border-primary transition-all resize-none h-16"
+                          data-testid={`textarea-monitoring-comment-${idx}`}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(idx)}
+                        className="w-6 h-6 rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 flex items-center justify-center shrink-0"
+                        data-testid={`btn-monitoring-remove-${idx}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRefs.current[zone]?.click()}
+                    disabled={uploadingZone === zone}
+                    className="w-full py-3 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
+                    data-testid={`btn-monitoring-add-photo-${zone}`}
+                  >
+                    {uploadingZone === zone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    {zone} 사진 추가하기
+                  </button>
+                  <input
+                    ref={el => { fileInputRefs.current[zone] = el; }}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={e => { handleAddPhotos(zone, e.target.files); e.target.value = ''; }}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveItem(idx)}
-                  className="w-6 h-6 rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 flex items-center justify-center shrink-0"
-                  data-testid={`btn-monitoring-remove-${idx}`}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full py-3.5 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
-              data-testid="btn-monitoring-add-photo"
-            >
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              사진 추가하기
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={e => { handleAddPhotos(e.target.files); e.target.value = ''; }}
-            />
+              );
+            })}
           </div>
 
           <button
@@ -1948,7 +1964,7 @@ function CleaningMonitoringManager() {
           >
             {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `${month}월 모니터링 피드백 저장`}
           </button>
-        </div>
+        </>
       )}
     </div>
   );
