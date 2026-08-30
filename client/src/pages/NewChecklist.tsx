@@ -376,16 +376,15 @@ export default function NewChecklist() {
         {/* ── Content area ── */}
         <div className="flex-1 overflow-y-auto">
 
-          <AnimatePresence mode="wait">
+          {/* Branch code not yet resolved — kept outside AnimatePresence so it unmounts
+              instantly instead of waiting on an exit animation that can get stuck */}
+          {!branchVerified && (
+            <BranchCodeGate onVerified={handleBranchResolved} onCancel={() => {}} />
+          )}
 
-            {/* Branch code not yet resolved */}
-            {!branchVerified ? (
-              <motion.div key="branch-code"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              >
-                <BranchCodeGate onVerified={handleBranchResolved} onCancel={() => {}} />
-              </motion.div>
-            ) : activeTab === 'quality' ? (
+          {branchVerified && <AnimatePresence mode="wait">
+
+            {activeTab === 'quality' ? (
               /* Quality tab — 카테고리별 일괄 점검 */
               <motion.div
                 key="quality"
@@ -442,7 +441,7 @@ export default function NewChecklist() {
                 allGuideProducts={validGuideProducts.filter(g => g.guideType !== 'quality')}
               />
             )}
-          </AnimatePresence>
+          </AnimatePresence>}
         </div>
       </div>
     </Layout>
