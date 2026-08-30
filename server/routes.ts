@@ -480,6 +480,23 @@ export async function registerRoutes(
     }
   });
 
+  // Staff attaches an "after" (fixed) photo to one HQ monitoring feedback item — no admin required
+  app.patch('/api/cleaning-monitoring/:id/item-after-photo', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { itemIndex, afterPhotoUrl } = req.body;
+      if (typeof itemIndex !== 'number' || !afterPhotoUrl) {
+        return res.status(400).json({ message: "itemIndex and afterPhotoUrl required" });
+      }
+      const result = await storage.addMonitoringAfterPhoto(id, itemIndex, afterPhotoUrl);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Branch access code verification (used to gate 새 점검 등록 / 점검 월별 피드백 per branch)
   app.post('/api/branch-code/verify', async (req, res) => {
     try {

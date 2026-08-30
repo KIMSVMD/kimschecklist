@@ -1800,7 +1800,7 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
   );
 }
 
-type MonitoringItem = { zone: string; photoUrl: string; comment: string };
+type MonitoringItem = { zone: string; photoUrl: string; comment: string; afterPhotoUrl?: string | null };
 
 function CleaningMonitoringManager() {
   const { toast } = useToast();
@@ -1818,7 +1818,7 @@ function CleaningMonitoringManager() {
 
   useEffect(() => {
     const loaded = (existing?.items as MonitoringItem[] | null) || [];
-    setItems(loaded.map(i => ({ zone: i.zone, photoUrl: i.photoUrl, comment: i.comment || '' })));
+    setItems(loaded.map(i => ({ zone: i.zone, photoUrl: i.photoUrl, comment: i.comment || '', afterPhotoUrl: i.afterPhotoUrl ?? null })));
   }, [existing?.id, branch, year, month]);
 
   const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
@@ -1911,7 +1911,20 @@ function CleaningMonitoringManager() {
 
                   {zoneItems.map(({ item, idx }) => (
                     <div key={idx} className="flex gap-3 rounded-xl border border-border p-3">
-                      <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-lg border border-border shrink-0" alt={`${zone} 모니터링 사진`} />
+                      <div className="shrink-0 text-center">
+                        <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-lg border border-border" alt={`${zone} 모니터링 사진`} />
+                        <p className="text-[10px] font-bold text-muted-foreground mt-1">본사</p>
+                      </div>
+                      {item.afterPhotoUrl ? (
+                        <div className="shrink-0 text-center">
+                          <img src={item.afterPhotoUrl} className="w-20 h-20 object-cover rounded-lg border-2 border-emerald-300" alt={`${zone} 조치 후 사진`} />
+                          <p className="text-[10px] font-bold text-emerald-600 mt-1">매장 조치</p>
+                        </div>
+                      ) : (
+                        <div className="shrink-0 w-20 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground text-center px-1">
+                          매장 조치 대기중
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <textarea
                           value={item.comment}

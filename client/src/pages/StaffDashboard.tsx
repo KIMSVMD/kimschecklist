@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
 import { useValidGuideProducts } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning";
-import { useCleaningMonitoringFeedback } from "@/hooks/use-cleaning-monitoring";
+import { useCleaningMonitoringFeedback, useAddMonitoringAfterPhoto } from "@/hooks/use-cleaning-monitoring";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import { BranchCodeGate } from "@/components/BranchCodeGate";
@@ -15,6 +15,7 @@ import {
   ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin,
   CheckCheck, Droplets, Sun, Moon, XCircle,
   ChevronLeft, ChevronRight, Calendar, Bell, X, MessageCircle, Star, Trophy,
+  Loader2, Camera,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +60,68 @@ function getWeekRangesInMonth(year: number, month: number) {
 function getCurrentWeekIndex(year: number, month: number, date: Date) {
   const idx = getWeekRangesInMonth(year, month).findIndex(r => date >= r.start && date <= r.end);
   return idx >= 0 ? idx + 1 : 1;
+}
+
+function MonitoringAfterPhotoSlot({
+  feedbackId,
+  itemIndex,
+  afterPhotoUrl,
+}: {
+  feedbackId: number;
+  itemIndex: number;
+  afterPhotoUrl?: string | null;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const addAfterPhotoMutation = useAddMonitoringAfterPhoto();
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const url = await uploadFile(file);
+      await addAfterPhotoMutation.mutateAsync({ id: feedbackId, itemIndex, afterPhotoUrl: url });
+    } catch {
+      toast({ title: '사진 업로드 실패', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (afterPhotoUrl) {
+    return (
+      <div className="shrink-0 text-center">
+        <PhotoThumbnail src={afterPhotoUrl} className="block">
+          <img src={afterPhotoUrl} className="w-20 h-20 object-cover rounded-xl border-2 border-emerald-300" alt="조치 후 사진" />
+        </PhotoThumbnail>
+        <p className="text-[10px] font-bold text-emerald-600 mt-1">조치 완료</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="shrink-0">
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="w-20 h-20 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center gap-1 text-primary active:scale-95 transition-all disabled:opacity-50"
+        data-testid={`btn-monitoring-after-photo-${feedbackId}-${itemIndex}`}
+      >
+        {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+        <span className="text-[10px] font-bold">애프터 사진</span>
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; handleFile(f); e.target.value = ''; }}
+      />
+    </div>
+  );
 }
 
 export default function StaffDashboard() {
@@ -295,7 +358,7 @@ export default function StaffDashboard() {
     filterBranch ? { branch: filterBranch, year: currentFeedbackYear, month: currentFeedbackMonth } : { year: currentFeedbackYear, month: currentFeedbackMonth }
   );
   const currentMonitoringFeedback = monitoringFeedback[0] ?? null;
-  const monitoringFeedbackItems = (currentMonitoringFeedback?.items as { zone: string; photoUrl: string; comment: string | null }[] | null) || [];
+  const monitoringFeedbackItems = (currentMonitoringFeedback?.items as { zone: string; photoUrl: string; comment: string | null; afterPhotoUrl?: string | null }[] | null) || [];
 
   const handleDeleteVM = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?`)) return;
@@ -1382,18 +1445,31 @@ export default function StaffDashboard() {
                       </div>
                       <div className="space-y-4">
                         {ZONES.filter(zone => monitoringFeedbackItems.some(i => i.zone === zone)).map(zone => (
-                          <div key={zone} className="space-y-2">
+                          <div key={zone} className="space-y-3">
                             <p className="text-xs font-bold text-muted-foreground">{zone}</p>
-                            {monitoringFeedbackItems.filter(i => i.zone === zone).map((item, idx) => (
-                              <div key={idx} className="flex gap-3">
-                                <PhotoThumbnail src={item.photoUrl} className="block shrink-0">
-                                  <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-xl border border-border" alt={`${zone} 모니터링 사진`} />
-                                </PhotoThumbnail>
-                                {item.comment && (
-                                  <p className="text-sm text-muted-foreground flex-1 min-w-0">{item.comment}</p>
-                                )}
-                              </div>
-                            ))}
+                            {monitoringFeedbackItems
+                              .map((item, idx) => ({ item, idx }))
+                              .filter(({ item }) => item.zone === zone)
+                              .map(({ item, idx }) => (
+                                <div key={idx} className="space-y-1.5">
+                                  <div className="flex gap-3">
+                                    <div className="shrink-0 text-center">
+                                      <PhotoThumbnail src={item.photoUrl} className="block">
+                                        <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-xl border border-border" alt={`${zone} 모니터링 사진`} />
+                                      </PhotoThumbnail>
+                                      <p className="text-[10px] font-bold text-muted-foreground mt-1">본사 확인</p>
+                                    </div>
+                                    <MonitoringAfterPhotoSlot
+                                      feedbackId={currentMonitoringFeedback!.id}
+                                      itemIndex={idx}
+                                      afterPhotoUrl={item.afterPhotoUrl}
+                                    />
+                                    {item.comment && (
+                                      <p className="text-sm text-muted-foreground flex-1 min-w-0">{item.comment}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                           </div>
                         ))}
                       </div>

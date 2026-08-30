@@ -78,6 +78,7 @@ export interface IStorage {
   findCleaningPhotoHash(hash: string): Promise<{ branch: string; zone: string; item: string; slot: "before" | "after"; createdAt: Date } | null>;
   getCleaningMonitoringFeedback(filters?: { branch?: string; year?: number; month?: number }): Promise<CleaningMonitoringFeedback[]>;
   upsertCleaningMonitoringFeedback(data: InsertCleaningMonitoringFeedback): Promise<CleaningMonitoringFeedback>;
+  addMonitoringAfterPhoto(id: number, itemIndex: number, afterPhotoUrl: string): Promise<CleaningMonitoringFeedback | undefined>;
   verifyBranchAccessCode(branch: string, code: string): Promise<boolean>;
   findBranchByAccessCode(code: string): Promise<string | null>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
@@ -294,6 +295,19 @@ export class DatabaseStorage implements IStorage {
 
     const [row] = await db.insert(cleaningMonitoringFeedback).values(data).returning();
     return row;
+  }
+
+  async addMonitoringAfterPhoto(id: number, itemIndex: number, afterPhotoUrl: string): Promise<CleaningMonitoringFeedback | undefined> {
+    const [existing] = await db.select().from(cleaningMonitoringFeedback).where(eq(cleaningMonitoringFeedback.id, id));
+    if (!existing) return undefined;
+    const items = ((existing.items as any[]) || []).slice();
+    if (!items[itemIndex]) return existing;
+    items[itemIndex] = { ...items[itemIndex], afterPhotoUrl };
+    const [updated] = await db.update(cleaningMonitoringFeedback)
+      .set({ items })
+      .where(eq(cleaningMonitoringFeedback.id, id))
+      .returning();
+    return updated;
   }
 
   async verifyBranchAccessCode(branch: string, code: string): Promise<boolean> {

@@ -155,7 +155,7 @@ export const cleaningMonitoringFeedback = pgTable("cleaning_monitoring_feedback"
   branch: text("branch").notNull(),
   year: integer("year").notNull(),
   month: integer("month").notNull(),
-  items: jsonb("items").$type<{ zone: string; photoUrl: string; comment: string | null }[]>(),
+  items: jsonb("items").$type<{ zone: string; photoUrl: string; comment: string | null; afterPhotoUrl?: string | null }[]>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

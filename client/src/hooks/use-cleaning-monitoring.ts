@@ -27,3 +27,13 @@ export function useSaveCleaningMonitoringFeedback() {
     },
   });
 }
+
+export function useAddMonitoringAfterPhoto() {
+  return useMutation({
+    mutationFn: ({ id, itemIndex, afterPhotoUrl }: { id: number; itemIndex: number; afterPhotoUrl: string }) =>
+      apiRequest("PATCH", `/api/cleaning-monitoring/${id}/item-after-photo`, { itemIndex, afterPhotoUrl }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cleaning-monitoring"] });
+    },
+  });
+}
