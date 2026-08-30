@@ -48,6 +48,7 @@ export function BranchCodeGate({
   };
 
   const handleBackspace = () => setDigits(d => d.slice(0, -1));
+  const handleCancel = () => { setDigits(""); setError(false); onCancel(); };
 
   return (
     <div className="flex items-center justify-center py-10 px-4">
@@ -102,7 +103,7 @@ export function BranchCodeGate({
           ))}
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="h-16 rounded-2xl bg-muted text-sm font-bold text-muted-foreground active:scale-95 transition-all"
             data-testid="btn-code-cancel"
           >
