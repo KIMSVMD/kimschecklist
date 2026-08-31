@@ -269,7 +269,7 @@ export default function CleaningChecklist() {
         return;
       }
 
-      const objectPath = await uploadFile(file);
+      const objectPath = await uploadFile(file, { compress: true });
       const urlField = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
       const hashField = slot === "before" ? "beforePhotoHash" : "afterPhotoHash";
       setItemData(prev => ({ ...prev, [item]: { ...prev[item], [urlField]: objectPath, [hashField]: hash } }));

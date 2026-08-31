@@ -8,7 +8,9 @@ const COMPRESS_SKIP_UNDER_BYTES = 800 * 1024; // already small enough — not wo
 // Downscale + re-encode photos before upload so store wifi/mobile data isn't spent on
 // full-resolution phone camera originals. Best-effort: any failure (unsupported format,
 // canvas taint, etc.) just falls back to the original file — this must never block an upload.
-async function compressImage(file: File): Promise<File> {
+// Opt-in per call site (see uploadFile's `compress` param) rather than automatic for every
+// upload — some callers (guide videos/attachments, PDFs) must never be touched.
+export async function compressImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/")) return file;
   try {
     const bitmap = await createImageBitmap(file);
@@ -38,8 +40,8 @@ async function compressImage(file: File): Promise<File> {
   }
 }
 
-export async function uploadFile(file: File): Promise<string> {
-  const toUpload = await compressImage(file);
+export async function uploadFile(file: File, options?: { compress?: boolean }): Promise<string> {
+  const toUpload = options?.compress ? await compressImage(file) : file;
   const fileName = `uploads/${Date.now()}_${Math.random().toString(36).slice(2)}_${toUpload.name}`;
   const fileRef = ref(storage, fileName);
   await uploadBytes(fileRef, toUpload);
