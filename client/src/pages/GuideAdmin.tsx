@@ -1872,6 +1872,9 @@ function CleaningMonitoringManager() {
 
   const handleRemoveItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
 
+  const handleClearAfterPhoto = (idx: number) =>
+    setItems(prev => prev.map((it, i) => (i === idx ? { ...it, afterPhotoUrl: null } : it)));
+
   const handleSave = async () => {
     if (!branch) { toast({ title: '지점을 선택해주세요', variant: 'destructive' }); return; }
     try {
@@ -1944,7 +1947,18 @@ function CleaningMonitoringManager() {
                       </div>
                       {item.afterPhotoUrl ? (
                         <div className="shrink-0 text-center">
-                          <img src={item.afterPhotoUrl} className="w-20 h-20 object-cover rounded-lg border-2 border-emerald-300" alt={`${zone} 조치 후 사진`} />
+                          <div className="relative">
+                            <img src={item.afterPhotoUrl} className="w-20 h-20 object-cover rounded-lg border-2 border-emerald-300" alt={`${zone} 조치 후 사진`} />
+                            <button
+                              type="button"
+                              onClick={() => handleClearAfterPhoto(idx)}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                              aria-label="조치 후 사진 삭제"
+                              data-testid={`btn-monitoring-clear-after-photo-${idx}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
                           <p className="text-[10px] font-bold text-emerald-600 mt-1">매장 조치</p>
                         </div>
                       ) : (() => {
