@@ -227,6 +227,16 @@ export default function CleaningChecklist() {
     }
   }, [itemData, step, selectedZone, inspectionTime, branch]);
 
+  // Browser/swipe/bottom-nav back while on the item checklist should return to zone
+  // selection on this same page, not leave the page entirely.
+  useEffect(() => {
+    const onPopState = () => {
+      setStep(prev => (prev === "items" || prev === "done" ? "zone" : prev));
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const handleZoneSelect = (zone: string) => {
     if (zoneScores[zone] !== null) {
       toast({
@@ -237,6 +247,7 @@ export default function CleaningChecklist() {
     }
     setSelectedZone(zone);
     setStep("items");
+    window.history.pushState({ cleaningStep: "items" }, "");
   };
 
   const handleStatusSet = (item: string, status: "ok" | "issue") => {
