@@ -1940,7 +1940,7 @@ function CleaningMonitoringManager() {
                     <div key={idx} className="flex gap-3 rounded-xl border border-border p-3">
                       <div className="shrink-0 text-center">
                         <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-lg border border-border" alt={`${zone} 모니터링 사진`} />
-                        <p className="text-[10px] font-bold text-muted-foreground mt-1">본사</p>
+                        <p className="text-[10px] font-bold text-muted-foreground mt-1">피드백 내용</p>
                       </div>
                       {item.afterPhotoUrl ? (
                         <div className="shrink-0 text-center">
