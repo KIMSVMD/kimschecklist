@@ -93,12 +93,22 @@ type ItemData = {
   status: "ok" | "issue" | null;
   beforePhotoUrl?: string | null;
   beforePhotoHash?: string | null;
+  beforePhotoAt?: string | null;
   afterPhotoUrl?: string | null;
   afterPhotoHash?: string | null;
+  afterPhotoAt?: string | null;
   memo?: string | null;
 };
 
 type PhotoSlot = "before" | "after";
+
+function formatUploadTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 
 function getKSTDraftDateStr() {
   const now = new Date();
@@ -283,7 +293,8 @@ export default function CleaningChecklist() {
       const objectPath = await uploadFile(file, { compress: true });
       const urlField = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
       const hashField = slot === "before" ? "beforePhotoHash" : "afterPhotoHash";
-      setItemData(prev => ({ ...prev, [item]: { ...prev[item], [urlField]: objectPath, [hashField]: hash } }));
+      const atField = slot === "before" ? "beforePhotoAt" : "afterPhotoAt";
+      setItemData(prev => ({ ...prev, [item]: { ...prev[item], [urlField]: objectPath, [hashField]: hash, [atField]: new Date().toISOString() } }));
     } catch {
       toast({ title: "사진 업로드 실패", variant: "destructive" });
     } finally {
@@ -292,14 +303,16 @@ export default function CleaningChecklist() {
   };
 
   const handleSubmit = async () => {
-    const items: Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; memo?: string | null }> = {};
+    const items: Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }> = {};
     currentItems.forEach(item => {
       items[item] = {
         status: itemData[item]?.status || "ok",
         beforePhotoUrl: itemData[item]?.beforePhotoUrl || null,
         beforePhotoHash: itemData[item]?.beforePhotoHash || null,
+        beforePhotoAt: itemData[item]?.beforePhotoAt || null,
         afterPhotoUrl: itemData[item]?.afterPhotoUrl || null,
         afterPhotoHash: itemData[item]?.afterPhotoHash || null,
+        afterPhotoAt: itemData[item]?.afterPhotoAt || null,
         memo: itemData[item]?.memo || null,
       };
     });
@@ -331,6 +344,7 @@ export default function CleaningChecklist() {
     label: string,
     url: string | null | undefined,
     theme: "emerald" | "red",
+    uploadedAt?: string | null,
   ) => {
     const key = `${item}:${slot}`;
     const isUploading = uploadingSlot === key;
@@ -357,6 +371,11 @@ export default function CleaningChecklist() {
               <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
                 <span className="text-white text-xs font-bold">변경</span>
               </div>
+              {uploadedAt && (
+                <span className="absolute bottom-1 right-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/60 text-white">
+                  {formatUploadTime(uploadedAt)}
+                </span>
+              )}
             </div>
           ) : (
             <>
@@ -599,8 +618,8 @@ export default function CleaningChecklist() {
                                   <Camera className="w-3.5 h-3.5" /> 전/후 사진 (필수)
                                 </p>
                                 <div className="grid grid-cols-2 gap-2">
-                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "emerald")}
-                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "emerald")}
+                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "emerald", data?.beforePhotoAt)}
+                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "emerald", data?.afterPhotoAt)}
                                 </div>
                                 {(!data?.beforePhotoUrl || !data?.afterPhotoUrl) && (
                                   <p className="text-xs text-primary font-bold mt-2 flex items-center gap-1">
@@ -623,8 +642,8 @@ export default function CleaningChecklist() {
                                   <AlertCircle className="w-4 h-4" /> 문제 상세 기록
                                 </p>
                                 <div className="grid grid-cols-2 gap-2">
-                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "red")}
-                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "red")}
+                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "red", data?.beforePhotoAt)}
+                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "red", data?.afterPhotoAt)}
                                 </div>
                                 {(!data?.beforePhotoUrl || !data?.afterPhotoUrl) && (
                                   <p className="text-xs text-primary font-bold flex items-center gap-1">

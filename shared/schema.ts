@@ -99,7 +99,7 @@ export const cleaningInspections = pgTable("cleaning_inspections", {
   branch: text("branch").notNull(),
   zone: text("zone").notNull(),
   inspectionTime: text("inspection_time").notNull(), // 오픈 / 마감
-  items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; memo?: string | null }>>(),
+  items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }>>(),
   overallStatus: text("overall_status").notNull(), // ok / issue
   adminComment: text("admin_comment"),
   commentConfirmed: boolean("comment_confirmed").default(false),
