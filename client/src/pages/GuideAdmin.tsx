@@ -1800,7 +1800,17 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
   );
 }
 
-type MonitoringItem = { zone: string; photoUrl: string; comment: string; afterPhotoUrl?: string | null };
+type MonitoringItem = { zone: string; photoUrl: string; comment: string; afterPhotoUrl?: string | null; createdAt?: string };
+const MONITORING_AFTER_PHOTO_DEADLINE_DAYS = 7;
+
+// Days left until the after-photo deadline (negative once overdue). Items without a
+// createdAt (added before this feature existed) have no deadline.
+function getMonitoringDaysLeft(createdAt?: string): number | null {
+  if (!createdAt) return null;
+  const deadline = new Date(createdAt);
+  deadline.setDate(deadline.getDate() + MONITORING_AFTER_PHOTO_DEADLINE_DAYS);
+  return Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
 
 function CleaningMonitoringManager() {
   const { toast } = useToast();
@@ -1818,7 +1828,7 @@ function CleaningMonitoringManager() {
 
   useEffect(() => {
     const loaded = (existing?.items as MonitoringItem[] | null) || [];
-    setItems(loaded.map(i => ({ zone: i.zone, photoUrl: i.photoUrl, comment: i.comment || '', afterPhotoUrl: i.afterPhotoUrl ?? null })));
+    setItems(loaded.map(i => ({ zone: i.zone, photoUrl: i.photoUrl, comment: i.comment || '', afterPhotoUrl: i.afterPhotoUrl ?? null, createdAt: i.createdAt })));
   }, [existing?.id, branch, year, month]);
 
   const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
@@ -1831,7 +1841,8 @@ function CleaningMonitoringManager() {
     try {
       const { uploadFile } = await import("@/lib/upload");
       const uploaded = await Promise.all(files.map(f => uploadFile(f)));
-      setItems(prev => [...prev, ...uploaded.map(url => ({ zone, photoUrl: url, comment: '' }))]);
+      const createdAt = new Date().toISOString();
+      setItems(prev => [...prev, ...uploaded.map(url => ({ zone, photoUrl: url, comment: '', createdAt }))]);
     } catch {
       toast({ title: '사진 업로드 실패', variant: 'destructive' });
     } finally {
@@ -1920,11 +1931,26 @@ function CleaningMonitoringManager() {
                           <img src={item.afterPhotoUrl} className="w-20 h-20 object-cover rounded-lg border-2 border-emerald-300" alt={`${zone} 조치 후 사진`} />
                           <p className="text-[10px] font-bold text-emerald-600 mt-1">매장 조치</p>
                         </div>
-                      ) : (
-                        <div className="shrink-0 w-20 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground text-center px-1">
-                          매장 조치 대기중
-                        </div>
-                      )}
+                      ) : (() => {
+                        const daysLeft = getMonitoringDaysLeft(item.createdAt);
+                        const overdue = daysLeft !== null && daysLeft < 0;
+                        return (
+                          <div
+                            className={`shrink-0 w-20 h-20 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-0.5 text-center px-1 ${
+                              overdue ? 'border-red-300 bg-red-50' : 'border-border'
+                            }`}
+                          >
+                            <span className={`text-[10px] font-bold ${overdue ? 'text-red-600' : 'text-muted-foreground'}`}>
+                              {overdue ? '기한 초과' : '조치 대기중'}
+                            </span>
+                            {daysLeft !== null && (
+                              <span className={`text-[9px] ${overdue ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                {overdue ? `${Math.abs(daysLeft)}일 지남` : `D-${daysLeft}`}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <textarea
                           value={item.comment}

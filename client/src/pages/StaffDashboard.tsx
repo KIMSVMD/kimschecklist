@@ -62,14 +62,27 @@ function getCurrentWeekIndex(year: number, month: number, date: Date) {
   return idx >= 0 ? idx + 1 : 1;
 }
 
+const MONITORING_AFTER_PHOTO_DEADLINE_DAYS = 7;
+
+// Days left until the after-photo deadline (negative once overdue). Items without a
+// createdAt (added before this feature existed) have no deadline.
+function getMonitoringDaysLeft(createdAt?: string): number | null {
+  if (!createdAt) return null;
+  const deadline = new Date(createdAt);
+  deadline.setDate(deadline.getDate() + MONITORING_AFTER_PHOTO_DEADLINE_DAYS);
+  return Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
 function MonitoringAfterPhotoSlot({
   feedbackId,
   itemIndex,
   afterPhotoUrl,
+  createdAt,
 }: {
   feedbackId: number;
   itemIndex: number;
   afterPhotoUrl?: string | null;
+  createdAt?: string;
 }) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
@@ -101,17 +114,27 @@ function MonitoringAfterPhotoSlot({
     );
   }
 
+  const daysLeft = getMonitoringDaysLeft(createdAt);
+  const overdue = daysLeft !== null && daysLeft < 0;
+
   return (
     <div className="shrink-0">
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
-        className="w-20 h-20 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 flex flex-col items-center justify-center gap-1 text-primary active:scale-95 transition-all disabled:opacity-50"
+        className={`w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-50 ${
+          overdue ? 'border-red-400 bg-red-50 text-primary' : 'border-primary/40 bg-primary/5 text-primary'
+        }`}
         data-testid={`btn-monitoring-after-photo-${feedbackId}-${itemIndex}`}
       >
         {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
         <span className="text-[10px] font-bold">애프터 사진</span>
+        {daysLeft !== null && (
+          <span className={`text-[9px] font-bold ${overdue ? 'text-red-600' : 'text-primary/70'}`}>
+            {overdue ? `${Math.abs(daysLeft)}일 지남` : `D-${daysLeft}`}
+          </span>
+        )}
       </button>
       <input
         ref={fileInputRef}
@@ -358,7 +381,7 @@ export default function StaffDashboard() {
     filterBranch ? { branch: filterBranch, year: currentFeedbackYear, month: currentFeedbackMonth } : { year: currentFeedbackYear, month: currentFeedbackMonth }
   );
   const currentMonitoringFeedback = monitoringFeedback[0] ?? null;
-  const monitoringFeedbackItems = (currentMonitoringFeedback?.items as { zone: string; photoUrl: string; comment: string | null; afterPhotoUrl?: string | null }[] | null) || [];
+  const monitoringFeedbackItems = (currentMonitoringFeedback?.items as { zone: string; photoUrl: string; comment: string | null; afterPhotoUrl?: string | null; createdAt?: string }[] | null) || [];
 
   const handleDeleteVM = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?`)) return;
@@ -1462,6 +1485,7 @@ export default function StaffDashboard() {
                                       feedbackId={currentMonitoringFeedback!.id}
                                       itemIndex={idx}
                                       afterPhotoUrl={item.afterPhotoUrl}
+                                      createdAt={item.createdAt}
                                     />
                                     {item.comment && (
                                       <div className="flex-1 min-w-0">
