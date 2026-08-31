@@ -1457,7 +1457,6 @@ export default function StaffDashboard() {
                                       <PhotoThumbnail src={item.photoUrl} className="block">
                                         <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-xl border border-border" alt={`${zone} 모니터링 사진`} />
                                       </PhotoThumbnail>
-                                      <p className="text-[10px] font-bold text-muted-foreground mt-1">본사 확인</p>
                                     </div>
                                     <MonitoringAfterPhotoSlot
                                       feedbackId={currentMonitoringFeedback!.id}
@@ -1465,7 +1464,10 @@ export default function StaffDashboard() {
                                       afterPhotoUrl={item.afterPhotoUrl}
                                     />
                                     {item.comment && (
-                                      <p className="text-sm text-muted-foreground flex-1 min-w-0">{item.comment}</p>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-muted-foreground mb-0.5">피드백 내용</p>
+                                        <p className="text-sm text-muted-foreground">{item.comment}</p>
+                                      </div>
                                     )}
                                   </div>
                                 </div>
