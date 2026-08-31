@@ -1840,10 +1840,26 @@ function CleaningMonitoringManager() {
     setUploadingZone(zone);
     try {
       const { uploadFile } = await import("@/lib/upload");
-      const uploaded = await Promise.all(files.map(f => uploadFile(f)));
+      // Upload each photo independently — with `multiple` select, one flaky/failed
+      // photo must not discard the others that uploaded fine (previously used
+      // Promise.all, which rejected the whole batch on a single failure).
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
       const createdAt = new Date().toISOString();
-      setItems(prev => [...prev, ...uploaded.map(url => ({ zone, photoUrl: url, comment: '', createdAt }))]);
-    } catch {
+      const uploaded = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled').map(r => r.value);
+      const failedCount = results.length - uploaded.length;
+      if (uploaded.length > 0) {
+        setItems(prev => [...prev, ...uploaded.map(url => ({ zone, photoUrl: url, comment: '', createdAt }))]);
+      }
+      if (failedCount > 0) {
+        results.forEach(r => { if (r.status === 'rejected') console.error('monitoring photo upload failed', r.reason); });
+        toast({
+          title: uploaded.length > 0 ? `사진 ${failedCount}장 업로드 실패` : '사진 업로드 실패',
+          description: uploaded.length > 0 ? `${uploaded.length}장은 업로드되었습니다. 실패한 사진은 다시 시도해주세요.` : undefined,
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('monitoring photo upload failed', err);
       toast({ title: '사진 업로드 실패', variant: 'destructive' });
     } finally {
       setUploadingZone(null);
