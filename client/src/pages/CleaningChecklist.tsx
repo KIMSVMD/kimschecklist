@@ -13,6 +13,7 @@ import {
   ChevronRight,
   AlertCircle,
   Droplets,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
@@ -338,6 +339,16 @@ export default function CleaningChecklist() {
 
   const getDraftInfo = (zone: string) => getDraftState(branch, zone, inspectionTime);
 
+  const handleClearPhoto = (item: string, slot: PhotoSlot) => {
+    const urlField = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
+    const hashField = slot === "before" ? "beforePhotoHash" : "afterPhotoHash";
+    const atField = slot === "before" ? "beforePhotoAt" : "afterPhotoAt";
+    setItemData(prev => ({
+      ...prev,
+      [item]: { ...prev[item], [urlField]: null, [hashField]: null, [atField]: null },
+    }));
+  };
+
   const renderPhotoSlot = (
     item: string,
     slot: PhotoSlot,
@@ -384,6 +395,16 @@ export default function CleaningChecklist() {
             </>
           )}
         </button>
+        {url && !isUploading && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); handleClearPhoto(item, slot); }}
+            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+            aria-label={`${label} 사진 삭제`}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
         <input
           ref={el => { fileRefs.current[key] = el; }}
           type="file"
