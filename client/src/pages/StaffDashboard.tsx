@@ -431,7 +431,10 @@ export default function StaffDashboard() {
   const statusLabels = { excellent: '우수', average: '보통', poor: '미흡' };
 
   // ── Cleaning stats for summary card ──
-  const relevantTimes = filterTime === '전체' ? ['오픈', '마감'] : [filterTime];
+  // 마감 inspection time was removed (청소 점검은 오픈 하나만 사용) — counting it as a
+  // second slot here made totalSlots double what's actually fillable, capping
+  // completion rate at 50% forever since a 마감 record can never be created.
+  const relevantTimes = ['오픈'];
   const relevantZones = filterZone === '전체' ? ZONES : [filterZone];
   const totalSlots = relevantZones.length * relevantTimes.length;
 
