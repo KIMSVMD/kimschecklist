@@ -1555,6 +1555,34 @@ export default function StaffDashboard() {
                   weekFilteredRecords.map((record, i) => {
                     const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
                     const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
+                    const okItems = Object.entries(items).filter(([, v]) => v.status === 'ok');
+                    const renderPhotoItemCard = (name: string, v: { memo?: string | null; photoUrl?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }, theme: 'issue' | 'ok') => {
+                      const before = v.beforePhotoUrl ?? v.photoUrl ?? null;
+                      const after = v.afterPhotoUrl ?? null;
+                      const cardCls = theme === 'issue' ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200';
+                      const nameCls = theme === 'issue' ? 'text-red-600' : 'text-emerald-700';
+                      const memoCls = theme === 'issue' ? 'text-red-400' : 'text-emerald-600/70';
+                      return (
+                        <div key={name} className={`border rounded-xl px-3 py-1.5 w-full ${cardCls}`}>
+                          {(before || after) && (
+                            <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                              {before && (
+                                <PhotoThumbnail src={before} className="block">
+                                  <img src={before} alt={`${name} 청소 전`} className="w-full h-24 object-cover rounded-lg" />
+                                </PhotoThumbnail>
+                              )}
+                              {after && (
+                                <PhotoThumbnail src={after} className="block">
+                                  <img src={after} alt={`${name} 청소 후`} className="w-full h-24 object-cover rounded-lg" />
+                                </PhotoThumbnail>
+                              )}
+                            </div>
+                          )}
+                          <span className={`text-xs font-bold ${nameCls}`}>{name}</span>
+                          {v.memo && <p className={`text-[10px] mt-0.5 ${memoCls}`}>{v.memo}</p>}
+                        </div>
+                      );
+                    };
                     const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;
                     const isOk = record.overallStatus === 'ok';
                     return (
@@ -1603,30 +1631,15 @@ export default function StaffDashboard() {
                             <div>
                               <p className="text-xs font-bold text-muted-foreground mb-2">문제 항목</p>
                               <div className="flex flex-wrap gap-1.5">
-                                {issueItems.map(([name, v]) => {
-                                  const before = v.beforePhotoUrl ?? v.photoUrl ?? null;
-                                  const after = v.afterPhotoUrl ?? null;
-                                  return (
-                                    <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5 w-full">
-                                      {(before || after) && (
-                                        <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                                          {before && (
-                                            <PhotoThumbnail src={before} className="block">
-                                              <img src={before} alt={`${name} 청소 전`} className="w-full h-24 object-cover rounded-lg" />
-                                            </PhotoThumbnail>
-                                          )}
-                                          {after && (
-                                            <PhotoThumbnail src={after} className="block">
-                                              <img src={after} alt={`${name} 청소 후`} className="w-full h-24 object-cover rounded-lg" />
-                                            </PhotoThumbnail>
-                                          )}
-                                        </div>
-                                      )}
-                                      <span className="text-xs font-bold text-red-600">{name}</span>
-                                      {v.memo && <p className="text-[10px] text-red-400 mt-0.5">{v.memo}</p>}
-                                    </div>
-                                  );
-                                })}
+                                {issueItems.map(([name, v]) => renderPhotoItemCard(name, v, 'issue'))}
+                              </div>
+                            </div>
+                          )}
+                          {okItems.length > 0 && (
+                            <div>
+                              <p className="text-xs font-bold text-muted-foreground mb-2">정상 항목 사진</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {okItems.map(([name, v]) => renderPhotoItemCard(name, v, 'ok'))}
                               </div>
                             </div>
                           )}
