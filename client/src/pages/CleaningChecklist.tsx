@@ -257,18 +257,27 @@ export default function CleaningChecklist() {
   // Pull the same zone's live draft (polled every 5s) so someone else who already
   // started this zone on another phone — or is working on it right now — has their
   // items merged in: whoever opens/keeps this screen open can pick up whatever items
-  // aren't done here yet, instead of starting the whole zone over from scratch. Never
-  // overwrites an item this device has already touched, even partially.
+  // aren't done here yet, instead of starting the whole zone over from scratch.
+  //
+  // Merges per item by completeness (status set / before photo / after photo — 0-3),
+  // not just "has this device touched it at all": a device that only tapped a status
+  // once (maybe by accident, or a stale leftover from a previous session) must not
+  // permanently block a colleague's fully-photographed version of that same item from
+  // ever showing up here — whichever side has actually done more work for that item
+  // wins. Ties keep the local version so an in-flight upload on this device is never
+  // interrupted by a slightly-stale poll.
   const { data: branchDrafts = [] } = useCleaningDrafts(branch, { enabled: step === "items" && !!branch });
   useEffect(() => {
     if (step !== "items" || !selectedZone) return;
     const serverDraft = branchDrafts.find(d => d.zone === selectedZone);
     if (!serverDraft?.items) return;
+    const completeness = (d?: ItemData | null) =>
+      (d?.status ? 1 : 0) + (d?.beforePhotoUrl ? 1 : 0) + (d?.afterPhotoUrl ? 1 : 0);
     setItemData(prev => {
       let changed = false;
       const merged = { ...prev };
       Object.entries(serverDraft.items as Record<string, ItemData>).forEach(([item, data]) => {
-        if (!merged[item]) {
+        if (completeness(data) > completeness(merged[item])) {
           merged[item] = data;
           changed = true;
         }
