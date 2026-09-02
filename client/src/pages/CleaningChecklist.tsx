@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateCleaning, useCleaningInspections, checkCleaningPhotoHash } from "@/hooks/use-cleaning";
-import { useSaveCleaningDraft, useClearCleaningDraft } from "@/hooks/use-cleaning-drafts";
+import { useCleaningDrafts, useSaveCleaningDraft, useClearCleaningDraft } from "@/hooks/use-cleaning-drafts";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -253,6 +253,29 @@ export default function CleaningChecklist() {
     }, 600);
     return () => { if (draftPushTimer.current) clearTimeout(draftPushTimer.current); };
   }, [itemData, step, selectedZone, inspectionTime, branch]);
+
+  // Pull the same zone's live draft (polled every 5s) so someone else who already
+  // started this zone on another phone — or is working on it right now — has their
+  // items merged in: whoever opens/keeps this screen open can pick up whatever items
+  // aren't done here yet, instead of starting the whole zone over from scratch. Never
+  // overwrites an item this device has already touched, even partially.
+  const { data: branchDrafts = [] } = useCleaningDrafts(branch, { enabled: step === "items" && !!branch });
+  useEffect(() => {
+    if (step !== "items" || !selectedZone) return;
+    const serverDraft = branchDrafts.find(d => d.zone === selectedZone);
+    if (!serverDraft?.items) return;
+    setItemData(prev => {
+      let changed = false;
+      const merged = { ...prev };
+      Object.entries(serverDraft.items as Record<string, ItemData>).forEach(([item, data]) => {
+        if (!merged[item]) {
+          merged[item] = data;
+          changed = true;
+        }
+      });
+      return changed ? merged : prev;
+    });
+  }, [branchDrafts, step, selectedZone]);
 
   // Browser/swipe/bottom-nav back while on the item checklist should return to zone
   // selection on this same page, not leave the page entirely.
