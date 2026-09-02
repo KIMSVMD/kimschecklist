@@ -140,6 +140,13 @@ export async function seedProductsIfEmpty() {
     console.error("[seed] Failed to ensure cleaning_inspections table:", err);
   }
 
+  // 1a2. Add staff_name to cleaning_inspections if this is an existing (pre-feature) table
+  try {
+    await db.execute(sql`ALTER TABLE cleaning_inspections ADD COLUMN IF NOT EXISTS staff_name TEXT`);
+  } catch (err) {
+    console.error("[seed] Failed to ensure cleaning_inspections.staff_name column:", err);
+  }
+
   // 1b. Ensure cleaning_monitoring_feedback table exists
   try {
     await db.execute(sql`
@@ -171,6 +178,13 @@ export async function seedProductsIfEmpty() {
     `);
   } catch (err) {
     console.error("[seed] Failed to ensure cleaning_drafts table:", err);
+  }
+
+  // 1b3. Add staff_name to cleaning_drafts if this is an existing (pre-feature) table
+  try {
+    await db.execute(sql`ALTER TABLE cleaning_drafts ADD COLUMN IF NOT EXISTS staff_name TEXT`);
+  } catch (err) {
+    console.error("[seed] Failed to ensure cleaning_drafts.staff_name column:", err);
   }
 
   // 1c. Ensure branch_access_codes table exists and seed initial codes

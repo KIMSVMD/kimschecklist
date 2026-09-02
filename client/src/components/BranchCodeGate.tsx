@@ -9,17 +9,23 @@ export function BranchCodeGate({
 }: {
   /** Pass a branch to verify a code against that specific branch. Omit to resolve the branch from the code itself. */
   branch?: string | null;
-  onVerified: (branch: string) => void;
+  /** name is only ever populated in lookup mode (등록자 이름) — verify mode has no name field. */
+  onVerified: (branch: string, name?: string) => void;
   onCancel: () => void;
 }) {
   const [digits, setDigits] = useState("");
   const [error, setError] = useState(false);
+  // Only asked in lookup mode (새 점검 등록) — knowing who's registering matters there;
+  // verify mode (점검월별피드백) is just viewing, not attributing new work to someone.
+  const [name, setName] = useState("");
   const verifyMutation = useVerifyBranchCode();
   const lookupMutation = useLookupBranchByCode();
   const isPending = verifyMutation.isPending || lookupMutation.isPending;
+  const nameRequired = !branch;
+  const nameOk = !nameRequired || name.trim().length > 0;
 
   const handleDigit = (d: string) => {
-    if (digits.length >= 4 || isPending) return;
+    if (digits.length >= 4 || isPending || !nameOk) return;
     const next = digits + d;
     setDigits(next);
     setError(false);
@@ -39,7 +45,7 @@ export function BranchCodeGate({
     } else {
       lookupMutation.mutate(next, {
         onSuccess: resolvedBranch => {
-          if (resolvedBranch) onVerified(resolvedBranch);
+          if (resolvedBranch) onVerified(resolvedBranch, name.trim());
           else { setError(true); setTimeout(() => setDigits(""), 400); }
         },
         onError: () => { setError(true); setTimeout(() => setDigits(""), 400); },
@@ -48,7 +54,7 @@ export function BranchCodeGate({
   };
 
   const handleBackspace = () => setDigits(d => d.slice(0, -1));
-  const handleCancel = () => { setDigits(""); setError(false); onCancel(); };
+  const handleCancel = () => { setDigits(""); setError(false); setName(""); onCancel(); };
 
   return (
     <div className="flex items-center justify-center py-10 px-4">
@@ -65,6 +71,23 @@ export function BranchCodeGate({
             <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-50 text-primary text-sm font-bold">
               <MapPin className="w-3.5 h-3.5" /> {branch}점
             </span>
+          </div>
+        )}
+
+        {nameRequired && (
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-muted-foreground pl-1">등록자 이름</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="이름을 입력하세요"
+              className="w-full h-12 rounded-2xl border-2 border-border px-4 text-base font-medium focus:outline-none focus:border-primary transition-all"
+              data-testid="input-registrant-name"
+            />
+            {!nameOk && (
+              <p className="text-xs text-muted-foreground pl-1">이름을 입력해야 코드를 입력할 수 있어요</p>
+            )}
           </div>
         )}
 
@@ -94,7 +117,7 @@ export function BranchCodeGate({
               key={n}
               type="button"
               onClick={() => handleDigit(n)}
-              disabled={isPending}
+              disabled={isPending || !nameOk}
               className="h-16 rounded-2xl bg-muted text-2xl font-bold text-secondary active:scale-95 transition-all disabled:opacity-50"
               data-testid={`btn-code-${n}`}
             >
@@ -112,7 +135,7 @@ export function BranchCodeGate({
           <button
             type="button"
             onClick={() => handleDigit("0")}
-            disabled={isPending}
+            disabled={isPending || !nameOk}
             className="h-16 rounded-2xl bg-muted text-2xl font-bold text-secondary active:scale-95 transition-all disabled:opacity-50"
             data-testid="btn-code-0"
           >

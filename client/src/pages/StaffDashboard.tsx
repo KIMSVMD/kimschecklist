@@ -1489,7 +1489,10 @@ export default function StaffDashboard() {
                         return (
                           <div key={draft.id} className="bg-white rounded-2xl border border-amber-200 p-3.5 space-y-2.5">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-black text-secondary">{draft.zone}</span>
+                              <span className="text-sm font-black text-secondary">
+                                {draft.zone}
+                                {draft.staffName && <span className="text-xs font-bold text-amber-600 ml-1.5">· {draft.staffName}님</span>}
+                              </span>
                               <span className="text-[10px] font-semibold text-amber-600">
                                 {format(new Date(draft.updatedAt), 'HH:mm', { locale: ko })} 업데이트
                               </span>
@@ -1678,6 +1681,7 @@ export default function StaffDashboard() {
                                 <span>{record.inspectionTime}</span>
                                 <span>·</span>
                                 <span>{format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}</span>
+                                {(record as any).staffName && (<><span>·</span><span>{(record as any).staffName}님</span></>)}
                               </div>
                             </div>
                           </div>

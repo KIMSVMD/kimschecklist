@@ -149,8 +149,11 @@ export default function NewChecklist() {
       setBranchVerified(false);
     }
   }, [branch]);
-  const handleBranchResolved = (resolvedBranch: string) => {
-    try { sessionStorage.setItem(`branchCodeVerified_${resolvedBranch}`, '1'); } catch {}
+  const handleBranchResolved = (resolvedBranch: string, name?: string) => {
+    try {
+      sessionStorage.setItem(`branchCodeVerified_${resolvedBranch}`, '1');
+      if (name) sessionStorage.setItem(`registrantName_${resolvedBranch}`, name);
+    } catch {}
     setBranch(resolvedBranch);
     setBranchVerified(true);
     resetVm();

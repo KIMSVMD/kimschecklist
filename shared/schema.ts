@@ -101,6 +101,7 @@ export const cleaningInspections = pgTable("cleaning_inspections", {
   inspectionTime: text("inspection_time").notNull(), // 오픈 / 마감
   items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }>>(),
   overallStatus: text("overall_status").notNull(), // ok / issue
+  staffName: text("staff_name"), // 등록자 이름, 새 점검 등록 코드 입력 시 받음 — 옛 기록엔 없을 수 있음
   adminComment: text("admin_comment"),
   commentConfirmed: boolean("comment_confirmed").default(false),
   staffReply: text("staff_reply"),
@@ -177,6 +178,7 @@ export const cleaningDrafts = pgTable("cleaning_drafts", {
   zone: text("zone").notNull(),
   inspectionTime: text("inspection_time").notNull().default("오픈"),
   items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }>>(),
+  staffName: text("staff_name"), // 지금 작성 중인 사람 이름 — 새 점검 등록 코드 입력 시 받음
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

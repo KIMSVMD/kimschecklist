@@ -182,6 +182,9 @@ export default function CleaningChecklist() {
   const search = useSearch();
   const params = new URLSearchParams(search);
   const branch = params.get("branch") || "";
+  const staffName = (() => {
+    try { return sessionStorage.getItem(`registrantName_${branch}`) || ""; } catch { return ""; }
+  })();
 
   const { toast } = useToast();
   const createMutation = useCreateCleaning();
@@ -249,7 +252,7 @@ export default function CleaningChecklist() {
     if (step !== "items" || !selectedZone || !branch || Object.keys(itemData).length === 0) return;
     if (draftPushTimer.current) clearTimeout(draftPushTimer.current);
     draftPushTimer.current = setTimeout(() => {
-      saveDraftMutation.mutate({ branch, zone: selectedZone, inspectionTime, items: itemData });
+      saveDraftMutation.mutate({ branch, zone: selectedZone, inspectionTime, items: itemData, staffName: staffName || undefined });
     }, 600);
     return () => { if (draftPushTimer.current) clearTimeout(draftPushTimer.current); };
   }, [itemData, step, selectedZone, inspectionTime, branch]);
@@ -374,6 +377,7 @@ export default function CleaningChecklist() {
         inspectionTime,
         items,
         overallStatus: hasIssue ? "issue" : "ok",
+        staffName: staffName || undefined,
       });
       saveDraftStore(branch, selectedZone, inspectionTime, {
         items: itemData,

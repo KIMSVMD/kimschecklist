@@ -1747,7 +1747,10 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
             return (
               <div key={record.id} className="rounded-2xl border border-border bg-white overflow-hidden shadow-sm">
                 <div className="px-4 py-2.5 bg-gray-50 border-b border-border flex items-center justify-between">
-                  <span className="font-black text-secondary text-sm">{record.zone}</span>
+                  <span className="font-black text-secondary text-sm">
+                    {record.zone}
+                    {record.staffName && <span className="font-bold text-muted-foreground ml-1.5">· {record.staffName}님</span>}
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}
                   </span>
