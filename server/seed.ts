@@ -156,6 +156,23 @@ export async function seedProductsIfEmpty() {
     console.error("[seed] Failed to ensure cleaning_monitoring_feedback table:", err);
   }
 
+  // 1b2. Ensure cleaning_drafts table exists (live in-progress zone snapshots)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS cleaning_drafts (
+        id SERIAL PRIMARY KEY,
+        branch TEXT NOT NULL,
+        zone TEXT NOT NULL,
+        inspection_time TEXT NOT NULL DEFAULT '오픈',
+        items JSONB,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(branch, zone)
+      )
+    `);
+  } catch (err) {
+    console.error("[seed] Failed to ensure cleaning_drafts table:", err);
+  }
+
   // 1c. Ensure branch_access_codes table exists and seed initial codes
   try {
     await db.execute(sql`

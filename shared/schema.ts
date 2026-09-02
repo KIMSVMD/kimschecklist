@@ -167,6 +167,27 @@ export const insertCleaningMonitoringFeedbackSchema = createInsertSchema(cleanin
 export type InsertCleaningMonitoringFeedback = z.infer<typeof insertCleaningMonitoringFeedbackSchema>;
 export type CleaningMonitoringFeedback = typeof cleaningMonitoringFeedback.$inferSelect;
 
+// Live "in-progress" snapshot of a cleaning zone being filled out right now — one row
+// per (branch, zone), overwritten on every photo/status change so other staff/admin
+// viewing that branch can see photos as they're uploaded, before the final submit.
+// Cleared once the zone's real cleaningInspections record is submitted.
+export const cleaningDrafts = pgTable("cleaning_drafts", {
+  id: serial("id").primaryKey(),
+  branch: text("branch").notNull(),
+  zone: text("zone").notNull(),
+  inspectionTime: text("inspection_time").notNull().default("오픈"),
+  items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }>>(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCleaningDraftSchema = createInsertSchema(cleaningDrafts).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertCleaningDraft = z.infer<typeof insertCleaningDraftSchema>;
+export type CleaningDraft = typeof cleaningDrafts.$inferSelect;
+
 // 4-digit access code per branch — required before starting/editing that branch's checklists
 export const branchAccessCodes = pgTable("branch_access_codes", {
   branch: text("branch").primaryKey(),

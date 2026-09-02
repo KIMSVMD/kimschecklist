@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateCleaning, useCleaningInspections, checkCleaningPhotoHash } from "@/hooks/use-cleaning";
+import { useSaveCleaningDraft, useClearCleaningDraft } from "@/hooks/use-cleaning-drafts";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -184,6 +185,9 @@ export default function CleaningChecklist() {
 
   const { toast } = useToast();
   const createMutation = useCreateCleaning();
+  const saveDraftMutation = useSaveCleaningDraft();
+  const clearDraftMutation = useClearCleaningDraft();
+  const draftPushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [step, setStep] = useState<"zone" | "items" | "done">("zone");
   const [selectedZone, setSelectedZone] = useState("");
@@ -236,6 +240,18 @@ export default function CleaningChecklist() {
         submitted: existing.submitted,
       });
     }
+  }, [itemData, step, selectedZone, inspectionTime, branch]);
+
+  // Push a live snapshot to the server so other staff/admin viewing this branch see
+  // photos as they're uploaded — debounced a little so rapid changes (e.g. typing a
+  // memo) don't fire a request per keystroke.
+  useEffect(() => {
+    if (step !== "items" || !selectedZone || !branch || Object.keys(itemData).length === 0) return;
+    if (draftPushTimer.current) clearTimeout(draftPushTimer.current);
+    draftPushTimer.current = setTimeout(() => {
+      saveDraftMutation.mutate({ branch, zone: selectedZone, inspectionTime, items: itemData });
+    }, 600);
+    return () => { if (draftPushTimer.current) clearTimeout(draftPushTimer.current); };
   }, [itemData, step, selectedZone, inspectionTime, branch]);
 
   // Browser/swipe/bottom-nav back while on the item checklist should return to zone
@@ -331,6 +347,8 @@ export default function CleaningChecklist() {
         items: itemData,
         submitted: true,
       });
+      if (draftPushTimer.current) clearTimeout(draftPushTimer.current);
+      clearDraftMutation.mutate({ branch, zone: selectedZone });
       setStep("done");
     } catch (err) {
       toast({ title: "저장 실패", description: String(err), variant: "destructive" });

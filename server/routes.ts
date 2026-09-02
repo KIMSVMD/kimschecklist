@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { api } from "../shared/routes";
-import { insertGuideSchema, insertProductSchema, insertCleaningSchema, insertCleaningMonitoringFeedbackSchema, staffScoreNotifications } from "../shared/schema";
+import { insertGuideSchema, insertProductSchema, insertCleaningSchema, insertCleaningMonitoringFeedbackSchema, insertCleaningDraftSchema, staffScoreNotifications } from "../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import path from "path";
@@ -492,6 +492,44 @@ export async function registerRoutes(
       const result = await storage.addMonitoringAfterPhoto(id, itemIndex, afterPhotoUrl);
       if (!result) return res.status(404).json({ message: "Not found" });
       res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Live in-progress cleaning drafts — lets other staff/admin see photos as they're
+  // uploaded, before the zone's final submit. No admin auth: staff write their own
+  // branch's draft as they work.
+  app.get('/api/cleaning-drafts', async (req, res) => {
+    try {
+      const branch = req.query.branch ? (req.query.branch as string) : undefined;
+      const rows = await storage.getCleaningDrafts(branch);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post('/api/cleaning-drafts', async (req, res) => {
+    try {
+      const input = insertCleaningDraftSchema.parse(req.body);
+      const record = await storage.upsertCleaningDraft(input);
+      res.json(record);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ message: err.errors[0].message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.delete('/api/cleaning-drafts', async (req, res) => {
+    try {
+      const { branch, zone } = req.body;
+      if (!branch || !zone) return res.status(400).json({ message: "branch and zone required" });
+      await storage.deleteCleaningDraft(branch, zone);
+      res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
     }

@@ -7,6 +7,7 @@ import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning"
 import { useCleaningMonitoringFeedback, useAddMonitoringAfterPhoto } from "@/hooks/use-cleaning-monitoring";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
+import { useCleaningDrafts } from "@/hooks/use-cleaning-drafts";
 import { BranchCodeGate } from "@/components/BranchCodeGate";
 import { VMCommentThread } from "@/components/VMCommentThread";
 import { format } from "date-fns";
@@ -374,6 +375,16 @@ export default function StaffDashboard() {
   const { data: cleaningRecords = [], isLoading: cleaningLoading } = useCleaningInspections(
     filterBranch ? { branch: filterBranch } : {}
   );
+
+  // Live in-progress zone snapshots — someone else's photos as they're uploaded,
+  // before that zone's final submit. Only meaningful once a branch is picked.
+  const { data: cleaningDraftsRaw = [] } = useCleaningDrafts(filterBranch, {
+    enabled: activeTab === 'cleaning' && branchVerified,
+  });
+  const activeCleaningDrafts = cleaningDraftsRaw.filter(d => {
+    const items = (d.items as Record<string, { beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
+    return Object.values(items).some(v => v.beforePhotoUrl || v.afterPhotoUrl);
+  });
 
   const currentFeedbackYear = new Date().getFullYear();
   const currentFeedbackMonth = new Date().getMonth() + 1;
@@ -1460,6 +1471,54 @@ export default function StaffDashboard() {
                     })}
                   </div>
                 </div>
+
+                {/* ── 지금 작성 중인 청소 점검 (실시간) ── */}
+                {activeCleaningDrafts.length > 0 && (
+                  <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-5 shadow-sm space-y-4">
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                      </span>
+                      <h3 className="text-base font-black text-secondary">지금 작성 중인 청소 점검</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {activeCleaningDrafts.map(draft => {
+                        const items = (draft.items as Record<string, { status?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
+                        const entries = Object.entries(items).filter(([, v]) => v.beforePhotoUrl || v.afterPhotoUrl);
+                        return (
+                          <div key={draft.id} className="bg-white rounded-2xl border border-amber-200 p-3.5 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-black text-secondary">{draft.zone}</span>
+                              <span className="text-[10px] font-semibold text-amber-600">
+                                {format(new Date(draft.updatedAt), 'HH:mm', { locale: ko })} 업데이트
+                              </span>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                              {entries.map(([name, v]) => (
+                                <div key={name} className="shrink-0 space-y-1">
+                                  <div className="flex gap-1">
+                                    {v.beforePhotoUrl && (
+                                      <PhotoThumbnail src={v.beforePhotoUrl} className="block">
+                                        <img src={v.beforePhotoUrl} className="w-16 h-16 object-cover rounded-lg border border-border" alt={`${name} 청소 전`} />
+                                      </PhotoThumbnail>
+                                    )}
+                                    {v.afterPhotoUrl && (
+                                      <PhotoThumbnail src={v.afterPhotoUrl} className="block">
+                                        <img src={v.afterPhotoUrl} className="w-16 h-16 object-cover rounded-lg border border-border" alt={`${name} 청소 후`} />
+                                      </PhotoThumbnail>
+                                    )}
+                                  </div>
+                                  <p className="text-[9px] text-muted-foreground w-16 truncate">{name}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── 월별 모니터링 피드백 ── */}
                 {filterBranch && (

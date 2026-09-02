@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, cleaningMonitoringFeedback, branchAccessCodes, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply, type CleaningMonitoringFeedback, type InsertCleaningMonitoringFeedback } from "../shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, cleaningMonitoringFeedback, cleaningDrafts, branchAccessCodes, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply, type CleaningMonitoringFeedback, type InsertCleaningMonitoringFeedback, type CleaningDraft, type InsertCleaningDraft } from "../shared/schema";
 import { desc, eq, asc, gte, and, sql, isNotNull } from "drizzle-orm";
 
 function filterGuidesByDate(rows: Guide[], year?: number, month?: number): Guide[] {
@@ -79,6 +79,9 @@ export interface IStorage {
   getCleaningMonitoringFeedback(filters?: { branch?: string; year?: number; month?: number }): Promise<CleaningMonitoringFeedback[]>;
   upsertCleaningMonitoringFeedback(data: InsertCleaningMonitoringFeedback): Promise<CleaningMonitoringFeedback>;
   addMonitoringAfterPhoto(id: number, itemIndex: number, afterPhotoUrl: string): Promise<CleaningMonitoringFeedback | undefined>;
+  getCleaningDrafts(branch?: string): Promise<CleaningDraft[]>;
+  upsertCleaningDraft(data: InsertCleaningDraft): Promise<CleaningDraft>;
+  deleteCleaningDraft(branch: string, zone: string): Promise<void>;
   verifyBranchAccessCode(branch: string, code: string): Promise<boolean>;
   findBranchByAccessCode(code: string): Promise<string | null>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
@@ -308,6 +311,35 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cleaningMonitoringFeedback.id, id))
       .returning();
     return updated;
+  }
+
+  async getCleaningDrafts(branch?: string): Promise<CleaningDraft[]> {
+    const query = db.select().from(cleaningDrafts).orderBy(desc(cleaningDrafts.updatedAt));
+    if (branch) {
+      return await query.where(eq(cleaningDrafts.branch, branch));
+    }
+    return await query;
+  }
+
+  async upsertCleaningDraft(data: InsertCleaningDraft): Promise<CleaningDraft> {
+    const existing = await db.select().from(cleaningDrafts)
+      .where(and(eq(cleaningDrafts.branch, data.branch), eq(cleaningDrafts.zone, data.zone)))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(cleaningDrafts)
+        .set({ items: data.items, inspectionTime: data.inspectionTime, updatedAt: new Date() })
+        .where(eq(cleaningDrafts.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [row] = await db.insert(cleaningDrafts).values(data).returning();
+    return row;
+  }
+
+  async deleteCleaningDraft(branch: string, zone: string): Promise<void> {
+    await db.delete(cleaningDrafts).where(and(eq(cleaningDrafts.branch, branch), eq(cleaningDrafts.zone, zone)));
   }
 
   async verifyBranchAccessCode(branch: string, code: string): Promise<boolean> {
