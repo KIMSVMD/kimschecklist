@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Layout } from "@/components/Layout";
-import { useCreateCleaning, useCleaningInspections } from "@/hooks/use-cleaning";
+import { useCreateCleaning, useCleaningInspections, checkCleaningPhotoHash } from "@/hooks/use-cleaning";
+import { useCleaningDrafts, useSaveCleaningDraft, useClearCleaningDraft } from "@/hooks/use-cleaning-drafts";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -11,41 +12,105 @@ import {
   MapPin,
   ClipboardList,
   ChevronRight,
-  Sun,
-  Moon,
   AlertCircle,
   Droplets,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
 
-const ZONES = ["입구", "농산", "축산", "수산", "공산"];
+const ZONES = ["공통", "농산", "축산", "수산", "공산"];
 
 const ZONE_ITEMS: Record<string, string[]> = {
-  "입구": ["카트 정리 상태"],
+  "공통": [
+    "카트 정리 상태", "카트/장바구니 보관구역", "유/무인 계산대",
+    "매장 바닥(델리 등)", "상온 매대(델리 등)", "냉장 S/C(델리 등)",
+  ],
   "농산": [
-    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
+    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
   ],
   "축산": [
-    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
+    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
   ],
   "수산": [
-    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
+    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
   ],
   "공산": [
-    "바닥 청결", "진열대 청결", "상품 상태", "폐기 상품 여부", "가격표 상태",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 유리 청결", "폐기통 상태",
+    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
+    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
   ],
+};
+
+const ITEM_DESCRIPTIONS: Record<string, Record<string, string>> = {
+  "공통": {
+    "카트 정리 상태": "카트 내부에 쓰레기, 스티커 및 카트 보관 정리 상태",
+    "카트/장바구니 보관구역": "카트/장바구니 내부에 쓰레기, 스티커 및 정리 상태",
+    "유/무인 계산대": "스티커 자국, 오염물, 흙, 먼지는 없는가?",
+    "매장 바닥(델리 등)": "매장 바닥에 찌든때나 먼지, 쓰레기는 없는가?",
+    "상온 매대(델리 등)": "진열매대에 오염물, 먼지, 쓰레기는 없는가?",
+    "냉장 S/C(델리 등)": "냉장 쇼케이스에는 오염물, 먼지, 쓰레기는 없는가?",
+  },
+  "농산": {
+    "바닥 청결": "블랙 스팟이나 물기, 음식물은 없는가?",
+    "진열대 청결(상온)": "상온매대에 먼지나, 이물질, 오염물질은 없는가?",
+    "진열대 청결(냉장,냉동 S/C)": "냉장·냉동 S/C에 먼지나, 이물질, 오염물질은 없는가?",
+    "냉동평대(이동식)": "평대 내외부는 스티커자국, 이물질, 흙, 오염물은 없는가?",
+    "행사매대 주변 청결": "먼지나 이물질, 시식용품(종이컵, 이쑤시개 등)은 없는가?",
+    "메인 통로 청결": "주동선상에 먼지, 스티커, 종이 등 떨어져 있지 않은가?",
+    "쇼케이스 외관 및 하단": "쇼케이스 흡입구나 외관에 먼지나, 흙, 오염물은 없는가?",
+  },
+  "축산": {
+    "바닥 청결": "블랙 스팟이나 물기, 음식물은 없는가?",
+    "진열대 청결(상온)": "상온매대에 먼지나, 이물질, 오염물질은 없는가?",
+    "진열대 청결(냉장,냉동 S/C)": "냉장·냉동 S/C에 먼지나, 이물질, 오염물질은 없는가?",
+    "냉동평대(이동식)": "평대 내외부는 스티커자국, 이물질, 흙, 오염물은 없는가?",
+    "행사매대 주변 청결": "먼지나 이물질, 시식용품(종이컵, 이쑤시개 등)은 없는가?",
+    "메인 통로 청결": "주동선상에 먼지, 스티커, 종이 등 떨어져 있지 않은가?",
+    "쇼케이스 외관 및 하단": "쇼케이스 흡입구나 외관에 먼지나, 흙, 오염물은 없는가?",
+  },
+  "수산": {
+    "바닥 청결": "블랙 스팟이나 물기, 음식물은 없는가?",
+    "진열대 청결(상온)": "상온매대에 먼지나, 이물질, 오염물질은 없는가?",
+    "진열대 청결(냉장,냉동 S/C)": "냉장·냉동 S/C에 먼지나, 이물질, 오염물질은 없는가?",
+    "냉동평대(이동식)": "평대 내외부는 스티커자국, 이물질, 흙, 오염물은 없는가?",
+    "행사매대 주변 청결": "먼지나 이물질, 시식용품(종이컵, 이쑤시개 등)은 없는가?",
+    "메인 통로 청결": "주동선상에 먼지, 스티커, 종이 등 떨어져 있지 않은가?",
+    "쇼케이스 외관 및 하단": "쇼케이스 흡입구나 외관에 먼지나, 흙, 오염물은 없는가?",
+  },
+  "공산": {
+    "바닥 청결": "블랙 스팟이나 물기, 음식물은 없는가?",
+    "진열대 청결(상온)": "상온매대에 먼지나, 이물질, 오염물질은 없는가?",
+    "진열대 청결(냉장,냉동 S/C)": "냉장·냉동 S/C에 먼지나, 이물질, 오염물질은 없는가?",
+    "냉동평대(이동식)": "평대 내외부는 스티커자국, 이물질, 흙, 오염물은 없는가?",
+    "행사매대 주변 청결": "먼지나 이물질, 시식용품(종이컵, 이쑤시개 등)은 없는가?",
+    "메인 통로 청결": "주동선상에 먼지, 스티커, 종이 등 떨어져 있지 않은가?",
+    "쇼케이스 외관 및 하단": "쇼케이스 흡입구나 외관에 먼지나, 흙, 오염물은 없는가?",
+  },
 };
 
 type ItemData = {
   status: "ok" | "issue" | null;
-  photoUrl?: string | null;
+  beforePhotoUrl?: string | null;
+  beforePhotoHash?: string | null;
+  beforePhotoAt?: string | null;
+  afterPhotoUrl?: string | null;
+  afterPhotoHash?: string | null;
+  afterPhotoAt?: string | null;
   memo?: string | null;
 };
+
+type PhotoSlot = "before" | "after";
+
+function formatUploadTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 
 function getKSTDraftDateStr() {
   const now = new Date();
@@ -59,10 +124,21 @@ function getKSTDraftDateStr() {
   return iso.split("T")[0];
 }
 
-function getKSTDateStr() {
+// Monday-start calendar week containing `d`
+function getMondayOfWeek(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+// Week 1 = the calendar week (Mon–Sun) containing the 1st of the month
+function getCurrentMonthWeek() {
   const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().split("T")[0];
+  const firstMonday = getMondayOfWeek(new Date(now.getFullYear(), now.getMonth(), 1));
+  const thisMonday = getMondayOfWeek(now);
+  const week = Math.round((thisMonday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return { month: now.getMonth() + 1, week };
 }
 
 type DraftStore = {
@@ -106,28 +182,44 @@ export default function CleaningChecklist() {
   const search = useSearch();
   const params = new URLSearchParams(search);
   const branch = params.get("branch") || "";
+  const staffName = (() => {
+    try { return sessionStorage.getItem(`registrantName_${branch}`) || ""; } catch { return ""; }
+  })();
 
   const { toast } = useToast();
   const createMutation = useCreateCleaning();
+  const saveDraftMutation = useSaveCleaningDraft();
+  const clearDraftMutation = useClearCleaningDraft();
+  const draftPushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [step, setStep] = useState<"zone" | "items" | "done">("zone");
   const [selectedZone, setSelectedZone] = useState("");
-  const [inspectionTime, setInspectionTime] = useState<"오픈" | "마감">("오픈");
+  const inspectionTime = "오픈" as const;
   const [itemData, setItemData] = useState<Record<string, ItemData>>({});
-  const [uploadingItem, setUploadingItem] = useState<string | null>(null);
+  const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const currentItems = ZONE_ITEMS[selectedZone] || [];
   const allChecked = currentItems.every(item => itemData[item]?.status != null);
+  const itemsMissingPhotos = currentItems.filter(item => {
+    const d = itemData[item];
+    return d?.status != null && (!d.beforePhotoUrl || !d.afterPhotoUrl);
+  });
+  const canSubmit = allChecked && itemsMissingPhotos.length === 0;
   const issueCount = Object.values(itemData).filter(v => v.status === "issue").length;
 
-  const today = getKSTDateStr();
-  const { data: todayRecords = [] } = useCleaningInspections(branch ? { branch } : {});
+  const { data: branchRecords = [] } = useCleaningInspections(branch ? { branch } : {});
+  const weekStart = getMondayOfWeek(new Date());
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+  const currentMonthWeek = getCurrentMonthWeek();
+
   const zoneScores: Record<string, number | null> = {};
   ZONES.forEach(z => { zoneScores[z] = null; });
-  (todayRecords as any[]).filter(r => {
-    return new Date(r.createdAt).toISOString().split("T")[0] === today
-      && r.inspectionTime === inspectionTime;
+  (branchRecords as any[]).filter(r => {
+    const d = new Date(r.createdAt);
+    return d >= weekStart && d <= weekEnd && r.inspectionTime === inspectionTime;
   }).forEach(r => {
     const items = r.items as Record<string, { status: string }> || {};
     const score = calcCleaningScore(items);
@@ -153,9 +245,71 @@ export default function CleaningChecklist() {
     }
   }, [itemData, step, selectedZone, inspectionTime, branch]);
 
+  // Push a live snapshot to the server so other staff/admin viewing this branch see
+  // photos as they're uploaded — debounced a little so rapid changes (e.g. typing a
+  // memo) don't fire a request per keystroke.
+  useEffect(() => {
+    if (step !== "items" || !selectedZone || !branch || Object.keys(itemData).length === 0) return;
+    if (draftPushTimer.current) clearTimeout(draftPushTimer.current);
+    draftPushTimer.current = setTimeout(() => {
+      saveDraftMutation.mutate({ branch, zone: selectedZone, inspectionTime, items: itemData, staffName: staffName || undefined });
+    }, 600);
+    return () => { if (draftPushTimer.current) clearTimeout(draftPushTimer.current); };
+  }, [itemData, step, selectedZone, inspectionTime, branch]);
+
+  // Pull the same zone's live draft (polled every 5s) so someone else who already
+  // started this zone on another phone — or is working on it right now — has their
+  // items merged in: whoever opens/keeps this screen open can pick up whatever items
+  // aren't done here yet, instead of starting the whole zone over from scratch.
+  //
+  // Merges per item by completeness (status set / before photo / after photo — 0-3),
+  // not just "has this device touched it at all": a device that only tapped a status
+  // once (maybe by accident, or a stale leftover from a previous session) must not
+  // permanently block a colleague's fully-photographed version of that same item from
+  // ever showing up here — whichever side has actually done more work for that item
+  // wins. Ties keep the local version so an in-flight upload on this device is never
+  // interrupted by a slightly-stale poll.
+  const { data: branchDrafts = [] } = useCleaningDrafts(branch, { enabled: step === "items" && !!branch });
+  useEffect(() => {
+    if (step !== "items" || !selectedZone) return;
+    const serverDraft = branchDrafts.find(d => d.zone === selectedZone);
+    if (!serverDraft?.items) return;
+    const completeness = (d?: ItemData | null) =>
+      (d?.status ? 1 : 0) + (d?.beforePhotoUrl ? 1 : 0) + (d?.afterPhotoUrl ? 1 : 0);
+    setItemData(prev => {
+      let changed = false;
+      const merged = { ...prev };
+      Object.entries(serverDraft.items as Record<string, ItemData>).forEach(([item, data]) => {
+        if (completeness(data) > completeness(merged[item])) {
+          merged[item] = data;
+          changed = true;
+        }
+      });
+      return changed ? merged : prev;
+    });
+  }, [branchDrafts, step, selectedZone]);
+
+  // Browser/swipe/bottom-nav back while on the item checklist should return to zone
+  // selection on this same page, not leave the page entirely.
+  useEffect(() => {
+    const onPopState = () => {
+      setStep(prev => (prev === "items" || prev === "done" ? "zone" : prev));
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const handleZoneSelect = (zone: string) => {
+    if (zoneScores[zone] !== null) {
+      toast({
+        title: `${currentMonthWeek.month}월 ${currentMonthWeek.week}주차 점검은 이미 완료되었습니다`,
+        description: "다음 주에 다시 점검할 수 있어요.",
+      });
+      return;
+    }
     setSelectedZone(zone);
     setStep("items");
+    window.history.pushState({ cleaningStep: "items" }, "");
   };
 
   const handleStatusSet = (item: string, status: "ok" | "issue") => {
@@ -165,25 +319,52 @@ export default function CleaningChecklist() {
     }));
   };
 
-  const handlePhotoUpload = async (item: string, file: File) => {
-    setUploadingItem(item);
+  const handlePhotoUpload = async (item: string, slot: PhotoSlot, file: File) => {
+    const slotKey = `${item}:${slot}`;
+    setUploadingSlot(slotKey);
     try {
-      const { uploadFile } = await import("@/lib/upload");
-      const objectPath = await uploadFile(file);
-      setItemData(prev => ({ ...prev, [item]: { ...prev[item], photoUrl: objectPath } }));
+      const { uploadFile, hashFile } = await import("@/lib/upload");
+      const hash = await hashFile(file);
+
+      const otherField = slot === "before" ? "afterPhotoHash" : "beforePhotoHash";
+      if (itemData[item]?.[otherField] === hash) {
+        toast({ title: "전/후 사진이 같습니다", description: "다른 사진을 올려주세요.", variant: "destructive" });
+        return;
+      }
+
+      const { duplicate, match } = await checkCleaningPhotoHash(hash);
+      if (duplicate) {
+        toast({
+          title: "이미 업로드된 사진입니다",
+          description: match ? `${match.branch}점 · ${match.zone} · ${match.item}에서 이미 사용된 사진이에요. 새로 촬영해주세요.` : "새로 촬영해주세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const objectPath = await uploadFile(file, { compress: true });
+      const urlField = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
+      const hashField = slot === "before" ? "beforePhotoHash" : "afterPhotoHash";
+      const atField = slot === "before" ? "beforePhotoAt" : "afterPhotoAt";
+      setItemData(prev => ({ ...prev, [item]: { ...prev[item], [urlField]: objectPath, [hashField]: hash, [atField]: new Date().toISOString() } }));
     } catch {
       toast({ title: "사진 업로드 실패", variant: "destructive" });
     } finally {
-      setUploadingItem(null);
+      setUploadingSlot(null);
     }
   };
 
   const handleSubmit = async () => {
-    const items: Record<string, { status: string; photoUrl?: string | null; memo?: string | null }> = {};
+    const items: Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }> = {};
     currentItems.forEach(item => {
       items[item] = {
         status: itemData[item]?.status || "ok",
-        photoUrl: itemData[item]?.photoUrl || null,
+        beforePhotoUrl: itemData[item]?.beforePhotoUrl || null,
+        beforePhotoHash: itemData[item]?.beforePhotoHash || null,
+        beforePhotoAt: itemData[item]?.beforePhotoAt || null,
+        afterPhotoUrl: itemData[item]?.afterPhotoUrl || null,
+        afterPhotoHash: itemData[item]?.afterPhotoHash || null,
+        afterPhotoAt: itemData[item]?.afterPhotoAt || null,
         memo: itemData[item]?.memo || null,
       };
     });
@@ -196,11 +377,14 @@ export default function CleaningChecklist() {
         inspectionTime,
         items,
         overallStatus: hasIssue ? "issue" : "ok",
+        staffName: staffName || undefined,
       });
       saveDraftStore(branch, selectedZone, inspectionTime, {
         items: itemData,
         submitted: true,
       });
+      if (draftPushTimer.current) clearTimeout(draftPushTimer.current);
+      clearDraftMutation.mutate({ branch, zone: selectedZone });
       setStep("done");
     } catch (err) {
       toast({ title: "저장 실패", description: String(err), variant: "destructive" });
@@ -208,6 +392,83 @@ export default function CleaningChecklist() {
   };
 
   const getDraftInfo = (zone: string) => getDraftState(branch, zone, inspectionTime);
+
+  const handleClearPhoto = (item: string, slot: PhotoSlot) => {
+    const urlField = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
+    const hashField = slot === "before" ? "beforePhotoHash" : "afterPhotoHash";
+    const atField = slot === "before" ? "beforePhotoAt" : "afterPhotoAt";
+    setItemData(prev => ({
+      ...prev,
+      [item]: { ...prev[item], [urlField]: null, [hashField]: null, [atField]: null },
+    }));
+  };
+
+  const renderPhotoSlot = (
+    item: string,
+    slot: PhotoSlot,
+    label: string,
+    url: string | null | undefined,
+    theme: "emerald" | "red",
+    uploadedAt?: string | null,
+  ) => {
+    const key = `${item}:${slot}`;
+    const isUploading = uploadingSlot === key;
+    const emptyBorder = theme === "emerald" ? "border-emerald-200 bg-emerald-50/50" : "border-red-300 bg-red-50";
+    const filledBorder = theme === "emerald" ? "border-emerald-400 bg-emerald-50" : "border-primary/40 bg-primary/5";
+    const spinColor = theme === "emerald" ? "text-emerald-500" : "text-primary";
+    const iconColor = theme === "emerald" ? "text-emerald-400" : "text-red-400";
+    const labelColor = theme === "emerald" ? "text-emerald-500" : "text-red-500";
+    return (
+      <div key={key} className="relative">
+        <button
+          type="button"
+          onClick={() => fileRefs.current[key]?.click()}
+          className={`w-full h-24 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.98] ${url ? filledBorder : emptyBorder}`}
+        >
+          <span className={`absolute top-1.5 left-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/80 ${labelColor}`}>
+            {label}
+          </span>
+          {isUploading ? (
+            <Loader2 className={`w-6 h-6 animate-spin ${spinColor}`} />
+          ) : url ? (
+            <div className="relative w-full h-full">
+              <img src={url} className="w-full h-full object-cover rounded-xl" alt={label} />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
+                <span className="text-white text-xs font-bold">변경</span>
+              </div>
+              {uploadedAt && (
+                <span className="absolute bottom-1 right-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/60 text-white">
+                  {formatUploadTime(uploadedAt)}
+                </span>
+              )}
+            </div>
+          ) : (
+            <>
+              <Camera className={`w-5 h-5 ${iconColor}`} />
+              <span className={`text-xs font-medium ${labelColor}`}>{label} 촬영</span>
+            </>
+          )}
+        </button>
+        {url && !isUploading && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); handleClearPhoto(item, slot); }}
+            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+            aria-label={`${label} 사진 삭제`}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+        <input
+          ref={el => { fileRefs.current[key] = el; }}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, slot, f); }}
+        />
+      </div>
+    );
+  };
 
   const progressWidth = step === "zone" ? "33%" : step === "items" ? "66%" : "100%";
 
@@ -249,7 +510,7 @@ export default function CleaningChecklist() {
                       return (
                         <div className={`px-3 py-1.5 rounded-xl border font-black text-base ${scoreColor(avg)}`}
                           data-testid="text-avg-score">
-                          평균 {avg}점
+                          이번주 평균 {avg}점
                         </div>
                       );
                     })()}
@@ -257,45 +518,20 @@ export default function CleaningChecklist() {
                   <p className="text-muted-foreground">점검할 매장 구역을 선택하세요.</p>
                 </div>
 
-                {/* Inspection time toggle */}
-                <div className="flex bg-muted p-1.5 rounded-2xl gap-1">
-                  <button
-                    onClick={() => setInspectionTime("오픈")}
-                    className={`flex-1 py-3.5 text-base font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                      inspectionTime === "오픈"
-                        ? "bg-white shadow-sm"
-                        : "text-muted-foreground"
-                    }`}
-                    style={inspectionTime === "오픈" ? { color: "#006341" } : {}}
-                    data-testid="btn-time-open"
-                  >
-                    <Sun className="w-4 h-4" /> 오픈 전
-                  </button>
-                  <button
-                    onClick={() => setInspectionTime("마감")}
-                    className={`flex-1 py-3.5 text-base font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                      inspectionTime === "마감"
-                        ? "bg-white text-secondary shadow-sm"
-                        : "text-muted-foreground"
-                    }`}
-                    data-testid="btn-time-close"
-                  >
-                    <Moon className="w-4 h-4" /> 마감
-                  </button>
-                </div>
-
                 {/* Zone list */}
                 <div className="flex flex-col gap-3">
                   {ZONES.map(zone => {
                     const zs = zoneScores[zone];
+                    const weekDone = zs !== null;
                     const draftInfo = getDraftInfo(zone);
                     return (
                       <button
                         key={zone}
                         onClick={() => handleZoneSelect(zone)}
-                        className="flex items-center justify-between p-5 rounded-3xl border-2 border-border bg-white text-secondary transition-all active:scale-[0.98] shadow-sm"
+                        className={`flex items-center justify-between p-5 rounded-3xl border-2 border-border bg-white text-secondary transition-all active:scale-[0.98] shadow-sm ${weekDone ? "opacity-70" : ""}`}
                         style={{}}
                         onMouseEnter={e => {
+                          if (weekDone) return;
                           (e.currentTarget as HTMLElement).style.borderColor = "#006341";
                           (e.currentTarget as HTMLElement).style.backgroundColor = "#f0faf5";
                         }}
@@ -311,12 +547,16 @@ export default function CleaningChecklist() {
                           </div>
                           <div className="text-left">
                             <span className="text-lg font-bold text-secondary block">{zone}</span>
-                            {draftInfo.hasData && draftInfo.submitted && (
+                            {weekDone ? (
+                              <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                                이번주 완료
+                              </span>
+                            ) : draftInfo.hasData && draftInfo.submitted && (
                               <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                                 제출완료
                               </span>
                             )}
-                            {draftInfo.hasData && !draftInfo.submitted && (
+                            {!weekDone && draftInfo.hasData && !draftInfo.submitted && (
                               <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                                 작성 중
                               </span>
@@ -405,7 +645,14 @@ export default function CleaningChecklist() {
                         data-testid={`card-item-${idx}`}
                       >
                         <div className="flex items-center justify-between px-5 py-4">
-                          <span className="text-lg font-bold text-secondary flex-1">{item}</span>
+                          <div className="flex-1 pr-3">
+                            <span className="text-lg font-bold text-secondary block">{item}</span>
+                            {ITEM_DESCRIPTIONS[selectedZone]?.[item] && (
+                              <span className="text-xs text-muted-foreground block mt-0.5">
+                                {ITEM_DESCRIPTIONS[selectedZone][item]}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex gap-2.5">
                             <button
                               onClick={() => handleStatusSet(item, "ok")}
@@ -443,38 +690,17 @@ export default function CleaningChecklist() {
                             >
                               <div className="px-5 pb-4 border-t border-emerald-200">
                                 <p className="text-xs font-bold text-emerald-600 pt-3 mb-2 flex items-center gap-1">
-                                  <Camera className="w-3.5 h-3.5" /> 사진 첨부 (선택)
+                                  <Camera className="w-3.5 h-3.5" /> 전/후 사진 (필수)
                                 </p>
-                                <button
-                                  onClick={() => fileRefs.current[item]?.click()}
-                                  className={`w-full h-20 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
-                                    data?.photoUrl ? "border-emerald-400 bg-emerald-50" : "border-emerald-200 bg-emerald-50/50"
-                                  }`}
-                                >
-                                  {uploadingItem === item ? (
-                                    <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
-                                  ) : data?.photoUrl ? (
-                                    <div className="relative w-full h-full">
-                                      <img src={data.photoUrl} className="w-full h-full object-cover rounded-xl" alt="Ok photo" />
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
-                                        <span className="text-white text-xs font-bold">사진 변경</span>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <Camera className="w-5 h-5 text-emerald-400" />
-                                      <span className="text-xs font-medium text-emerald-500">사진 추가</span>
-                                    </>
-                                  )}
-                                </button>
-                                <input
-                                  ref={el => { fileRefs.current[item] = el; }}
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  className="hidden"
-                                  onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, f); }}
-                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "emerald", data?.beforePhotoAt)}
+                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "emerald", data?.afterPhotoAt)}
+                                </div>
+                                {(!data?.beforePhotoUrl || !data?.afterPhotoUrl) && (
+                                  <p className="text-xs text-primary font-bold mt-2 flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5" /> 전/후 사진을 모두 첨부해야 저장할 수 있어요
+                                  </p>
+                                )}
                               </div>
                             </motion.div>
                           )}
@@ -490,36 +716,15 @@ export default function CleaningChecklist() {
                                 <p className="text-sm font-bold text-primary pt-3 flex items-center gap-1.5">
                                   <AlertCircle className="w-4 h-4" /> 문제 상세 기록
                                 </p>
-                                <button
-                                  onClick={() => fileRefs.current[item]?.click()}
-                                  className={`w-full h-28 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all active:scale-[0.98] ${
-                                    data?.photoUrl ? "border-primary/40 bg-primary/5" : "border-red-300 bg-red-50"
-                                  }`}
-                                >
-                                  {uploadingItem === item ? (
-                                    <Loader2 className="w-7 h-7 animate-spin text-primary" />
-                                  ) : data?.photoUrl ? (
-                                    <div className="relative w-full h-full">
-                                      <img src={data.photoUrl} className="w-full h-full object-cover rounded-xl" alt="Issue photo" />
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
-                                        <span className="text-white text-sm font-bold">사진 변경</span>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <Camera className="w-7 h-7 text-red-400" />
-                                      <span className="text-sm font-bold text-red-500">문제 사진 촬영</span>
-                                    </>
-                                  )}
-                                </button>
-                                <input
-                                  ref={el => { fileRefs.current[item] = el; }}
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  className="hidden"
-                                  onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, f); }}
-                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "red", data?.beforePhotoAt)}
+                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "red", data?.afterPhotoAt)}
+                                </div>
+                                {(!data?.beforePhotoUrl || !data?.afterPhotoUrl) && (
+                                  <p className="text-xs text-primary font-bold flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5" /> 전/후 사진을 모두 첨부해야 저장할 수 있어요
+                                  </p>
+                                )}
                                 <textarea
                                   placeholder="문제 내용을 간략히 메모하세요..."
                                   value={data?.memo || ""}
@@ -548,7 +753,7 @@ export default function CleaningChecklist() {
 
                 <button
                   onClick={handleSubmit}
-                  disabled={!allChecked || createMutation.isPending}
+                  disabled={!canSubmit || createMutation.isPending}
                   className="w-full py-5 rounded-2xl text-white font-black text-xl shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-3"
                   style={{ background: "#006341" }}
                   data-testid="btn-submit-cleaning"
@@ -559,8 +764,12 @@ export default function CleaningChecklist() {
                     <>점검 완료 저장</>
                   )}
                 </button>
-                {!allChecked && (
+                {!allChecked ? (
                   <p className="text-center text-sm text-muted-foreground">모든 항목을 체크해주세요</p>
+                ) : itemsMissingPhotos.length > 0 && (
+                  <p className="text-center text-sm text-primary font-bold" data-testid="text-missing-photos">
+                    사진이 없는 항목: {itemsMissingPhotos.join(", ")}
+                  </p>
                 )}
               </motion.div>
             )}

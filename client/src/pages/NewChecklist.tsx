@@ -8,7 +8,7 @@ import { useGuideNotifications } from "@/hooks/use-notifications";
 import { motion, AnimatePresence } from "framer-motion";
 import { QualityBulkChecklist } from "@/pages/QualityBulkChecklist";
 import {
-  MapPin, Package, Camera, CheckCircle2, XCircle,
+  Package, Camera, CheckCircle2, XCircle,
   Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Droplets,
   FileText, Paperclip,
 } from "lucide-react";
@@ -16,12 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
+import { BranchCodeGate } from "@/components/BranchCodeGate";
 
-const REGIONS: Record<string, string[]> = {
-  '대형점': ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로'],
-  '중형점': ['구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정'],
-  '소형점': ['부산대', '인천', '고잔', '중계', '김포', '청주'],
-};
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['농산', '수산', '축산'];
 
@@ -101,16 +97,72 @@ function ItemText({ text }: { text: string }) {
   );
 }
 
+// Monday-start calendar week containing `d`
+function getMondayOfWeek(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+// Week 1 = the calendar week (Mon–Sun) containing the 1st of the month
+function getCurrentMonthWeek() {
+  const now = new Date();
+  const firstMonday = getMondayOfWeek(new Date(now.getFullYear(), now.getMonth(), 1));
+  const thisMonday = getMondayOfWeek(now);
+  const week = Math.round((thisMonday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return { month: now.getMonth() + 1, week };
+}
+
 export default function NewChecklist() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const [branch, setBranch] = useState('');
-  const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>('vm');
+  const [branch, setBranch] = useState(() => {
+    try { return sessionStorage.getItem('newChecklistBranch') || ''; } catch { return ''; }
+  });
+  const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>(() => {
+    try {
+      const s = sessionStorage.getItem('newChecklistActiveTab');
+      if (s === 'vm' || s === 'quality' || s === 'cleaning') return s;
+    } catch {}
+    return 'vm';
+  });
+
+  useEffect(() => {
+    try {
+      if (branch) sessionStorage.setItem('newChecklistBranch', branch);
+      else sessionStorage.removeItem('newChecklistBranch');
+    } catch {}
+  }, [branch]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('newChecklistActiveTab', activeTab); } catch {}
+  }, [activeTab]);
+
+  const [branchVerified, setBranchVerified] = useState(false);
+  useEffect(() => {
+    if (!branch) { setBranchVerified(false); return; }
+    try {
+      setBranchVerified(sessionStorage.getItem(`branchCodeVerified_${branch}`) === '1');
+    } catch {
+      setBranchVerified(false);
+    }
+  }, [branch]);
+  const handleBranchResolved = (resolvedBranch: string, name?: string) => {
+    try {
+      sessionStorage.setItem(`branchCodeVerified_${resolvedBranch}`, '1');
+      if (name) sessionStorage.setItem(`registrantName_${resolvedBranch}`, name);
+    } catch {}
+    setBranch(resolvedBranch);
+    setBranchVerified(true);
+    resetVm();
+  };
 
   const nowDate = new Date();
   const [selYear, setSelYear] = useState(nowDate.getFullYear());
   const [selMonth, setSelMonth] = useState(nowDate.getMonth() + 1);
+  const currentMonthWeek = getCurrentMonthWeek();
 
   const prevMonth = () => {
     if (selMonth === 1) { setSelYear(y => y - 1); setSelMonth(12); }
@@ -251,78 +303,57 @@ export default function NewChecklist() {
     <Layout title="새 점검 등록" showBack={true} onBack={handleBack}>
       <div className="flex flex-col h-full bg-white">
 
-        {/* ── Sticky filter header ── */}
-        <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 md:px-[50px] pt-3 space-y-0">
-
-          {/* Row 1: Branch selector */}
-          <div className="pb-3">
-            <select
-              value={branch}
-              onChange={e => { setBranch(e.target.value); resetVm(); }}
-              className="w-full bg-muted border-none rounded-xl px-4 py-3 text-sm focus:outline-none outline-none text-foreground"
-              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600, letterSpacing: '-0.02em' }}
-              data-testid="select-new-branch"
-            >
-              <option value="">지점 선택</option>
-              <optgroup label="대형점">
-                {REGIONS['대형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-              <optgroup label="중형점">
-                {REGIONS['중형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-              <optgroup label="소형점">
-                {REGIONS['소형점'].map(b => <option key={b} value={b}>{b}점</option>)}
-              </optgroup>
-            </select>
+        {/* ── Sticky filter header (only once a branch code is verified) ── */}
+        {branchVerified && (
+          <div className="sticky top-0 z-40 bg-white border-b border-border/50 px-4 md:px-[50px] pt-3 space-y-0">
+            {/* Tab switcher — underline style */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => handleTabChange('vm')}
+                className={`relative flex-1 flex items-center justify-center pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                  activeTab === 'vm' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
+                }`}
+                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'vm' ? 700 : 500 }}
+                data-testid="tab-new-vm"
+              >
+                진열(+광고)
+                {pendingGuideNotifs.length > 0 && (
+                  <span className="absolute top-0 right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
+                    {pendingGuideNotifs.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => handleTabChange('quality')}
+                className={`relative flex-1 flex items-center justify-center pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                  activeTab === 'quality' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
+                }`}
+                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'quality' ? 700 : 500 }}
+                data-testid="tab-new-quality"
+              >
+                품질
+                {pendingQualityGuideNotifs.length > 0 && (
+                  <span className="absolute top-0 right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
+                    {pendingQualityGuideNotifs.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => handleTabChange('cleaning')}
+                className={`flex-1 flex items-center justify-center gap-1 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
+                  activeTab === 'cleaning' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
+                }`}
+                style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'cleaning' ? 700 : 500 }}
+                data-testid="tab-new-cleaning"
+              >
+                <Droplets className="w-3.5 h-3.5" /> 청소
+              </button>
+            </div>
           </div>
-
-          {/* Tab switcher — underline style */}
-          <div className="flex border-b border-border">
-            <button
-              onClick={() => handleTabChange('vm')}
-              className={`relative flex-1 flex items-center justify-center pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
-                activeTab === 'vm' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
-              }`}
-              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'vm' ? 700 : 500 }}
-              data-testid="tab-new-vm"
-            >
-              진열(+광고)
-              {pendingGuideNotifs.length > 0 && (
-                <span className="absolute top-0 right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
-                  {pendingGuideNotifs.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => handleTabChange('quality')}
-              className={`relative flex-1 flex items-center justify-center pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
-                activeTab === 'quality' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
-              }`}
-              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'quality' ? 700 : 500 }}
-              data-testid="tab-new-quality"
-            >
-              품질
-              {pendingQualityGuideNotifs.length > 0 && (
-                <span className="absolute top-0 right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
-                  {pendingQualityGuideNotifs.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => handleTabChange('cleaning')}
-              className={`flex-1 flex items-center justify-center gap-1 pb-3 pt-0 text-sm transition-all whitespace-nowrap border-b-2 -mb-px ${
-                activeTab === 'cleaning' ? 'border-black text-black' : 'border-transparent text-muted-foreground'
-              }`}
-              style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: activeTab === 'cleaning' ? 700 : 500 }}
-              data-testid="tab-new-cleaning"
-            >
-              <Droplets className="w-3.5 h-3.5" /> 청소
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* ── Sub-filter (year/month) ── */}
-        {(activeTab === 'vm' || activeTab === 'quality') && (
+        {branchVerified && (activeTab === 'vm' || activeTab === 'quality') && (
           <div className="bg-white px-4 md:px-[50px] pt-3 pb-3 border-b border-border/30 flex items-center gap-2">
             <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 w-32 shrink-0 justify-between">
               <button onClick={prevYear} className="active:scale-95 transition-all" data-testid="btn-new-prev-year">
@@ -348,21 +379,15 @@ export default function NewChecklist() {
         {/* ── Content area ── */}
         <div className="flex-1 overflow-y-auto">
 
-          <AnimatePresence mode="wait">
+          {/* Branch code not yet resolved — kept outside AnimatePresence so it unmounts
+              instantly instead of waiting on an exit animation that can get stuck */}
+          {!branchVerified && (
+            <BranchCodeGate onVerified={handleBranchResolved} onCancel={() => {}} />
+          )}
 
-            {/* No branch selected */}
-            {!branch ? (
-              <motion.div key="no-branch"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center flex-1 text-muted-foreground text-center space-y-3 p-6 py-24"
-              >
-                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
-                  <MapPin className="w-10 h-10 text-primary/60" />
-                </div>
-                <p className="font-bold text-xl text-secondary">지점을 선택해주세요</p>
-                <p className="text-base">점검을 등록할 지점을 먼저 선택하세요</p>
-              </motion.div>
-            ) : activeTab === 'quality' ? (
+          {branchVerified && <AnimatePresence mode="wait">
+
+            {activeTab === 'quality' ? (
               /* Quality tab — 카테고리별 일괄 점검 */
               <motion.div
                 key="quality"
@@ -376,7 +401,10 @@ export default function NewChecklist() {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                 className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-6"
               >
-                <div className="space-y-1.5">
+                <div className="space-y-2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+                    {currentMonthWeek.month}월 {currentMonthWeek.week}주차 점검
+                  </span>
                   <p className="font-black text-2xl text-secondary">{branch}점</p>
                   <p className="text-muted-foreground text-sm">매장 청소 점검을 시작하세요</p>
                 </div>
@@ -416,7 +444,7 @@ export default function NewChecklist() {
                 allGuideProducts={validGuideProducts.filter(g => g.guideType !== 'quality')}
               />
             )}
-          </AnimatePresence>
+          </AnimatePresence>}
         </div>
       </div>
     </Layout>

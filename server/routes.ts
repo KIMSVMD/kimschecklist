@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { api } from "../shared/routes";
-import { insertGuideSchema, insertProductSchema, insertCleaningSchema, staffScoreNotifications } from "../shared/schema";
+import { insertGuideSchema, insertProductSchema, insertCleaningSchema, insertCleaningMonitoringFeedbackSchema, insertCleaningDraftSchema, staffScoreNotifications } from "../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import path from "path";
@@ -368,6 +368,19 @@ export async function registerRoutes(
     }
   });
 
+  app.post('/api/cleaning/check-photo-hash', async (req, res) => {
+    try {
+      const { hash } = req.body;
+      if (!hash || typeof hash !== 'string') {
+        return res.status(400).json({ message: 'hash is required' });
+      }
+      const match = await storage.findCleaningPhotoHash(hash);
+      res.json({ duplicate: !!match, match: match ?? null });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post('/api/cleaning', async (req, res) => {
     try {
       const input = insertCleaningSchema.parse(req.body);
@@ -434,6 +447,113 @@ export async function registerRoutes(
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
       await storage.deleteCleaningInspection(id);
       res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // HQ admin's monthly on-site monitoring visit feedback (once per branch per month)
+  app.get('/api/cleaning-monitoring', async (req, res) => {
+    try {
+      const filters: { branch?: string; year?: number; month?: number } = {};
+      if (req.query.branch) filters.branch = req.query.branch as string;
+      if (req.query.year) filters.year = parseInt(req.query.year as string);
+      if (req.query.month) filters.month = parseInt(req.query.month as string);
+      const rows = await storage.getCleaningMonitoringFeedback(filters);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post('/api/cleaning-monitoring', requireAdmin, async (req, res) => {
+    try {
+      const input = insertCleaningMonitoringFeedbackSchema.parse(req.body);
+      const record = await storage.upsertCleaningMonitoringFeedback(input);
+      res.json(record);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ message: err.errors[0].message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  // Staff attaches an "after" (fixed) photo to one HQ monitoring feedback item — no admin required
+  app.patch('/api/cleaning-monitoring/:id/item-after-photo', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+      const { itemIndex, afterPhotoUrl } = req.body;
+      if (typeof itemIndex !== 'number' || !afterPhotoUrl) {
+        return res.status(400).json({ message: "itemIndex and afterPhotoUrl required" });
+      }
+      const result = await storage.addMonitoringAfterPhoto(id, itemIndex, afterPhotoUrl);
+      if (!result) return res.status(404).json({ message: "Not found" });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Live in-progress cleaning drafts — lets other staff/admin see photos as they're
+  // uploaded, before the zone's final submit. No admin auth: staff write their own
+  // branch's draft as they work.
+  app.get('/api/cleaning-drafts', async (req, res) => {
+    try {
+      const branch = req.query.branch ? (req.query.branch as string) : undefined;
+      const rows = await storage.getCleaningDrafts(branch);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post('/api/cleaning-drafts', async (req, res) => {
+    try {
+      const input = insertCleaningDraftSchema.parse(req.body);
+      const record = await storage.upsertCleaningDraft(input);
+      res.json(record);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ message: err.errors[0].message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  app.delete('/api/cleaning-drafts', async (req, res) => {
+    try {
+      const { branch, zone } = req.body;
+      if (!branch || !zone) return res.status(400).json({ message: "branch and zone required" });
+      await storage.deleteCleaningDraft(branch, zone);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Branch access code verification (used to gate 새 점검 등록 / 점검 월별 피드백 per branch)
+  app.post('/api/branch-code/verify', async (req, res) => {
+    try {
+      const { branch, code } = req.body;
+      if (!branch || !code) return res.status(400).json({ message: "branch and code required" });
+      const valid = await storage.verifyBranchAccessCode(branch, String(code));
+      res.json({ valid });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Resolve which branch a code belongs to (used by 새 점검 등록's code-only entry)
+  app.post('/api/branch-code/lookup', async (req, res) => {
+    try {
+      const { code } = req.body;
+      if (!code) return res.status(400).json({ message: "code required" });
+      const branch = await storage.findBranchByAccessCode(String(code));
+      res.json({ branch });
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
     }

@@ -1,11 +1,14 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useChecklists, useDeleteChecklist } from "@/hooks/use-checklists";
 import { useValidGuideProducts } from "@/hooks/use-guides";
 import { useCleaningInspections, useDeleteCleaning } from "@/hooks/use-cleaning";
+import { useCleaningMonitoringFeedback, useAddMonitoringAfterPhoto } from "@/hooks/use-cleaning-monitoring";
 import { CleaningCommentThread } from "@/components/CleaningCommentThread";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
+import { useCleaningDrafts } from "@/hooks/use-cleaning-drafts";
+import { BranchCodeGate } from "@/components/BranchCodeGate";
 import { VMCommentThread } from "@/components/VMCommentThread";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -13,6 +16,7 @@ import {
   ClipboardList, Image as ImageIcon, AlertCircle, Pencil, Trash2, MapPin,
   CheckCheck, Droplets, Sun, Moon, XCircle,
   ChevronLeft, ChevronRight, Calendar, Bell, X, MessageCircle, Star, Trophy,
+  Loader2, Camera,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -27,16 +31,139 @@ const REGIONS: Record<string, string[]> = {
 };
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
 const QUALITY_CATEGORIES = ['채소', '청과', '수산', '축산'];
-const ZONES = ['입구', '농산', '수산', '축산', '공산'];
+const ZONES = ['공통', '농산', '수산', '축산', '공산'];
 
-function toLocalDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Monday-start calendar week containing `d`
+function getMonday(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+// Week 1 = the calendar week (Mon–Sun) containing the 1st of the month; may start in the prior month.
+function getWeekRangesInMonth(year: number, month: number) {
+  const lastDay = new Date(year, month, 0);
+  const ranges: { start: Date; end: Date }[] = [];
+  let cursor = getMonday(new Date(year, month - 1, 1));
+  while (cursor <= lastDay) {
+    const start = new Date(cursor);
+    const end = new Date(cursor);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    ranges.push({ start, end });
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return ranges;
+}
+
+function getCurrentWeekIndex(year: number, month: number, date: Date) {
+  const idx = getWeekRangesInMonth(year, month).findIndex(r => date >= r.start && date <= r.end);
+  return idx >= 0 ? idx + 1 : 1;
+}
+
+const MONITORING_AFTER_PHOTO_DEADLINE_DAYS = 7;
+
+// Days left until the after-photo deadline (negative once overdue). Items without a
+// createdAt (added before this feature existed) have no deadline.
+function getMonitoringDaysLeft(createdAt?: string): number | null {
+  if (!createdAt) return null;
+  const deadline = new Date(createdAt);
+  deadline.setDate(deadline.getDate() + MONITORING_AFTER_PHOTO_DEADLINE_DAYS);
+  return Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
+function MonitoringAfterPhotoSlot({
+  feedbackId,
+  itemIndex,
+  afterPhotoUrl,
+  createdAt,
+}: {
+  feedbackId: number;
+  itemIndex: number;
+  afterPhotoUrl?: string | null;
+  createdAt?: string;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const addAfterPhotoMutation = useAddMonitoringAfterPhoto();
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const url = await uploadFile(file);
+      await addAfterPhotoMutation.mutateAsync({ id: feedbackId, itemIndex, afterPhotoUrl: url });
+    } catch {
+      toast({ title: '사진 업로드 실패', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (afterPhotoUrl) {
+    return (
+      <div className="shrink-0 text-center">
+        <PhotoThumbnail src={afterPhotoUrl} className="block">
+          <img src={afterPhotoUrl} className="w-20 h-20 object-cover rounded-xl border-2 border-emerald-300" alt="조치 후 사진" />
+        </PhotoThumbnail>
+        <p className="text-[10px] font-bold text-emerald-600 mt-1">조치 완료</p>
+      </div>
+    );
+  }
+
+  const daysLeft = getMonitoringDaysLeft(createdAt);
+  const overdue = daysLeft !== null && daysLeft < 0;
+
+  return (
+    <div className="shrink-0">
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className={`w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-50 ${
+          overdue ? 'border-red-400 bg-red-50 text-primary' : 'border-primary/40 bg-primary/5 text-primary'
+        }`}
+        data-testid={`btn-monitoring-after-photo-${feedbackId}-${itemIndex}`}
+      >
+        {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+        <span className="text-[10px] font-bold">애프터 사진</span>
+        {daysLeft !== null && (
+          <span className={`text-[9px] font-bold ${overdue ? 'text-red-600' : 'text-primary/70'}`}>
+            {overdue ? `${Math.abs(daysLeft)}일 지남` : `D-${daysLeft}`}
+          </span>
+        )}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; handleFile(f); e.target.value = ''; }}
+      />
+    </div>
+  );
 }
 
 export default function StaffDashboard() {
-  const todayStr = toLocalDateStr(new Date());
-
   const [filterBranch, setFilterBranch] = useState('');
+  const [branchVerified, setBranchVerified] = useState(false);
+  useEffect(() => {
+    if (!filterBranch) { setBranchVerified(false); return; }
+    try {
+      setBranchVerified(sessionStorage.getItem(`branchCodeVerified_${filterBranch}`) === '1');
+    } catch {
+      setBranchVerified(false);
+    }
+  }, [filterBranch]);
+  const handleBranchVerified = () => {
+    try { sessionStorage.setItem(`branchCodeVerified_${filterBranch}`, '1'); } catch {}
+    setBranchVerified(true);
+  };
+  const handleBranchCodeCancel = () => setFilterBranch('');
   const [filterCategory, setFilterCategory] = useState('전체');
   const [activeTab, setActiveTab] = useState<'vm' | 'quality' | 'cleaning'>(() => {
     try {
@@ -48,7 +175,9 @@ export default function StaffDashboard() {
   const nowDate = new Date();
   const [vmFilterYear, setVmFilterYear] = useState(nowDate.getFullYear());
   const [vmFilterMonth, setVmFilterMonth] = useState(nowDate.getMonth() + 1);
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [cleaningYear, setCleaningYear] = useState(nowDate.getFullYear());
+  const [cleaningMonth, setCleaningMonth] = useState(nowDate.getMonth() + 1);
+  const [cleaningWeek, setCleaningWeek] = useState(() => getCurrentWeekIndex(nowDate.getFullYear(), nowDate.getMonth() + 1, nowDate));
   const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const [filterZone, setFilterZone] = useState('전체');
   const [notifOpen, setNotifOpen] = useState(false);
@@ -98,8 +227,13 @@ export default function StaffDashboard() {
     }).forEach(n => dismiss(staffNotifKey(n)));
   };
 
-  const isToday = selectedDate === todayStr;
-  const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+  const cleaningWeekRanges = useMemo(() => getWeekRangesInMonth(cleaningYear, cleaningMonth), [cleaningYear, cleaningMonth]);
+  const totalCleaningWeeks = cleaningWeekRanges.length;
+  const currentWeekRange = cleaningWeekRanges[Math.min(cleaningWeek, totalCleaningWeeks) - 1] ?? cleaningWeekRanges[0];
+  const isCurrentWeek = (() => {
+    const t = new Date();
+    return t >= currentWeekRange.start && t <= currentWeekRange.end;
+  })();
 
   const prevVmMonth = () => {
     if (vmFilterMonth === 1) { setVmFilterYear(y => y - 1); setVmFilterMonth(12); }
@@ -112,16 +246,23 @@ export default function StaffDashboard() {
   const prevVmYear = () => setVmFilterYear(y => y - 1);
   const nextVmYear = () => setVmFilterYear(y => y + 1);
 
-  const goBack = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() - 1);
-    setSelectedDate(toLocalDateStr(d));
+  const prevCleaningMonth = () => {
+    if (cleaningMonth === 1) { setCleaningYear(y => y - 1); setCleaningMonth(12); }
+    else setCleaningMonth(m => m - 1);
+    setCleaningWeek(1);
   };
-  const goForward = () => {
-    if (isToday) return;
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + 1);
-    setSelectedDate(toLocalDateStr(d));
+  const nextCleaningMonth = () => {
+    if (cleaningMonth === 12) { setCleaningYear(y => y + 1); setCleaningMonth(1); }
+    else setCleaningMonth(m => m + 1);
+    setCleaningWeek(1);
+  };
+  const prevCleaningWeek = () => setCleaningWeek(w => Math.max(1, w - 1));
+  const nextCleaningWeek = () => setCleaningWeek(w => Math.min(totalCleaningWeeks, w + 1));
+  const goToCurrentWeek = () => {
+    const t = new Date();
+    setCleaningYear(t.getFullYear());
+    setCleaningMonth(t.getMonth() + 1);
+    setCleaningWeek(getCurrentWeekIndex(t.getFullYear(), t.getMonth() + 1, t));
   };
 
   const deleteMutation = useDeleteChecklist();
@@ -235,6 +376,24 @@ export default function StaffDashboard() {
     filterBranch ? { branch: filterBranch } : {}
   );
 
+  // Live in-progress zone snapshots — someone else's photos as they're uploaded,
+  // before that zone's final submit. Only meaningful once a branch is picked.
+  const { data: cleaningDraftsRaw = [] } = useCleaningDrafts(filterBranch, {
+    enabled: activeTab === 'cleaning' && branchVerified,
+  });
+  const activeCleaningDrafts = cleaningDraftsRaw.filter(d => {
+    const items = (d.items as Record<string, { beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
+    return Object.values(items).some(v => v.beforePhotoUrl || v.afterPhotoUrl);
+  });
+
+  const currentFeedbackYear = new Date().getFullYear();
+  const currentFeedbackMonth = new Date().getMonth() + 1;
+  const { data: monitoringFeedback = [] } = useCleaningMonitoringFeedback(
+    filterBranch ? { branch: filterBranch, year: currentFeedbackYear, month: currentFeedbackMonth } : { year: currentFeedbackYear, month: currentFeedbackMonth }
+  );
+  const currentMonitoringFeedback = monitoringFeedback[0] ?? null;
+  const monitoringFeedbackItems = (currentMonitoringFeedback?.items as { zone: string; photoUrl: string; comment: string | null; afterPhotoUrl?: string | null; createdAt?: string }[] | null) || [];
+
   const handleDeleteVM = async (id: number, label: string) => {
     if (!confirm(`"${label}" 점검 기록을 삭제하시겠습니까?`)) return;
     try {
@@ -283,7 +442,10 @@ export default function StaffDashboard() {
   const statusLabels = { excellent: '우수', average: '보통', poor: '미흡' };
 
   // ── Cleaning stats for summary card ──
-  const relevantTimes = filterTime === '전체' ? ['오픈', '마감'] : [filterTime];
+  // 마감 inspection time was removed (청소 점검은 오픈 하나만 사용) — counting it as a
+  // second slot here made totalSlots double what's actually fillable, capping
+  // completion rate at 50% forever since a 마감 record can never be created.
+  const relevantTimes = ['오픈'];
   const relevantZones = filterZone === '전체' ? ZONES : [filterZone];
   const totalSlots = relevantZones.length * relevantTimes.length;
 
@@ -291,7 +453,7 @@ export default function StaffDashboard() {
     const map: Record<string, typeof cleaningRecords[0] | null> = {};
     relevantZones.forEach(z => relevantTimes.forEach(t => { map[`${z}_${t}`] = null; }));
     cleaningRecords
-      .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+      .filter(r => { const d = new Date(r.createdAt); return d >= currentWeekRange.start && d <= currentWeekRange.end; })
       .forEach(r => {
         const key = `${r.zone}_${r.inspectionTime}`;
         if (key in map) {
@@ -301,7 +463,7 @@ export default function StaffDashboard() {
         }
       });
     return map;
-  }, [cleaningRecords, selectedDate, filterTime, filterZone]);
+  }, [cleaningRecords, currentWeekRange, filterTime, filterZone]);
 
   let completionScore = 0;
   let completedSlotCount = 0;
@@ -318,7 +480,7 @@ export default function StaffDashboard() {
   const completionRate = totalSlots > 0 ? Math.round((completionScore / totalSlots) * 100) : 0;
 
   cleaningRecords
-    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .filter(r => { const d = new Date(r.createdAt); return d >= currentWeekRange.start && d <= currentWeekRange.end; })
     .filter(r => filterTime === '전체' || r.inspectionTime === filterTime)
     .filter(r => filterZone === '전체' || r.zone === filterZone)
     .forEach(r => {
@@ -329,11 +491,11 @@ export default function StaffDashboard() {
       }
     });
 
-  // Zone status grid (latest per zone for selected date, no time filter for grid display)
+  // Zone status grid (latest per zone for selected week, no time filter for grid display)
   const zoneStatus: Record<string, 'ok' | 'issue' | null> = {};
   ZONES.forEach(z => { zoneStatus[z] = null; });
   cleaningRecords
-    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+    .filter(r => { const d = new Date(r.createdAt); return d >= currentWeekRange.start && d <= currentWeekRange.end; })
     .forEach(r => {
       if (zoneStatus[r.zone] === null || r.overallStatus === 'issue') {
         zoneStatus[r.zone] = r.overallStatus as 'ok' | 'issue';
@@ -341,8 +503,8 @@ export default function StaffDashboard() {
     });
 
   // Filtered list shown in card list
-  const dayFilteredRecords = cleaningRecords
-    .filter(r => toLocalDateStr(new Date(r.createdAt)) === selectedDate)
+  const weekFilteredRecords = cleaningRecords
+    .filter(r => { const d = new Date(r.createdAt); return d >= currentWeekRange.start && d <= currentWeekRange.end; })
     .filter(r => filterTime === '전체' || r.inspectionTime === filterTime)
     .filter(r => filterZone === '전체' || r.zone === filterZone);
 
@@ -474,43 +636,32 @@ export default function StaffDashboard() {
             </div>
           )}
 
-          {/* Date navigator + time filter — cleaning tab */}
+          {/* Month/Week navigator + time filter — cleaning tab */}
           {activeTab === 'cleaning' && (
             <div className="space-y-2 pt-3">
-              {/* Date navigator — full width */}
-              <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
-                <button onClick={goBack} className="active:scale-95 transition-all" data-testid="btn-staff-date-prev">
-                  <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <p className="font-bold text-foreground text-sm whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em' }}>
-                  {isToday ? '오늘 · ' : ''}{format(selectedDateObj, 'M월 d일 (EEE)', { locale: ko })}
-                </p>
-                <button onClick={goForward} disabled={isToday} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-date-next">
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
-              {/* 오픈 / 마감 chips — own row, fills full width */}
-              <div className="flex gap-1.5">
-                {(['전체', '오픈', '마감'] as const).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setFilterTime(t)}
-                    className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                      filterTime === t
-                        ? t === '오픈' ? 'bg-amber-400 text-white'
-                          : t === '마감' ? 'bg-secondary text-white'
-                          : 'bg-black text-white'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                    data-testid={`btn-staff-filter-time-${t}`}
-                  >
-                    {t === '오픈' && <Sun className="w-3 h-3" />}
-                    {t === '마감' && <Moon className="w-3 h-3" />}
-                    {t}
+              {/* Month/Week navigator — mirrors the VM/Quality year/month layout */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 w-32 shrink-0 justify-between">
+                  <button onClick={prevCleaningMonth} className="active:scale-95 transition-all" data-testid="btn-staff-cleaning-prev-month">
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                   </button>
-                ))}
+                  <span className="text-sm text-foreground whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", fontWeight: 600 }}>{cleaningMonth}월</span>
+                  <button onClick={nextCleaningMonth} className="active:scale-95 transition-all" data-testid="btn-staff-cleaning-next-month">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 flex-1 justify-between">
+                  <button onClick={prevCleaningWeek} disabled={cleaningWeek <= 1} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-cleaning-prev-week">
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  <p className="font-bold text-foreground text-sm whitespace-nowrap" style={{ fontFamily: "'Pretendard', sans-serif", letterSpacing: '-0.02em' }}>
+                    {isCurrentWeek ? '이번주 · ' : ''}{cleaningWeek}주차
+                  </p>
+                  <button onClick={nextCleaningWeek} disabled={cleaningWeek >= totalCleaningWeeks} className="active:scale-95 transition-all disabled:opacity-30" data-testid="btn-staff-cleaning-next-week">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
-
               {/* Zone filter chips */}
               <div className="flex gap-1 pb-3">
                 <button
@@ -800,6 +951,8 @@ export default function StaffDashboard() {
               <p className="text-base">청소 점검 기록을 확인할 지점을 먼저 선택하세요</p>
             </div>
           )
+        ) : !branchVerified ? (
+          <BranchCodeGate branch={filterBranch} onVerified={handleBranchVerified} onCancel={handleBranchCodeCancel} />
         ) : (
           <div className="flex-1 overflow-y-auto p-4 md:px-[50px] space-y-4 w-full">
 
@@ -1270,7 +1423,7 @@ export default function StaffDashboard() {
                       <Droplets className="w-4 h-4 text-emerald-500" />
                     </div>
                     <h3 className="text-base font-black text-secondary">
-                      {isToday ? '오늘의' : format(selectedDateObj, 'M월 d일', { locale: ko })} 청소 점검 현황
+                      {isCurrentWeek ? '이번주' : `${cleaningMonth}월 ${cleaningWeek}주차`} 청소 점검 현황
                     </h3>
                   </div>
                   <div className="flex gap-2.5 mb-4">
@@ -1319,9 +1472,116 @@ export default function StaffDashboard() {
                   </div>
                 </div>
 
+                {/* ── 지금 작성 중인 청소 점검 (실시간) ── */}
+                {activeCleaningDrafts.length > 0 && (
+                  <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-5 shadow-sm space-y-4">
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                      </span>
+                      <h3 className="text-base font-black text-secondary">지금 작성 중인 청소 점검</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {activeCleaningDrafts.map(draft => {
+                        const items = (draft.items as Record<string, { status?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
+                        const entries = Object.entries(items).filter(([, v]) => v.beforePhotoUrl || v.afterPhotoUrl);
+                        return (
+                          <div key={draft.id} className="bg-white rounded-2xl border border-amber-200 p-3.5 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-black text-secondary">
+                                {draft.zone}
+                                {draft.staffName && <span className="text-xs font-bold text-amber-600 ml-1.5">· {draft.staffName}님</span>}
+                              </span>
+                              <span className="text-[10px] font-semibold text-amber-600">
+                                {format(new Date(draft.updatedAt), 'HH:mm', { locale: ko })} 업데이트
+                              </span>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                              {entries.map(([name, v]) => (
+                                <div key={name} className="shrink-0 space-y-1">
+                                  <div className="flex gap-1">
+                                    {v.beforePhotoUrl && (
+                                      <PhotoThumbnail src={v.beforePhotoUrl} className="block">
+                                        <img src={v.beforePhotoUrl} className="w-16 h-16 object-cover rounded-lg border border-border" alt={`${name} 청소 전`} />
+                                      </PhotoThumbnail>
+                                    )}
+                                    {v.afterPhotoUrl && (
+                                      <PhotoThumbnail src={v.afterPhotoUrl} className="block">
+                                        <img src={v.afterPhotoUrl} className="w-16 h-16 object-cover rounded-lg border border-border" alt={`${name} 청소 후`} />
+                                      </PhotoThumbnail>
+                                    )}
+                                  </div>
+                                  <p className="text-[9px] text-muted-foreground w-16 truncate">{name}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── 월별 모니터링 피드백 ── */}
+                {filterBranch && (
+                  monitoringFeedbackItems.length > 0 ? (
+                    <div className="bg-white border border-border rounded-3xl p-5 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-base font-black text-secondary">{currentFeedbackMonth}월 모니터링 피드백</h3>
+                        <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">{monitoringFeedbackItems.length}건</span>
+                      </div>
+                      <div className="space-y-4">
+                        {ZONES.filter(zone => monitoringFeedbackItems.some(i => i.zone === zone)).map(zone => (
+                          <div key={zone} className="space-y-3">
+                            <p className="text-xs font-bold text-muted-foreground">{zone}</p>
+                            {monitoringFeedbackItems
+                              .map((item, idx) => ({ item, idx }))
+                              .filter(({ item }) => item.zone === zone)
+                              .map(({ item, idx }) => (
+                                <div key={idx} className="space-y-1.5">
+                                  <div className="flex gap-3">
+                                    <div className="shrink-0 text-center">
+                                      <PhotoThumbnail src={item.photoUrl} className="block">
+                                        <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-xl border border-border" alt={`${zone} 모니터링 사진`} />
+                                      </PhotoThumbnail>
+                                    </div>
+                                    <MonitoringAfterPhotoSlot
+                                      feedbackId={currentMonitoringFeedback!.id}
+                                      itemIndex={idx}
+                                      afterPhotoUrl={item.afterPhotoUrl}
+                                      createdAt={item.createdAt}
+                                    />
+                                    {item.comment && (
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-muted-foreground mb-0.5">피드백 내용</p>
+                                        <p className="text-sm text-muted-foreground">{item.comment}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(currentMonitoringFeedback!.createdAt), 'MM월 dd일 HH:mm', { locale: ko })} 방문
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-5 shadow-sm flex items-center gap-3">
+                      <AlertCircle className="w-6 h-6 text-primary shrink-0" />
+                      <div>
+                        <p className="text-sm font-black text-primary">{currentFeedbackMonth}월 모니터링 피드백이 아직 진행되지 않았습니다</p>
+                        <p className="text-xs text-red-400 mt-0.5">본사 방문 점검 후 이 자리에 결과가 표시됩니다.</p>
+                      </div>
+                    </div>
+                  )
+                )}
+
                 {/* ── Record list ── */}
-                {dayFilteredRecords.length === 0 ? (
-                  isToday ? (
+                {weekFilteredRecords.length === 0 ? (
+                  isCurrentWeek ? (
                     <div className="bg-white border border-border rounded-3xl p-8 shadow-sm flex flex-col items-center text-center gap-5">
                       <div className="space-y-1.5">
                         <p className="text-xl font-black text-secondary">{filterBranch}</p>
@@ -1344,22 +1604,50 @@ export default function StaffDashboard() {
                         <Calendar className="w-6 h-6 text-gray-300" />
                       </div>
                       <p className="font-semibold text-base text-center text-muted-foreground">
-                        {format(selectedDateObj, 'M월 d일은', { locale: ko })} 청소 점검 기록이 없습니다
+                        {cleaningMonth}월 {cleaningWeek}주차엔 청소 점검 기록이 없습니다
                       </p>
                       <button
-                        onClick={() => setSelectedDate(todayStr)}
+                        onClick={goToCurrentWeek}
                         className="text-sm font-bold underline underline-offset-2"
                         style={{ color: '#006341' }}
                         data-testid="btn-back-to-today"
                       >
-                        오늘로 돌아가기
+                        이번주로 돌아가기
                       </button>
                     </div>
                   )
                 ) : (
-                  dayFilteredRecords.map((record, i) => {
-                    const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null }>) || {};
+                  weekFilteredRecords.map((record, i) => {
+                    const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
                     const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
+                    const okItems = Object.entries(items).filter(([, v]) => v.status === 'ok');
+                    const renderPhotoItemCard = (name: string, v: { memo?: string | null; photoUrl?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }, theme: 'issue' | 'ok') => {
+                      const before = v.beforePhotoUrl ?? v.photoUrl ?? null;
+                      const after = v.afterPhotoUrl ?? null;
+                      const cardCls = theme === 'issue' ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200';
+                      const nameCls = theme === 'issue' ? 'text-red-600' : 'text-emerald-700';
+                      const memoCls = theme === 'issue' ? 'text-red-400' : 'text-emerald-600/70';
+                      return (
+                        <div key={name} className={`border rounded-xl px-3 py-1.5 w-full ${cardCls}`}>
+                          {(before || after) && (
+                            <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                              {before && (
+                                <PhotoThumbnail src={before} className="block">
+                                  <img src={before} alt={`${name} 청소 전`} className="w-full h-24 object-cover rounded-lg" />
+                                </PhotoThumbnail>
+                              )}
+                              {after && (
+                                <PhotoThumbnail src={after} className="block">
+                                  <img src={after} alt={`${name} 청소 후`} className="w-full h-24 object-cover rounded-lg" />
+                                </PhotoThumbnail>
+                              )}
+                            </div>
+                          )}
+                          <span className={`text-xs font-bold ${nameCls}`}>{name}</span>
+                          {v.memo && <p className={`text-[10px] mt-0.5 ${memoCls}`}>{v.memo}</p>}
+                        </div>
+                      );
+                    };
                     const cleanScore = Object.keys(items).length > 0 ? calcCleaningScore(items) : null;
                     const isOk = record.overallStatus === 'ok';
                     return (
@@ -1393,6 +1681,7 @@ export default function StaffDashboard() {
                                 <span>{record.inspectionTime}</span>
                                 <span>·</span>
                                 <span>{format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}</span>
+                                {(record as any).staffName && (<><span>·</span><span>{(record as any).staffName}님</span></>)}
                               </div>
                             </div>
                           </div>
@@ -1408,17 +1697,15 @@ export default function StaffDashboard() {
                             <div>
                               <p className="text-xs font-bold text-muted-foreground mb-2">문제 항목</p>
                               <div className="flex flex-wrap gap-1.5">
-                                {issueItems.map(([name, v]) => (
-                                  <div key={name} className="bg-red-50 border border-red-200 rounded-xl px-3 py-1.5 w-full">
-                                    {v.photoUrl && (
-                                      <PhotoThumbnail src={v.photoUrl} className="block mb-1.5">
-                                        <img src={v.photoUrl} alt={name} className="w-full h-24 object-cover rounded-lg" />
-                                      </PhotoThumbnail>
-                                    )}
-                                    <span className="text-xs font-bold text-red-600">{name}</span>
-                                    {v.memo && <p className="text-[10px] text-red-400 mt-0.5">{v.memo}</p>}
-                                  </div>
-                                ))}
+                                {issueItems.map(([name, v]) => renderPhotoItemCard(name, v, 'issue'))}
+                              </div>
+                            </div>
+                          )}
+                          {okItems.length > 0 && (
+                            <div>
+                              <p className="text-xs font-bold text-muted-foreground mb-2">정상 항목 사진</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {okItems.map(([name, v]) => renderPhotoItemCard(name, v, 'ok'))}
                               </div>
                             </div>
                           )}

@@ -10,7 +10,7 @@ export function useChecklists(filters?: { branch?: string; category?: string }) 
   if (filters?.category) queryParams.append("category", filters.category);
   
   const queryString = queryParams.toString();
-  const url = `https://kimschecklist.onrender.com${api.checklists.list.path}${queryString ? `?${queryString}` : ""}`;
+  const url = `${api.checklists.list.path}${queryString ? `?${queryString}` : ""}`;
 
   return useQuery({
     queryKey: [api.checklists.list.path, filters?.branch, filters?.category],
@@ -27,7 +27,7 @@ export function useChecklist(id: number) {
   return useQuery({
     queryKey: [api.checklists.get.path, id],
     queryFn: async () => {
-      const url = `https://kimschecklist.onrender.com${buildUrl(api.checklists.get.path, { id })}`;
+      const url = `${buildUrl(api.checklists.get.path, { id })}`;
       const res = await fetch(url, { headers: getAuthHeaders() });
       if (res.status === 404) return null;
       if (!res.ok) throw new Error("Failed to fetch checklist");
@@ -43,7 +43,7 @@ export function useCreateChecklist() {
   return useMutation({
     mutationFn: async (data: z.infer<typeof api.checklists.create.input>) => {
       const validated = api.checklists.create.input.parse(data);
-      const res = await fetch(`https://kimschecklist.onrender.com${api.checklists.create.path}`, {
+      const res = await fetch(`${api.checklists.create.path}`, {
         method: api.checklists.create.method,
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(validated),
@@ -68,7 +68,7 @@ export function useDeleteChecklist() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}`, {
+      const res = await fetch(`/api/checklists/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -85,7 +85,7 @@ export function useUpdateChecklist() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<z.infer<typeof api.checklists.create.input>> }) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}`, {
+      const res = await fetch(`/api/checklists/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(data),
@@ -112,7 +112,7 @@ export function useSaveChecklistComment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, adminComment }: { id: number; adminComment: string }) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/comment`, {
+      const res = await fetch(`/api/checklists/${id}/comment`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ adminComment }),
@@ -130,7 +130,7 @@ export function useConfirmChecklistComment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/confirm`, {
+      const res = await fetch(`/api/checklists/${id}/confirm`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
       });
@@ -148,7 +148,7 @@ export function useSaveChecklistReply() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, staffReply }: { id: number; staffReply: string }) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/reply`, {
+      const res = await fetch(`/api/checklists/${id}/reply`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ staffReply }),
@@ -167,7 +167,7 @@ export function useUpdateChecklistScore() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, adminScore, adminItems }: { id: number; adminScore: number | null; adminItems?: Record<string, 'ok' | 'notok'> | null }) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/score`, {
+      const res = await fetch(`/api/checklists/${id}/score`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ adminScore, adminItems: adminItems ?? null }),
@@ -185,7 +185,7 @@ export function useUpdateChecklistAdScore() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, adAdminScore, adAdminItems }: { id: number; adAdminScore: number | null; adAdminItems?: Record<string, 'ok' | 'notok'> | null }) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/ad-score`, {
+      const res = await fetch(`/api/checklists/${id}/ad-score`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ adAdminScore, adAdminItems: adAdminItems ?? null }),
@@ -203,7 +203,7 @@ export function useUpdateChecklistQualityScore() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, qualityAdminScore, qualityAdminItems }: { id: number; qualityAdminScore: number | null; qualityAdminItems?: Record<string, 'ok' | 'notok'> | null }) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/quality-score`, {
+      const res = await fetch(`/api/checklists/${id}/quality-score`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ qualityAdminScore, qualityAdminItems: qualityAdminItems ?? null }),
@@ -221,7 +221,7 @@ export function useUpdateChecklistItemStatus() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, itemName, newStatus }: { id: number; itemName: string; newStatus: string }) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/item-status`, {
+      const res = await fetch(`/api/checklists/${id}/item-status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ itemName, newStatus }),
@@ -238,7 +238,7 @@ export function useUpdateChecklistItemStatus() {
 export function useChecklistReplies(checklistId: number | null | undefined) {
   return useQuery({
     queryKey: ["/api/checklists", checklistId, "replies"],
-    queryFn: () => fetch(`https://kimschecklist.onrender.com/api/checklists/${checklistId}/replies`, { headers: getAuthHeaders() }).then(r => r.json()),
+    queryFn: () => fetch(`/api/checklists/${checklistId}/replies`, { headers: getAuthHeaders() }).then(r => r.json()),
     enabled: checklistId != null,
   });
 }
@@ -247,7 +247,7 @@ export function useAddChecklistReply() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, content, authorType, photoUrl, photoUrls }: { id: number; content: string; authorType: 'admin' | 'staff'; photoUrl?: string | null; photoUrls?: string[] | null }) => {
-      const res = await fetch(`https://kimschecklist.onrender.com/api/checklists/${id}/replies`, {
+      const res = await fetch(`/api/checklists/${id}/replies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ content, authorType, photoUrl: photoUrl ?? null, photoUrls: photoUrls ?? null }),

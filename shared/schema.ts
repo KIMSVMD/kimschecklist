@@ -99,8 +99,9 @@ export const cleaningInspections = pgTable("cleaning_inspections", {
   branch: text("branch").notNull(),
   zone: text("zone").notNull(),
   inspectionTime: text("inspection_time").notNull(), // 오픈 / 마감
-  items: jsonb("items").$type<Record<string, { status: string; photoUrl?: string | null; memo?: string | null }>>(),
+  items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }>>(),
   overallStatus: text("overall_status").notNull(), // ok / issue
+  staffName: text("staff_name"), // 등록자 이름, 새 점검 등록 코드 입력 시 받음 — 옛 기록엔 없을 수 있음
   adminComment: text("admin_comment"),
   commentConfirmed: boolean("comment_confirmed").default(false),
   staffReply: text("staff_reply"),
@@ -147,6 +148,57 @@ export const insertCleaningReplySchema = createInsertSchema(cleaningReplies).omi
 
 export type InsertCleaningReply = z.infer<typeof insertCleaningReplySchema>;
 export type CleaningReply = typeof cleaningReplies.$inferSelect;
+
+// HQ admin's on-site monthly monitoring visit — one record per branch per month,
+// holding a growing list of (zone + photo + its own comment) entries from that visit
+export const cleaningMonitoringFeedback = pgTable("cleaning_monitoring_feedback", {
+  id: serial("id").primaryKey(),
+  branch: text("branch").notNull(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+  items: jsonb("items").$type<{ zone: string; photoUrl: string; comment: string | null; afterPhotoUrl?: string | null; createdAt?: string }[]>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCleaningMonitoringFeedbackSchema = createInsertSchema(cleaningMonitoringFeedback).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCleaningMonitoringFeedback = z.infer<typeof insertCleaningMonitoringFeedbackSchema>;
+export type CleaningMonitoringFeedback = typeof cleaningMonitoringFeedback.$inferSelect;
+
+// Live "in-progress" snapshot of a cleaning zone being filled out right now — one row
+// per (branch, zone), overwritten on every photo/status change so other staff/admin
+// viewing that branch can see photos as they're uploaded, before the final submit.
+// Cleared once the zone's real cleaningInspections record is submitted.
+export const cleaningDrafts = pgTable("cleaning_drafts", {
+  id: serial("id").primaryKey(),
+  branch: text("branch").notNull(),
+  zone: text("zone").notNull(),
+  inspectionTime: text("inspection_time").notNull().default("오픈"),
+  items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }>>(),
+  staffName: text("staff_name"), // 지금 작성 중인 사람 이름 — 새 점검 등록 코드 입력 시 받음
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCleaningDraftSchema = createInsertSchema(cleaningDrafts).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertCleaningDraft = z.infer<typeof insertCleaningDraftSchema>;
+export type CleaningDraft = typeof cleaningDrafts.$inferSelect;
+
+// 4-digit access code per branch — required before starting/editing that branch's checklists
+export const branchAccessCodes = pgTable("branch_access_codes", {
+  branch: text("branch").primaryKey(),
+  code: text("code").notNull(),
+});
+
+export const insertBranchAccessCodeSchema = createInsertSchema(branchAccessCodes);
+export type InsertBranchAccessCode = z.infer<typeof insertBranchAccessCodeSchema>;
+export type BranchAccessCode = typeof branchAccessCodes.$inferSelect;
 
 // Tracks when admin overrides an item's status (score change notifications for staff)
 export const staffScoreNotifications = pgTable("staff_score_notifications", {
