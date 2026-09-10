@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply } from "../shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, cleaningMonitoringFeedback, cleaningDrafts, branchAccessCodes, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply, type CleaningMonitoringFeedback, type InsertCleaningMonitoringFeedback, type CleaningDraft, type InsertCleaningDraft } from "../shared/schema";
 import { desc, eq, asc, gte, and, sql, isNotNull } from "drizzle-orm";
 
 function filterGuidesByDate(rows: Guide[], year?: number, month?: number): Guide[] {
@@ -75,6 +75,15 @@ export interface IStorage {
   updateProductFiles(id: number, fileUrls: string[]): Promise<Product>;
   deleteProduct(id: number): Promise<void>;
   getCleaningInspections(filters?: { branch?: string; date?: string }): Promise<CleaningInspection[]>;
+  findCleaningPhotoHash(hash: string): Promise<{ branch: string; zone: string; item: string; slot: "before" | "after"; createdAt: Date } | null>;
+  getCleaningMonitoringFeedback(filters?: { branch?: string; year?: number; month?: number }): Promise<CleaningMonitoringFeedback[]>;
+  upsertCleaningMonitoringFeedback(data: InsertCleaningMonitoringFeedback): Promise<CleaningMonitoringFeedback>;
+  addMonitoringAfterPhoto(id: number, itemIndex: number, afterPhotoUrl: string): Promise<CleaningMonitoringFeedback | undefined>;
+  getCleaningDrafts(branch?: string): Promise<CleaningDraft[]>;
+  upsertCleaningDraft(data: InsertCleaningDraft): Promise<CleaningDraft>;
+  deleteCleaningDraft(branch: string, zone: string): Promise<void>;
+  verifyBranchAccessCode(branch: string, code: string): Promise<boolean>;
+  findBranchByAccessCode(code: string): Promise<string | null>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
   updateCleaningInspection(id: number, data: Record<string, any>): Promise<CleaningInspection | undefined>;
   deleteCleaningInspection(id: number): Promise<void>;
@@ -240,6 +249,107 @@ export class DatabaseStorage implements IStorage {
       return rows;
     }
     return query;
+  }
+
+  async findCleaningPhotoHash(hash: string): Promise<{ branch: string; zone: string; item: string; slot: "before" | "after"; createdAt: Date } | null> {
+    const rows = await db.select().from(cleaningInspections);
+    for (const row of rows) {
+      const items = (row.items as Record<string, any>) || {};
+      for (const [itemName, data] of Object.entries(items)) {
+        if (data?.beforePhotoHash === hash) {
+          return { branch: row.branch, zone: row.zone, item: itemName, slot: "before", createdAt: row.createdAt };
+        }
+        if (data?.afterPhotoHash === hash) {
+          return { branch: row.branch, zone: row.zone, item: itemName, slot: "after", createdAt: row.createdAt };
+        }
+      }
+    }
+    return null;
+  }
+
+  async getCleaningMonitoringFeedback(filters?: { branch?: string; year?: number; month?: number }): Promise<CleaningMonitoringFeedback[]> {
+    const conditions = [];
+    if (filters?.branch) conditions.push(eq(cleaningMonitoringFeedback.branch, filters.branch));
+    if (filters?.year) conditions.push(eq(cleaningMonitoringFeedback.year, filters.year));
+    if (filters?.month) conditions.push(eq(cleaningMonitoringFeedback.month, filters.month));
+    const query = db.select().from(cleaningMonitoringFeedback).orderBy(desc(cleaningMonitoringFeedback.createdAt));
+    if (conditions.length > 0) {
+      return await query.where(and(...conditions));
+    }
+    return await query;
+  }
+
+  async upsertCleaningMonitoringFeedback(data: InsertCleaningMonitoringFeedback): Promise<CleaningMonitoringFeedback> {
+    const existing = await db.select().from(cleaningMonitoringFeedback)
+      .where(and(
+        eq(cleaningMonitoringFeedback.branch, data.branch),
+        eq(cleaningMonitoringFeedback.year, data.year),
+        eq(cleaningMonitoringFeedback.month, data.month),
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(cleaningMonitoringFeedback)
+        .set({ items: data.items })
+        .where(eq(cleaningMonitoringFeedback.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [row] = await db.insert(cleaningMonitoringFeedback).values(data).returning();
+    return row;
+  }
+
+  async addMonitoringAfterPhoto(id: number, itemIndex: number, afterPhotoUrl: string): Promise<CleaningMonitoringFeedback | undefined> {
+    const [existing] = await db.select().from(cleaningMonitoringFeedback).where(eq(cleaningMonitoringFeedback.id, id));
+    if (!existing) return undefined;
+    const items = ((existing.items as any[]) || []).slice();
+    if (!items[itemIndex]) return existing;
+    items[itemIndex] = { ...items[itemIndex], afterPhotoUrl };
+    const [updated] = await db.update(cleaningMonitoringFeedback)
+      .set({ items })
+      .where(eq(cleaningMonitoringFeedback.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getCleaningDrafts(branch?: string): Promise<CleaningDraft[]> {
+    const query = db.select().from(cleaningDrafts).orderBy(desc(cleaningDrafts.updatedAt));
+    if (branch) {
+      return await query.where(eq(cleaningDrafts.branch, branch));
+    }
+    return await query;
+  }
+
+  async upsertCleaningDraft(data: InsertCleaningDraft): Promise<CleaningDraft> {
+    const existing = await db.select().from(cleaningDrafts)
+      .where(and(eq(cleaningDrafts.branch, data.branch), eq(cleaningDrafts.zone, data.zone)))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(cleaningDrafts)
+        .set({ items: data.items, inspectionTime: data.inspectionTime, updatedAt: new Date() })
+        .where(eq(cleaningDrafts.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [row] = await db.insert(cleaningDrafts).values(data).returning();
+    return row;
+  }
+
+  async deleteCleaningDraft(branch: string, zone: string): Promise<void> {
+    await db.delete(cleaningDrafts).where(and(eq(cleaningDrafts.branch, branch), eq(cleaningDrafts.zone, zone)));
+  }
+
+  async verifyBranchAccessCode(branch: string, code: string): Promise<boolean> {
+    const [row] = await db.select().from(branchAccessCodes).where(eq(branchAccessCodes.branch, branch));
+    return !!row && row.code === code;
+  }
+
+  async findBranchByAccessCode(code: string): Promise<string | null> {
+    const [row] = await db.select().from(branchAccessCodes).where(eq(branchAccessCodes.code, code));
+    return row?.branch ?? null;
   }
 
   async upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }> {

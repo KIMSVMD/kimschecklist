@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import {
@@ -10,8 +10,14 @@ import {
   useDeleteGuide,
 } from "@/hooks/use-guides";
 import { useProducts, useCreateProduct, useDeleteProduct, useUpsertProductFile, useUpdateProductFiles } from "@/hooks/use-products";
+import { useCleaningInspections } from "@/hooks/use-cleaning";
+import { useCleaningMonitoringFeedback, useSaveCleaningMonitoringFeedback } from "@/hooks/use-cleaning-monitoring";
+import { calcCleaningScore, scoreColor, computeAbsoluteGrade, gradeColor } from "@/lib/scoring";
+import { PhotoThumbnail } from "@/components/PhotoLightbox";
 import type { Guide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 import {
   Plus,
   Pencil,
@@ -22,6 +28,8 @@ import {
   Image as ImageIcon,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   BarChart3,
   Package,
   BookOpen,
@@ -34,9 +42,27 @@ import {
   Tag,
   Ruler,
   MapPin as MapPinIcon,
+  Droplets,
+  AlertCircle,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 const CATEGORIES = ['농산', '수산', '축산', '공산'];
+
+const BRANCH_REGIONS: Record<string, string[]> = {
+  '대형점': ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로'],
+  '중형점': ['구의', '유성', '일산', '수성', '광명', '쇼핑', '해운대', '산본', '동수원', '괴정'],
+  '소형점': ['부산대', '인천', '고잔', '중계', '김포', '청주'],
+};
+const ALL_BRANCHES = Object.values(BRANCH_REGIONS).flat();
 
 // ── 품질 가이드 전용 정적 데이터 ───────────────────────────────────────────────
 
@@ -1348,6 +1374,674 @@ function QualityProductManager() {
   );
 }
 
+// Monday-start calendar week containing `d` (used to bucket cleaning records by week)
+function getMondayOfWeek(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  return date;
+}
+
+const CLEANING_TREND_WEEKS = 8;
+const CLEANING_ZONES = ['공통', '농산', '축산', '수산', '공산'];
+
+// Week N = the Nth Monday-start calendar week of `weekStart`'s own month
+function getMonthWeekLabel(weekStart: Date) {
+  const year = weekStart.getFullYear();
+  const month = weekStart.getMonth() + 1;
+  const firstMonday = getMondayOfWeek(new Date(year, weekStart.getMonth(), 1));
+  const week = Math.round((weekStart.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return { year, month, week };
+}
+
+function CleaningManager() {
+  const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos' | 'monitoring'>('score');
+  const [selectedBranch, setSelectedBranch] = useState('전체');
+  const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
+  const [scoreWeekStart, setScoreWeekStart] = useState(() => getMondayOfWeek(new Date()));
+  const { data: records = [], isLoading } = useCleaningInspections();
+
+  const branches = useMemo(
+    () => [...new Set(records.map(r => r.branch))].sort(),
+    [records]
+  );
+
+  const scoreWeekEnd = useMemo(() => {
+    const e = new Date(scoreWeekStart);
+    e.setDate(e.getDate() + 6);
+    e.setHours(23, 59, 59, 999);
+    return e;
+  }, [scoreWeekStart]);
+  const prevScoreWeekStart = useMemo(() => {
+    const d = new Date(scoreWeekStart);
+    d.setDate(d.getDate() - 7);
+    return d;
+  }, [scoreWeekStart]);
+  const prevScoreWeekEnd = useMemo(() => {
+    const e = new Date(prevScoreWeekStart);
+    e.setDate(e.getDate() + 6);
+    e.setHours(23, 59, 59, 999);
+    return e;
+  }, [prevScoreWeekStart]);
+  const isCurrentScoreWeek = useMemo(() => {
+    const now = new Date();
+    return now >= scoreWeekStart && now <= scoreWeekEnd;
+  }, [scoreWeekStart, scoreWeekEnd]);
+  const scoreWeekLabel = useMemo(() => getMonthWeekLabel(scoreWeekStart), [scoreWeekStart]);
+  const goPrevScoreWeek = () => setScoreWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() - 7); return d; });
+  const goNextScoreWeek = () => setScoreWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() + 7); return d; });
+
+  const weeklyTrend = useMemo(() => {
+    const weeks: { key: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = CLEANING_TREND_WEEKS - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i * 7);
+      const monday = getMondayOfWeek(d);
+      weeks.push({ key: monday.toISOString().slice(0, 10), label: `${monday.getMonth() + 1}/${monday.getDate()}` });
+    }
+    const buckets: Record<string, number[]> = {};
+    weeks.forEach(w => { buckets[w.key] = []; });
+    records
+      .filter(r => selectedBranch === '전체' || r.branch === selectedBranch)
+      .forEach(r => {
+        const key = getMondayOfWeek(new Date(r.createdAt)).toISOString().slice(0, 10);
+        if (!(key in buckets)) return;
+        const items = (r.items as Record<string, { status: string }>) || {};
+        if (Object.keys(items).length > 0) buckets[key].push(calcCleaningScore(items));
+      });
+    return weeks.map(w => {
+      const scores = buckets[w.key];
+      return {
+        label: w.label,
+        score: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+      };
+    });
+  }, [records, selectedBranch]);
+
+  const avgByBranchInRange = (start: Date, end: Date) => {
+    const byBranch: Record<string, number[]> = {};
+    records
+      .filter(r => { const d = new Date(r.createdAt); return d >= start && d <= end; })
+      .forEach(r => {
+        const items = (r.items as Record<string, { status: string }>) || {};
+        if (Object.keys(items).length === 0) return;
+        (byBranch[r.branch] ??= []).push(calcCleaningScore(items));
+      });
+    return byBranch;
+  };
+
+  const branchScores = useMemo(() => {
+    const current = avgByBranchInRange(scoreWeekStart, scoreWeekEnd);
+    const prev = avgByBranchInRange(prevScoreWeekStart, prevScoreWeekEnd);
+    return branches
+      .map(branch => {
+        const scores = current[branch] || [];
+        const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+        const prevScores = prev[branch] || [];
+        const prevAvg = prevScores.length > 0 ? Math.round(prevScores.reduce((a, b) => a + b, 0) / prevScores.length) : null;
+        const delta = avg !== null && prevAvg !== null ? avg - prevAvg : null;
+        return { branch, avg, count: scores.length, delta };
+      })
+      .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1));
+  }, [records, branches, scoreWeekStart, scoreWeekEnd, prevScoreWeekStart, prevScoreWeekEnd]);
+
+  const branchZoneScores = useMemo(() => {
+    const map: Record<string, Record<string, number[]>> = {};
+    records
+      .filter(r => { const d = new Date(r.createdAt); return d >= scoreWeekStart && d <= scoreWeekEnd; })
+      .forEach(r => {
+        const items = (r.items as Record<string, { status: string }>) || {};
+        if (Object.keys(items).length === 0) return;
+        const byZone = (map[r.branch] ??= {});
+        (byZone[r.zone] ??= []).push(calcCleaningScore(items));
+      });
+    return map;
+  }, [records, scoreWeekStart, scoreWeekEnd]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Sub-tab: score overview / photo review */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setCleaningSubTab('score')}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+            cleaningSubTab === 'score' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid="tab-cleaning-score"
+        >
+          점수 현황
+        </button>
+        <button
+          onClick={() => setCleaningSubTab('photos')}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+            cleaningSubTab === 'photos' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid="tab-cleaning-photos"
+        >
+          사진 확인
+        </button>
+        <button
+          onClick={() => setCleaningSubTab('monitoring')}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+            cleaningSubTab === 'monitoring' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid="tab-cleaning-monitoring"
+        >
+          모니터링 피드백
+        </button>
+      </div>
+
+      {cleaningSubTab === 'photos' ? (
+        <CleaningPhotoReview records={records} branches={branches} />
+      ) : cleaningSubTab === 'monitoring' ? (
+        <CleaningMonitoringManager />
+      ) : (
+        <div className="space-y-4">
+      {/* Week navigator */}
+      <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
+        <button onClick={goPrevScoreWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-score-prev-week">
+          <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <span className="font-bold text-sm text-foreground">
+          {isCurrentScoreWeek ? '이번주 · ' : ''}{scoreWeekLabel.year}년 {scoreWeekLabel.month}월 {scoreWeekLabel.week}주차
+        </span>
+        <button onClick={goNextScoreWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-score-next-week">
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
+      </div>
+
+      {/* Branch score table */}
+      <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
+        <div className="px-4 py-3 bg-emerald-50 border-b border-border flex items-center justify-between">
+          <span className="font-black text-emerald-700 text-base">지점별 청소 점수</span>
+          <span className="text-xs text-muted-foreground font-medium">전주 대비</span>
+        </div>
+        {branchScores.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 없습니다.</div>
+        ) : (
+          <div className="divide-y divide-border/50">
+            {branchScores.map(({ branch, avg, count, delta }, i) => {
+              const isExpanded = expandedBranch === branch;
+              const grade = avg !== null ? computeAbsoluteGrade(avg) : null;
+              return (
+                <div key={branch}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedBranch(isExpanded ? null : branch)}
+                    className="w-full flex items-center justify-between px-4 py-3 gap-2 active:bg-muted/40 transition-colors"
+                    data-testid={`btn-cleaning-branch-${branch}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-mono text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="text-sm font-bold text-secondary truncate">{branch}점</span>
+                      <span className="text-xs text-muted-foreground">{count}건</span>
+                    </div>
+                    {avg !== null ? (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(avg)}`}>{avg}점</div>
+                          {delta !== null && delta !== 0 && (
+                            <div className={`text-[10px] font-bold mt-0.5 ${delta > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                              {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
+                            </div>
+                          )}
+                        </div>
+                        {grade && (
+                          <span className={`px-2 py-1 rounded-lg border text-xs font-black ${gradeColor(grade)}`}>{grade}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">기록 없음</span>
+                    )}
+                  </button>
+                  {isExpanded && (
+                    <div className="grid grid-cols-5 gap-1.5 px-4 pb-3 bg-gray-50/60">
+                      {CLEANING_ZONES.map(zone => {
+                        const scores = branchZoneScores[branch]?.[zone] || [];
+                        const zoneAvg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+                        return (
+                          <div key={zone} className="rounded-xl border border-border bg-white p-2 text-center">
+                            <p className="text-[11px] font-bold text-muted-foreground mb-1 truncate">{zone}</p>
+                            {zoneAvg !== null ? (
+                              <span className={`inline-block px-1.5 py-0.5 rounded-lg border text-xs font-black ${scoreColor(zoneAvg)}`}>{zoneAvg}</span>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Weekly trend chart */}
+      <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <span className="font-black text-secondary text-base">주간 점수 추이</span>
+          <select
+            value={selectedBranch}
+            onChange={e => setSelectedBranch(e.target.value)}
+            className="text-sm font-bold px-3 py-1.5 rounded-lg border border-border bg-white"
+            data-testid="select-cleaning-trend-branch"
+          >
+            <option value="전체">전체 평균</option>
+            {branches.map(b => <option key={b} value={b}>{b}점</option>)}
+          </select>
+        </div>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={weeklyTrend} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: any) => (v == null ? '기록 없음' : `${v}점`)} />
+              <Line type="monotone" dataKey="score" stroke="#006341" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CleaningPhotoReview({ records, branches }: { records: any[]; branches: string[] }) {
+  const [branch, setBranch] = useState(branches[0] || '');
+  const [zoneFilter, setZoneFilter] = useState('전체');
+  const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()));
+
+  useEffect(() => {
+    if (!branch && branches.length > 0) setBranch(branches[0]);
+  }, [branches, branch]);
+
+  const weekEnd = useMemo(() => {
+    const e = new Date(weekStart);
+    e.setDate(e.getDate() + 6);
+    e.setHours(23, 59, 59, 999);
+    return e;
+  }, [weekStart]);
+
+  const isCurrentWeek = useMemo(() => {
+    const now = new Date();
+    return now >= weekStart && now <= weekEnd;
+  }, [weekStart, weekEnd]);
+
+  const weekRecords = useMemo(() => {
+    return records
+      .filter(r => r.branch === branch)
+      .filter(r => zoneFilter === '전체' || r.zone === zoneFilter)
+      .filter(r => { const d = new Date(r.createdAt); return d >= weekStart && d <= weekEnd; })
+      .sort((a, b) => CLEANING_ZONES.indexOf(a.zone) - CLEANING_ZONES.indexOf(b.zone));
+  }, [records, branch, zoneFilter, weekStart, weekEnd]);
+
+  const goPrevWeek = () => setWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() - 7); return d; });
+  const goNextWeek = () => setWeekStart(w => { const d = new Date(w); d.setDate(d.getDate() + 7); return d; });
+
+  const weekLabel = `${weekStart.getMonth() + 1}/${weekStart.getDate()} ~ ${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <select
+          value={branch}
+          onChange={e => setBranch(e.target.value)}
+          className="flex-1 text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
+          data-testid="select-cleaning-photo-branch"
+        >
+          {branches.length === 0 && <option value="">지점 없음</option>}
+          {branches.map(b => <option key={b} value={b}>{b}점</option>)}
+        </select>
+        <select
+          value={zoneFilter}
+          onChange={e => setZoneFilter(e.target.value)}
+          className="flex-1 text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
+          data-testid="select-cleaning-photo-zone"
+        >
+          <option value="전체">전체 구역</option>
+          {CLEANING_ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
+        <button onClick={goPrevWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-photo-prev-week">
+          <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <span className="font-bold text-sm text-foreground">
+          {isCurrentWeek ? '이번주 · ' : ''}{weekLabel}
+        </span>
+        <button onClick={goNextWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-photo-next-week">
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
+      </div>
+
+      {!branch ? (
+        <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 있는 지점이 없습니다.</div>
+      ) : weekRecords.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground text-sm">
+          이 기간엔 {branch}점{zoneFilter !== '전체' ? ` · ${zoneFilter}` : ''} 청소 점검 기록이 없습니다.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {weekRecords.map(record => {
+            const items = (record.items as Record<string, any>) || {};
+            return (
+              <div key={record.id} className="rounded-2xl border border-border bg-white overflow-hidden shadow-sm">
+                <div className="px-4 py-2.5 bg-gray-50 border-b border-border flex items-center justify-between">
+                  <span className="font-black text-secondary text-sm">
+                    {record.zone}
+                    {record.staffName && <span className="font-bold text-muted-foreground ml-1.5">· {record.staffName}님</span>}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(record.createdAt), 'MM월 dd일 HH:mm', { locale: ko })}
+                  </span>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {Object.entries(items).map(([name, data]: [string, any]) => {
+                    const before = data?.beforePhotoUrl ?? data?.photoUrl ?? null;
+                    const after = data?.afterPhotoUrl ?? null;
+                    const hasPhoto = !!(before || after);
+                    return (
+                      <div key={name} className="p-3.5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-bold text-secondary">{name}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${data?.status === 'issue' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {data?.status === 'issue' ? '문제' : '정상'}
+                          </span>
+                        </div>
+                        {hasPhoto ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {before ? (
+                              <PhotoThumbnail src={before} className="block">
+                                <img src={before} alt={`${name} 전`} className="w-full h-28 object-cover rounded-xl border border-border" />
+                              </PhotoThumbnail>
+                            ) : (
+                              <div className="w-full h-28 rounded-xl border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">전 사진 없음</div>
+                            )}
+                            {after ? (
+                              <PhotoThumbnail src={after} className="block">
+                                <img src={after} alt={`${name} 후`} className="w-full h-28 object-cover rounded-xl border border-border" />
+                              </PhotoThumbnail>
+                            ) : (
+                              <div className="w-full h-28 rounded-xl border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">후 사진 없음</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 w-fit">
+                            <AlertCircle className="w-3.5 h-3.5" /> 사진 없음
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type MonitoringItem = { zone: string; photoUrl: string; comment: string; afterPhotoUrl?: string | null; createdAt?: string };
+const MONITORING_AFTER_PHOTO_DEADLINE_DAYS = 7;
+
+// Days left until the after-photo deadline (negative once overdue). Items without a
+// createdAt (added before this feature existed) have no deadline.
+function getMonitoringDaysLeft(createdAt?: string): number | null {
+  if (!createdAt) return null;
+  const deadline = new Date(createdAt);
+  deadline.setDate(deadline.getDate() + MONITORING_AFTER_PHOTO_DEADLINE_DAYS);
+  return Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
+function CleaningMonitoringManager() {
+  const { toast } = useToast();
+  const [branch, setBranch] = useState(ALL_BRANCHES[0] || '');
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [items, setItems] = useState<MonitoringItem[]>([]);
+  const [uploadingZone, setUploadingZone] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const { data: feedbackList = [], isLoading } = useCleaningMonitoringFeedback({ branch, year, month });
+  const existing = feedbackList[0];
+  const saveMutation = useSaveCleaningMonitoringFeedback();
+
+  useEffect(() => {
+    const loaded = (existing?.items as MonitoringItem[] | null) || [];
+    setItems(loaded.map(i => ({ zone: i.zone, photoUrl: i.photoUrl, comment: i.comment || '', afterPhotoUrl: i.afterPhotoUrl ?? null, createdAt: i.createdAt })));
+  }, [existing?.id, branch, year, month]);
+
+  const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
+  const nextMonth = () => { if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1); };
+
+  const handleAddPhotos = async (zone: string, fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList); // snapshot before any await — the input gets cleared right after this call
+    setUploadingZone(zone);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      // Upload each photo independently — with `multiple` select, one flaky/failed
+      // photo must not discard the others that uploaded fine (previously used
+      // Promise.all, which rejected the whole batch on a single failure).
+      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      const createdAt = new Date().toISOString();
+      const uploaded = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled').map(r => r.value);
+      const failedCount = results.length - uploaded.length;
+      if (uploaded.length > 0) {
+        setItems(prev => [...prev, ...uploaded.map(url => ({ zone, photoUrl: url, comment: '', createdAt }))]);
+      }
+      if (failedCount > 0) {
+        results.forEach(r => { if (r.status === 'rejected') console.error('monitoring photo upload failed', r.reason); });
+        toast({
+          title: uploaded.length > 0 ? `사진 ${failedCount}장 업로드 실패` : '사진 업로드 실패',
+          description: uploaded.length > 0 ? `${uploaded.length}장은 업로드되었습니다. 실패한 사진은 다시 시도해주세요.` : undefined,
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('monitoring photo upload failed', err);
+      toast({ title: '사진 업로드 실패', variant: 'destructive' });
+    } finally {
+      setUploadingZone(null);
+    }
+  };
+
+  const handleCommentChange = (idx: number, comment: string) => {
+    setItems(prev => prev.map((it, i) => (i === idx ? { ...it, comment } : it)));
+  };
+
+  const handleRemoveItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
+
+  const handleClearAfterPhoto = (idx: number) =>
+    setItems(prev => prev.map((it, i) => (i === idx ? { ...it, afterPhotoUrl: null } : it)));
+
+  const handleSave = async () => {
+    if (!branch) { toast({ title: '지점을 선택해주세요', variant: 'destructive' }); return; }
+    try {
+      await saveMutation.mutateAsync({ branch, year, month, items });
+      toast({ title: '모니터링 피드백 저장 완료' });
+    } catch (err: any) {
+      toast({ title: '저장 실패', description: err?.message, variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <select
+        value={branch}
+        onChange={e => setBranch(e.target.value)}
+        className="w-full text-sm font-bold px-3 py-2.5 rounded-xl border border-border bg-white"
+        data-testid="select-monitoring-branch"
+      >
+        {Object.entries(BRANCH_REGIONS).map(([region, regionBranches]) => (
+          <optgroup key={region} label={region}>
+            {regionBranches.map(b => <option key={b} value={b}>{b}점</option>)}
+          </optgroup>
+        ))}
+      </select>
+
+      <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
+        <button onClick={prevMonth} className="active:scale-95 transition-all" data-testid="btn-monitoring-prev-month">
+          <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <span className="font-bold text-sm text-foreground">{year}년 {month}월</span>
+        <button onClick={nextMonth} className="active:scale-95 transition-all" data-testid="btn-monitoring-next-month">
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between px-1">
+            <span className="font-black text-secondary text-sm">{branch ? `${branch}점` : ''} {month}월 모니터링</span>
+            {items.length > 0 ? (
+              <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{items.length}건 진행</span>
+            ) : (
+              <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">미진행</span>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {CLEANING_ZONES.map(zone => {
+              const zoneItems = items
+                .map((item, idx) => ({ item, idx }))
+                .filter(({ item }) => item.zone === zone);
+              return (
+                <div key={zone} className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-secondary text-sm">{zone}</span>
+                    {zoneItems.length > 0 && (
+                      <span className="text-[11px] font-bold bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{zoneItems.length}건</span>
+                    )}
+                  </div>
+
+                  {zoneItems.map(({ item, idx }) => (
+                    <div key={idx} className="flex gap-3 rounded-xl border border-border p-3">
+                      <div className="shrink-0 text-center">
+                        <img src={item.photoUrl} className="w-20 h-20 object-cover rounded-lg border border-border" alt={`${zone} 모니터링 사진`} />
+                        <p className="text-[10px] font-bold text-muted-foreground mt-1">피드백 내용</p>
+                      </div>
+                      {item.afterPhotoUrl ? (
+                        <div className="shrink-0 text-center">
+                          <div className="relative">
+                            <img src={item.afterPhotoUrl} className="w-20 h-20 object-cover rounded-lg border-2 border-emerald-300" alt={`${zone} 조치 후 사진`} />
+                            <button
+                              type="button"
+                              onClick={() => handleClearAfterPhoto(idx)}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                              aria-label="조치 후 사진 삭제"
+                              data-testid={`btn-monitoring-clear-after-photo-${idx}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <p className="text-[10px] font-bold text-emerald-600 mt-1">매장 조치</p>
+                        </div>
+                      ) : (() => {
+                        const daysLeft = getMonitoringDaysLeft(item.createdAt);
+                        const overdue = daysLeft !== null && daysLeft < 0;
+                        return (
+                          <div
+                            className={`shrink-0 w-20 h-20 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-0.5 text-center px-1 ${
+                              overdue ? 'border-red-300 bg-red-50' : 'border-border'
+                            }`}
+                          >
+                            <span className={`text-[10px] font-bold ${overdue ? 'text-red-600' : 'text-muted-foreground'}`}>
+                              {overdue ? '기한 초과' : '조치 대기중'}
+                            </span>
+                            {daysLeft !== null && (
+                              <span className={`text-[9px] ${overdue ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                {overdue ? `${Math.abs(daysLeft)}일 지남` : `D-${daysLeft}`}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <textarea
+                          value={item.comment}
+                          onChange={e => handleCommentChange(idx, e.target.value)}
+                          placeholder="이 사진에 대한 피드백을 입력하세요..."
+                          className="w-full p-2.5 rounded-lg border border-border text-sm focus:outline-none focus:border-primary transition-all resize-none h-16"
+                          data-testid={`textarea-monitoring-comment-${idx}`}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(idx)}
+                        className="w-6 h-6 rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 flex items-center justify-center shrink-0"
+                        data-testid={`btn-monitoring-remove-${idx}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRefs.current[zone]?.click()}
+                    disabled={uploadingZone === zone}
+                    className="w-full py-3 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
+                    data-testid={`btn-monitoring-add-photo-${zone}`}
+                  >
+                    {uploadingZone === zone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    {zone} 사진 추가하기
+                  </button>
+                  <input
+                    ref={el => { fileInputRefs.current[zone] = el; }}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={e => { handleAddPhotos(zone, e.target.files); e.target.value = ''; }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={handleSave}
+            disabled={saveMutation.isPending || !branch}
+            className="w-full py-3.5 rounded-xl text-white font-black text-sm active:scale-[0.98] transition-all disabled:opacity-50"
+            style={{ background: '#006341' }}
+            data-testid="btn-monitoring-save"
+          >
+            {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `${month}월 모니터링 피드백 저장`}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function GuideAdmin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -1358,7 +2052,7 @@ export default function GuideAdmin() {
   const updateMutation = useUpdateGuide();
   const deleteMutation = useDeleteGuide();
 
-  const [activeTab, setActiveTab] = useState<'guides' | 'products'>('guides');
+  const [activeTab, setActiveTab] = useState<'guides' | 'products' | 'cleaning'>('guides');
   const [productSubTab, setProductSubTab] = useState<'vm' | 'quality'>('vm');
   const [guideCategory, setGuideCategory] = useState<string>('전체');
   const [guideTypeFilter, setGuideTypeFilter] = useState<'vm' | 'ad' | 'quality'>('vm');
@@ -1549,6 +2243,15 @@ export default function GuideAdmin() {
           >
             <Package className="w-5 h-5" /> 상품 관리
           </button>
+          <button
+            onClick={() => setActiveTab('cleaning')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-base transition-all ${
+              activeTab === 'cleaning' ? 'bg-white text-primary shadow-sm' : 'bg-transparent text-muted-foreground hover:bg-white/60'
+            }`}
+            data-testid="tab-cleaning"
+          >
+            <Droplets className="w-5 h-5" /> 청소 관리
+          </button>
         </div>
 
         {/* Guide type filter — outside scroll so border spans full width */}
@@ -1571,7 +2274,9 @@ export default function GuideAdmin() {
         )}
 
         <div className="flex-1 overflow-y-auto px-4 md:px-[50px] pt-4 pb-6 space-y-4 w-full">
-          {activeTab === 'products' ? (
+          {activeTab === 'cleaning' ? (
+            <CleaningManager />
+          ) : activeTab === 'products' ? (
             <div className="space-y-4">
               {/* 상품관리 서브탭: 진열(+광고) / 품질 */}
               <div className="flex gap-2">
