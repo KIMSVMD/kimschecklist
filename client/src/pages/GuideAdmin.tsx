@@ -1401,10 +1401,10 @@ function CleaningManager() {
   const [scoreWeekStart, setScoreWeekStart] = useState(() => getMondayOfWeek(new Date()));
   const { data: records = [], isLoading } = useCleaningInspections();
 
-  const branches = useMemo(
-    () => [...new Set(records.map(r => r.branch))].sort(),
-    [records]
-  );
+  // Full branch list (not just branches that already submitted something) so an admin
+  // can select a branch that hasn't checked in yet — same list the 모니터링 피드백
+  // sub-tab already uses.
+  const branches = ALL_BRANCHES;
 
   const scoreWeekEnd = useMemo(() => {
     const e = new Date(scoreWeekStart);
