@@ -13,6 +13,30 @@ import { calcCleaningScore } from "@/lib/scoring";
 
 const ZONES = ["공통", "농산", "축산", "수산", "공산"];
 
+// Monday-start "N주차" weeks of a month — week 1 is the Mon–Sun week containing the 1st
+// (may start in the previous month), matching the convention used across the app.
+function getMondayOfWeek(d: Date) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  return date;
+}
+function getWeekRangesInMonth(year: number, month: number) {
+  const first = new Date(year, month - 1, 1);
+  const last = new Date(year, month, 0);
+  const ranges: { start: Date; end: Date }[] = [];
+  let cur = getMondayOfWeek(first);
+  while (cur <= last) {
+    const start = new Date(cur);
+    const end = new Date(cur);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    ranges.push({ start, end });
+    cur = new Date(cur);
+    cur.setDate(cur.getDate() + 7);
+  }
+  return ranges;
+}
+
 type ItemData = {
   status?: string | null;
   memo?: string | null;
@@ -63,6 +87,37 @@ export default function CleaningReport() {
       });
   }, [records, branch, year, month]);
 
+  // Per-week progress + score summary for the selected branch + month.
+  const weeklySummary = useMemo(() => {
+    const ranges = getWeekRangesInMonth(year, month);
+    const inRange = (records as any[])
+      .filter(r => branch === "전체" || r.branch === branch)
+      .filter(r => Object.keys((r.items as Record<string, unknown>) || {}).length > 0);
+    const zoneUnit = branch === "전체" ? Math.max(allBranches.length, 1) * ZONES.length : ZONES.length;
+    const rows = ranges.map((rg, i) => {
+      const wk = inRange.filter(r => {
+        const d = new Date(r.createdAt);
+        return d >= rg.start && d <= rg.end;
+      });
+      const doneZones = new Set(wk.map(r => `${r.branch}/${r.zone}`)).size;
+      const scores = wk.map(r => calcCleaningScore((r.items as any) || {}));
+      const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+      return {
+        label: `${i + 1}주차`,
+        range: `${rg.start.getMonth() + 1}/${rg.start.getDate()}~${rg.end.getMonth() + 1}/${rg.end.getDate()}`,
+        doneZones,
+        zoneUnit,
+        rate: Math.round((doneZones / zoneUnit) * 100),
+        avg,
+      };
+    });
+    const allScores = inRange
+      .filter(r => { const d = new Date(r.createdAt); return d >= periodStart && d <= periodEnd; })
+      .map(r => calcCleaningScore((r.items as any) || {}));
+    const monthAvg = allScores.length > 0 ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : null;
+    return { rows, monthAvg };
+  }, [records, branch, year, month, allBranches.length]);
+
   const prevMonth = () => {
     if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
   };
@@ -99,10 +154,16 @@ export default function CleaningReport() {
         .photo img { width: 100%; height: 165px; object-fit: cover; border: 1px solid #ddd; border-radius: 8px; display: block; }
         .photo span { font-size: 10px; color: #888; }
         .empty { color: #888; padding: 40px 0; text-align: center; }
+        .summary { border: 1px solid #ccc; border-radius: 10px; padding: 14px; margin-bottom: 20px; break-inside: avoid; }
+        .summary h2 { font-size: 14px; font-weight: 800; margin: 0 0 10px; }
+        .summary table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .summary th, .summary td { border: 1px solid #e2e2e2; padding: 6px 8px; text-align: center; }
+        .summary th { background: #f5f5f5; font-weight: 700; }
+        .summary tfoot td { font-weight: 800; background: #fafafa; }
         @media print {
           .report-toolbar { display: none !important; }
           .report-root { max-width: none; padding: 0; }
-          .record { break-inside: avoid; }
+          .record, .summary { break-inside: avoid; }
           .photo { width: 46%; }
           .photo img { height: auto; max-height: 320px; }
         }
@@ -128,6 +189,37 @@ export default function CleaningReport() {
       <p className="report-sub">
         {year}년 {month}월 · 총 {filtered.length}건 · 출력 {format(now, "yyyy-MM-dd HH:mm", { locale: ko })}
       </p>
+
+      <div className="summary">
+        <h2>주차별 진행률 · 점수</h2>
+        <table>
+          <thead>
+            <tr><th>주차</th><th>기간</th><th>점검 완료</th><th>진행률</th><th>평균 점수</th></tr>
+          </thead>
+          <tbody>
+            {weeklySummary.rows.map(w => (
+              <tr key={w.label}>
+                <td>{w.label}</td>
+                <td>{w.range}</td>
+                <td>{w.doneZones} / {w.zoneUnit} 구역</td>
+                <td>{w.rate}%</td>
+                <td>{w.avg === null ? "-" : `${w.avg}점`}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={4}>{month}월 평균 점수</td>
+              <td>{weeklySummary.monthAvg === null ? "-" : `${weeklySummary.monthAvg}점`}</td>
+            </tr>
+          </tfoot>
+        </table>
+        {branch === "전체" && (
+          <p style={{ fontSize: 11, color: "#888", margin: "8px 0 0" }}>
+            ※ 전체 지점 기준 진행률은 (완료 구역 수) ÷ (지점 수 × 5구역)로 계산됩니다.
+          </p>
+        )}
+      </div>
 
       {filtered.length === 0 ? (
         <div className="empty">{year}년 {month}월 청소 점검 기록이 없습니다.</div>
