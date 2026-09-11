@@ -16,6 +16,7 @@ import GuideAdmin from "./pages/GuideAdmin";
 import EditChecklist from "./pages/EditChecklist";
 import QualityBulkEdit from "./pages/QualityBulkEdit";
 import CleaningChecklist from "./pages/CleaningChecklist";
+import CleaningReport from "./pages/CleaningReport";
 import GuidesPage from "./pages/GuidesPage";
 
 function Router() {
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/checklist/quality-edit/:id" component={QualityBulkEdit} />
       <Route path="/staff-dashboard" component={StaffDashboard} />
       <Route path="/cleaning/new" component={CleaningChecklist} />
+      <Route path="/admin/cleaning-report" component={CleaningReport} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/guides" component={GuideAdmin} />

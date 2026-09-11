@@ -1722,6 +1722,23 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
         </select>
       </div>
 
+      <button
+        type="button"
+        onClick={() => {
+          const m = weekStart.getMonth() + 1;
+          const y = weekStart.getFullYear();
+          window.open(
+            `/admin/cleaning-report?branch=${encodeURIComponent(branch || '전체')}&year=${y}&month=${m}`,
+            '_blank',
+          );
+        }}
+        disabled={!branch}
+        className="w-full py-2.5 rounded-xl border-2 border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
+        data-testid="btn-cleaning-report-pdf"
+      >
+        <FileText className="w-4 h-4" /> {weekStart.getMonth() + 1}월 PDF 내보내기 (사진+데이터)
+      </button>
+
       <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
         <button onClick={goPrevWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-photo-prev-week">
           <ChevronLeft className="w-4 h-4 text-muted-foreground" />
