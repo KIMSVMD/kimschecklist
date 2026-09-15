@@ -93,13 +93,33 @@ export const insertProductSchema = createInsertSchema(products).omit({
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
+// One uploaded photo attached to a cleaning item's before/after slot
+export type CleaningPhotoEntry = { url: string; hash: string; at: string };
+
+// A cleaning item's per-item record. beforePhotos/afterPhotos (arrays, current) let a
+// slot hold more than one photo; the singular beforePhotoUrl/... fields are read-only
+// legacy from before multi-photo support — old rows still have them, nothing writes
+// them anymore.
+export type CleaningItemData = {
+  status: string;
+  beforePhotos?: CleaningPhotoEntry[];
+  afterPhotos?: CleaningPhotoEntry[];
+  memo?: string | null;
+  beforePhotoUrl?: string | null;
+  beforePhotoHash?: string | null;
+  beforePhotoAt?: string | null;
+  afterPhotoUrl?: string | null;
+  afterPhotoHash?: string | null;
+  afterPhotoAt?: string | null;
+};
+
 // Cleaning inspection per zone per session
 export const cleaningInspections = pgTable("cleaning_inspections", {
   id: serial("id").primaryKey(),
   branch: text("branch").notNull(),
   zone: text("zone").notNull(),
   inspectionTime: text("inspection_time").notNull(), // 오픈 / 마감
-  items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }>>(),
+  items: jsonb("items").$type<Record<string, CleaningItemData>>(),
   overallStatus: text("overall_status").notNull(), // ok / issue
   staffName: text("staff_name"), // 등록자 이름, 새 점검 등록 코드 입력 시 받음 — 옛 기록엔 없을 수 있음
   adminComment: text("admin_comment"),
@@ -177,7 +197,7 @@ export const cleaningDrafts = pgTable("cleaning_drafts", {
   branch: text("branch").notNull(),
   zone: text("zone").notNull(),
   inspectionTime: text("inspection_time").notNull().default("오픈"),
-  items: jsonb("items").$type<Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }>>(),
+  items: jsonb("items").$type<Record<string, CleaningItemData>>(),
   staffName: text("staff_name"), // 지금 작성 중인 사람 이름 — 새 점검 등록 코드 입력 시 받음
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

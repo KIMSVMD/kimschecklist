@@ -63,6 +63,22 @@ function getCurrentWeekIndex(year: number, month: number, date: Date) {
   return idx >= 0 ? idx + 1 : 1;
 }
 
+type CleaningPhotoEntry = { url: string; hash?: string; at?: string };
+
+// Cleaning items can hold multiple before/after photos (beforePhotos/afterPhotos);
+// records saved before that supported only one each (beforePhotoUrl/afterPhotoUrl, or
+// legacy photoUrl for "before"). This reads either shape as a uniform array.
+function getCleaningPhotos(
+  data: { beforePhotos?: CleaningPhotoEntry[]; afterPhotos?: CleaningPhotoEntry[]; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null; photoUrl?: string | null } | undefined,
+  slot: 'before' | 'after',
+): CleaningPhotoEntry[] {
+  if (!data) return [];
+  const arr = slot === 'before' ? data.beforePhotos : data.afterPhotos;
+  if (arr && arr.length > 0) return arr;
+  const legacyUrl = slot === 'before' ? (data.beforePhotoUrl ?? data.photoUrl) : data.afterPhotoUrl;
+  return legacyUrl ? [{ url: legacyUrl }] : [];
+}
+
 const MONITORING_AFTER_PHOTO_DEADLINE_DAYS = 7;
 
 // Days left until the after-photo deadline (negative once overdue). Items without a
@@ -382,8 +398,8 @@ export default function StaffDashboard() {
     enabled: activeTab === 'cleaning' && branchVerified,
   });
   const activeCleaningDrafts = cleaningDraftsRaw.filter(d => {
-    const items = (d.items as Record<string, { beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
-    return Object.values(items).some(v => v.beforePhotoUrl || v.afterPhotoUrl);
+    const items = (d.items as Record<string, any>) || {};
+    return Object.values(items).some(v => getCleaningPhotos(v, 'before').length > 0 || getCleaningPhotos(v, 'after').length > 0);
   });
 
   const currentFeedbackYear = new Date().getFullYear();
@@ -1484,8 +1500,10 @@ export default function StaffDashboard() {
                     </div>
                     <div className="space-y-4">
                       {activeCleaningDrafts.map(draft => {
-                        const items = (draft.items as Record<string, { status?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
-                        const entries = Object.entries(items).filter(([, v]) => v.beforePhotoUrl || v.afterPhotoUrl);
+                        const items = (draft.items as Record<string, any>) || {};
+                        const entries = Object.entries(items).filter(
+                          ([, v]) => getCleaningPhotos(v, 'before').length > 0 || getCleaningPhotos(v, 'after').length > 0
+                        );
                         return (
                           <div key={draft.id} className="bg-white rounded-2xl border border-amber-200 p-3.5 space-y-2.5">
                             <div className="flex items-center justify-between">
@@ -1498,23 +1516,22 @@ export default function StaffDashboard() {
                               </span>
                             </div>
                             <div className="flex gap-2 overflow-x-auto pb-1">
-                              {entries.map(([name, v]) => (
-                                <div key={name} className="shrink-0 space-y-1">
-                                  <div className="flex gap-1">
-                                    {v.beforePhotoUrl && (
-                                      <PhotoThumbnail src={v.beforePhotoUrl} className="block">
-                                        <img src={v.beforePhotoUrl} className="w-16 h-16 object-cover rounded-lg border border-border" alt={`${name} 청소 전`} />
-                                      </PhotoThumbnail>
-                                    )}
-                                    {v.afterPhotoUrl && (
-                                      <PhotoThumbnail src={v.afterPhotoUrl} className="block">
-                                        <img src={v.afterPhotoUrl} className="w-16 h-16 object-cover rounded-lg border border-border" alt={`${name} 청소 후`} />
-                                      </PhotoThumbnail>
-                                    )}
+                              {entries.map(([name, v]) => {
+                                const beforePhotos = getCleaningPhotos(v, 'before');
+                                const afterPhotos = getCleaningPhotos(v, 'after');
+                                return (
+                                  <div key={name} className="shrink-0 space-y-1">
+                                    <div className="flex gap-1">
+                                      {[...beforePhotos, ...afterPhotos].slice(0, 4).map((p, i) => (
+                                        <PhotoThumbnail key={p.url + i} src={p.url} className="block">
+                                          <img src={p.url} className="w-16 h-16 object-cover rounded-lg border border-border" alt={`${name} 사진 ${i + 1}`} />
+                                        </PhotoThumbnail>
+                                      ))}
+                                    </div>
+                                    <p className="text-[9px] text-muted-foreground w-16 truncate">{name}</p>
                                   </div>
-                                  <p className="text-[9px] text-muted-foreground w-16 truncate">{name}</p>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -1618,28 +1635,36 @@ export default function StaffDashboard() {
                   )
                 ) : (
                   weekFilteredRecords.map((record, i) => {
-                    const items = (record.items as Record<string, { status: string; memo?: string | null; photoUrl?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }>) || {};
+                    const items = (record.items as Record<string, any>) || {};
                     const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
                     const okItems = Object.entries(items).filter(([, v]) => v.status === 'ok');
-                    const renderPhotoItemCard = (name: string, v: { memo?: string | null; photoUrl?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null }, theme: 'issue' | 'ok') => {
-                      const before = v.beforePhotoUrl ?? v.photoUrl ?? null;
-                      const after = v.afterPhotoUrl ?? null;
+                    const renderPhotoItemCard = (name: string, v: { memo?: string | null }, theme: 'issue' | 'ok') => {
+                      const before = getCleaningPhotos(v, 'before');
+                      const after = getCleaningPhotos(v, 'after');
                       const cardCls = theme === 'issue' ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200';
                       const nameCls = theme === 'issue' ? 'text-red-600' : 'text-emerald-700';
                       const memoCls = theme === 'issue' ? 'text-red-400' : 'text-emerald-600/70';
                       return (
                         <div key={name} className={`border rounded-xl px-3 py-1.5 w-full ${cardCls}`}>
-                          {(before || after) && (
+                          {(before.length > 0 || after.length > 0) && (
                             <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                              {before && (
-                                <PhotoThumbnail src={before} className="block">
-                                  <img src={before} alt={`${name} 청소 전`} className="w-full h-24 object-cover rounded-lg" />
-                                </PhotoThumbnail>
+                              {before.length > 0 && (
+                                <div className="space-y-1">
+                                  {before.map((p, i) => (
+                                    <PhotoThumbnail key={p.url + i} src={p.url} className="block">
+                                      <img src={p.url} alt={`${name} 청소 전 ${i + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                                    </PhotoThumbnail>
+                                  ))}
+                                </div>
                               )}
-                              {after && (
-                                <PhotoThumbnail src={after} className="block">
-                                  <img src={after} alt={`${name} 청소 후`} className="w-full h-24 object-cover rounded-lg" />
-                                </PhotoThumbnail>
+                              {after.length > 0 && (
+                                <div className="space-y-1">
+                                  {after.map((p, i) => (
+                                    <PhotoThumbnail key={p.url + i} src={p.url} className="block">
+                                      <img src={p.url} alt={`${name} 청소 후 ${i + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                                    </PhotoThumbnail>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           )}
