@@ -256,6 +256,14 @@ export class DatabaseStorage implements IStorage {
     for (const row of rows) {
       const items = (row.items as Record<string, any>) || {};
       for (const [itemName, data] of Object.entries(items)) {
+        // Current shape: arrays of photos (beforePhotos/afterPhotos). Legacy rows
+        // (before multi-photo support) only have the singular beforePhotoHash/afterPhotoHash.
+        if (data?.beforePhotos?.some((p: any) => p?.hash === hash)) {
+          return { branch: row.branch, zone: row.zone, item: itemName, slot: "before", createdAt: row.createdAt };
+        }
+        if (data?.afterPhotos?.some((p: any) => p?.hash === hash)) {
+          return { branch: row.branch, zone: row.zone, item: itemName, slot: "after", createdAt: row.createdAt };
+        }
         if (data?.beforePhotoHash === hash) {
           return { branch: row.branch, zone: row.zone, item: itemName, slot: "before", createdAt: row.createdAt };
         }

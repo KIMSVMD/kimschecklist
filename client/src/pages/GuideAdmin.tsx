@@ -1385,6 +1385,19 @@ function getMondayOfWeek(d: Date) {
 const CLEANING_TREND_WEEKS = 8;
 const CLEANING_ZONES = ['공통', '농산', '축산', '수산', '공산'];
 
+type CleaningPhotoEntry = { url: string; hash?: string; at?: string };
+
+// Cleaning items can hold multiple before/after photos (beforePhotos/afterPhotos);
+// records saved before that supported only one each (beforePhotoUrl/afterPhotoUrl, or
+// legacy photoUrl for "before"). This reads either shape as a uniform array.
+function getCleaningPhotos(data: any, slot: 'before' | 'after'): CleaningPhotoEntry[] {
+  if (!data) return [];
+  const arr = slot === 'before' ? data.beforePhotos : data.afterPhotos;
+  if (Array.isArray(arr) && arr.length > 0) return arr;
+  const legacyUrl = slot === 'before' ? (data.beforePhotoUrl ?? data.photoUrl) : data.afterPhotoUrl;
+  return legacyUrl ? [{ url: legacyUrl }] : [];
+}
+
 // Week N = the Nth Monday-start calendar week of `weekStart`'s own month
 function getMonthWeekLabel(weekStart: Date) {
   const year = weekStart.getFullYear();
@@ -1774,9 +1787,9 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
                 </div>
                 <div className="divide-y divide-border/50">
                   {Object.entries(items).map(([name, data]: [string, any]) => {
-                    const before = data?.beforePhotoUrl ?? data?.photoUrl ?? null;
-                    const after = data?.afterPhotoUrl ?? null;
-                    const hasPhoto = !!(before || after);
+                    const before = getCleaningPhotos(data, 'before');
+                    const after = getCleaningPhotos(data, 'after');
+                    const hasPhoto = before.length > 0 || after.length > 0;
                     return (
                       <div key={name} className="p-3.5 space-y-2">
                         <div className="flex items-center justify-between gap-2">
@@ -1787,17 +1800,25 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
                         </div>
                         {hasPhoto ? (
                           <div className="grid grid-cols-2 gap-2">
-                            {before ? (
-                              <PhotoThumbnail src={before} className="block">
-                                <img src={before} alt={`${name} 전`} className="w-full h-28 object-cover rounded-xl border border-border" />
-                              </PhotoThumbnail>
+                            {before.length > 0 ? (
+                              <div className="space-y-1.5">
+                                {before.map((p, i) => (
+                                  <PhotoThumbnail key={p.url + i} src={p.url} className="block">
+                                    <img src={p.url} alt={`${name} 전 ${i + 1}`} className="w-full h-28 object-cover rounded-xl border border-border" />
+                                  </PhotoThumbnail>
+                                ))}
+                              </div>
                             ) : (
                               <div className="w-full h-28 rounded-xl border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">전 사진 없음</div>
                             )}
-                            {after ? (
-                              <PhotoThumbnail src={after} className="block">
-                                <img src={after} alt={`${name} 후`} className="w-full h-28 object-cover rounded-xl border border-border" />
-                              </PhotoThumbnail>
+                            {after.length > 0 ? (
+                              <div className="space-y-1.5">
+                                {after.map((p, i) => (
+                                  <PhotoThumbnail key={p.url + i} src={p.url} className="block">
+                                    <img src={p.url} alt={`${name} 후 ${i + 1}`} className="w-full h-28 object-cover rounded-xl border border-border" />
+                                  </PhotoThumbnail>
+                                ))}
+                              </div>
                             ) : (
                               <div className="w-full h-28 rounded-xl border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">후 사진 없음</div>
                             )}

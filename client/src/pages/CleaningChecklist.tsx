@@ -91,14 +91,12 @@ const ITEM_DESCRIPTIONS: Record<string, Record<string, string>> = {
   },
 };
 
+type PhotoEntry = { url: string; hash: string; at: string };
+
 type ItemData = {
   status: "ok" | "issue" | null;
-  beforePhotoUrl?: string | null;
-  beforePhotoHash?: string | null;
-  beforePhotoAt?: string | null;
-  afterPhotoUrl?: string | null;
-  afterPhotoHash?: string | null;
-  afterPhotoAt?: string | null;
+  beforePhotos?: PhotoEntry[];
+  afterPhotos?: PhotoEntry[];
   memo?: string | null;
 };
 
@@ -203,7 +201,7 @@ export default function CleaningChecklist() {
   const allChecked = currentItems.every(item => itemData[item]?.status != null);
   const itemsMissingPhotos = currentItems.filter(item => {
     const d = itemData[item];
-    return d?.status != null && (!d.beforePhotoUrl || !d.afterPhotoUrl);
+    return d?.status != null && (!d.beforePhotos?.length || !d.afterPhotos?.length);
   });
   const canSubmit = allChecked && itemsMissingPhotos.length === 0;
   const issueCount = Object.values(itemData).filter(v => v.status === "issue").length;
@@ -275,7 +273,7 @@ export default function CleaningChecklist() {
     const serverDraft = branchDrafts.find(d => d.zone === selectedZone);
     if (!serverDraft?.items) return;
     const completeness = (d?: ItemData | null) =>
-      (d?.status ? 1 : 0) + (d?.beforePhotoUrl ? 1 : 0) + (d?.afterPhotoUrl ? 1 : 0);
+      (d?.status ? 1 : 0) + (d?.beforePhotos?.length || 0) + (d?.afterPhotos?.length || 0);
     setItemData(prev => {
       let changed = false;
       const merged = { ...prev };
@@ -321,14 +319,19 @@ export default function CleaningChecklist() {
 
   const handlePhotoUpload = async (item: string, slot: PhotoSlot, file: File) => {
     const slotKey = `${item}:${slot}`;
+    const field = slot === "before" ? "beforePhotos" : "afterPhotos";
+    const otherField = slot === "before" ? "afterPhotos" : "beforePhotos";
     setUploadingSlot(slotKey);
     try {
       const { uploadFile, hashFile } = await import("@/lib/upload");
       const hash = await hashFile(file);
 
-      const otherField = slot === "before" ? "afterPhotoHash" : "beforePhotoHash";
-      if (itemData[item]?.[otherField] === hash) {
-        toast({ title: "전/후 사진이 같습니다", description: "다른 사진을 올려주세요.", variant: "destructive" });
+      const alreadyAttached = [
+        ...(itemData[item]?.[field] || []),
+        ...(itemData[item]?.[otherField] || []),
+      ].some(p => p.hash === hash);
+      if (alreadyAttached) {
+        toast({ title: "이미 첨부된 사진입니다", description: "다른 사진을 올려주세요.", variant: "destructive" });
         return;
       }
 
@@ -343,10 +346,11 @@ export default function CleaningChecklist() {
       }
 
       const objectPath = await uploadFile(file, { compress: true });
-      const urlField = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
-      const hashField = slot === "before" ? "beforePhotoHash" : "afterPhotoHash";
-      const atField = slot === "before" ? "beforePhotoAt" : "afterPhotoAt";
-      setItemData(prev => ({ ...prev, [item]: { ...prev[item], [urlField]: objectPath, [hashField]: hash, [atField]: new Date().toISOString() } }));
+      const entry: PhotoEntry = { url: objectPath, hash, at: new Date().toISOString() };
+      setItemData(prev => ({
+        ...prev,
+        [item]: { ...prev[item], [field]: [...(prev[item]?.[field] || []), entry] },
+      }));
     } catch {
       toast({ title: "사진 업로드 실패", variant: "destructive" });
     } finally {
@@ -354,17 +358,21 @@ export default function CleaningChecklist() {
     }
   };
 
+  // Handles a `multiple` file picker selection — uploads each file in turn so every
+  // photo goes through the same dup-check/compress/append path as a single upload.
+  const handleFilesSelected = async (item: string, slot: PhotoSlot, fileList: FileList) => {
+    for (const file of Array.from(fileList)) {
+      await handlePhotoUpload(item, slot, file);
+    }
+  };
+
   const handleSubmit = async () => {
-    const items: Record<string, { status: string; beforePhotoUrl?: string | null; beforePhotoHash?: string | null; beforePhotoAt?: string | null; afterPhotoUrl?: string | null; afterPhotoHash?: string | null; afterPhotoAt?: string | null; memo?: string | null }> = {};
+    const items: Record<string, { status: string; beforePhotos?: PhotoEntry[]; afterPhotos?: PhotoEntry[]; memo?: string | null }> = {};
     currentItems.forEach(item => {
       items[item] = {
         status: itemData[item]?.status || "ok",
-        beforePhotoUrl: itemData[item]?.beforePhotoUrl || null,
-        beforePhotoHash: itemData[item]?.beforePhotoHash || null,
-        beforePhotoAt: itemData[item]?.beforePhotoAt || null,
-        afterPhotoUrl: itemData[item]?.afterPhotoUrl || null,
-        afterPhotoHash: itemData[item]?.afterPhotoHash || null,
-        afterPhotoAt: itemData[item]?.afterPhotoAt || null,
+        beforePhotos: itemData[item]?.beforePhotos || [],
+        afterPhotos: itemData[item]?.afterPhotos || [],
         memo: itemData[item]?.memo || null,
       };
     });
@@ -393,78 +401,79 @@ export default function CleaningChecklist() {
 
   const getDraftInfo = (zone: string) => getDraftState(branch, zone, inspectionTime);
 
-  const handleClearPhoto = (item: string, slot: PhotoSlot) => {
-    const urlField = slot === "before" ? "beforePhotoUrl" : "afterPhotoUrl";
-    const hashField = slot === "before" ? "beforePhotoHash" : "afterPhotoHash";
-    const atField = slot === "before" ? "beforePhotoAt" : "afterPhotoAt";
+  const handleRemovePhoto = (item: string, slot: PhotoSlot, index: number) => {
+    const field = slot === "before" ? "beforePhotos" : "afterPhotos";
     setItemData(prev => ({
       ...prev,
-      [item]: { ...prev[item], [urlField]: null, [hashField]: null, [atField]: null },
+      [item]: { ...prev[item], [field]: (prev[item]?.[field] || []).filter((_, i) => i !== index) },
     }));
   };
 
-  const renderPhotoSlot = (
+  // Renders one before/after group as a horizontally-scrolling strip of thumbnails
+  // (each removable) plus a dashed "추가" tile — multiple photos per slot instead of
+  // the old single-photo box, so a messy spot can be documented from more than one angle.
+  const renderPhotoGroup = (
     item: string,
     slot: PhotoSlot,
     label: string,
-    url: string | null | undefined,
+    photos: PhotoEntry[],
     theme: "emerald" | "red",
-    uploadedAt?: string | null,
   ) => {
     const key = `${item}:${slot}`;
     const isUploading = uploadingSlot === key;
-    const emptyBorder = theme === "emerald" ? "border-emerald-200 bg-emerald-50/50" : "border-red-300 bg-red-50";
-    const filledBorder = theme === "emerald" ? "border-emerald-400 bg-emerald-50" : "border-primary/40 bg-primary/5";
-    const spinColor = theme === "emerald" ? "text-emerald-500" : "text-primary";
+    const dashBorder = theme === "emerald" ? "border-emerald-300" : "border-red-300";
+    const addBg = theme === "emerald" ? "bg-emerald-50/50" : "bg-red-50";
     const iconColor = theme === "emerald" ? "text-emerald-400" : "text-red-400";
-    const labelColor = theme === "emerald" ? "text-emerald-500" : "text-red-500";
+    const labelColor = theme === "emerald" ? "text-emerald-600" : "text-red-500";
     return (
-      <div key={key} className="relative">
-        <button
-          type="button"
-          onClick={() => fileRefs.current[key]?.click()}
-          className={`w-full h-24 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all active:scale-[0.98] ${url ? filledBorder : emptyBorder}`}
-        >
-          <span className={`absolute top-1.5 left-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/80 ${labelColor}`}>
-            {label}
-          </span>
-          {isUploading ? (
-            <Loader2 className={`w-6 h-6 animate-spin ${spinColor}`} />
-          ) : url ? (
-            <div className="relative w-full h-full">
-              <img src={url} className="w-full h-full object-cover rounded-xl" alt={label} />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
-                <span className="text-white text-xs font-bold">변경</span>
-              </div>
-              {uploadedAt && (
-                <span className="absolute bottom-1 right-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/60 text-white">
-                  {formatUploadTime(uploadedAt)}
+      <div key={key}>
+        <p className={`text-xs font-bold mb-1.5 ${labelColor}`}>{label} ({photos.length}장)</p>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {photos.map((p, i) => (
+            <div key={p.url + i} className="relative shrink-0 w-20 h-20">
+              <img src={p.url} className="w-full h-full object-cover rounded-xl border border-border" alt={`${label} ${i + 1}`} />
+              <button
+                type="button"
+                onClick={() => handleRemovePhoto(item, slot, i)}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                aria-label={`${label} 사진 ${i + 1} 삭제`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+              {p.at && (
+                <span className="absolute bottom-0.5 right-0.5 text-[8px] font-bold px-1 py-0.5 rounded-full bg-black/60 text-white">
+                  {formatUploadTime(p.at)}
                 </span>
               )}
             </div>
-          ) : (
-            <>
-              <Camera className={`w-5 h-5 ${iconColor}`} />
-              <span className={`text-xs font-medium ${labelColor}`}>{label} 촬영</span>
-            </>
-          )}
-        </button>
-        {url && !isUploading && (
+          ))}
           <button
             type="button"
-            onClick={e => { e.stopPropagation(); handleClearPhoto(item, slot); }}
-            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
-            aria-label={`${label} 사진 삭제`}
+            onClick={() => fileRefs.current[key]?.click()}
+            disabled={isUploading}
+            className={`shrink-0 w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-50 ${dashBorder} ${addBg}`}
           >
-            <X className="w-3 h-3" />
+            {isUploading ? (
+              <Loader2 className={`w-5 h-5 animate-spin ${iconColor}`} />
+            ) : (
+              <>
+                <Camera className={`w-5 h-5 ${iconColor}`} />
+                <span className={`text-[10px] font-medium ${labelColor}`}>추가</span>
+              </>
+            )}
           </button>
-        )}
+        </div>
         <input
           ref={el => { fileRefs.current[key] = el; }}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(item, slot, f); }}
+          onChange={e => {
+            const files = e.target.files;
+            if (files && files.length > 0) handleFilesSelected(item, slot, files);
+            e.target.value = "";
+          }}
         />
       </div>
     );
@@ -692,11 +701,11 @@ export default function CleaningChecklist() {
                                 <p className="text-xs font-bold text-emerald-600 pt-3 mb-2 flex items-center gap-1">
                                   <Camera className="w-3.5 h-3.5" /> 전/후 사진 (필수)
                                 </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "emerald", data?.beforePhotoAt)}
-                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "emerald", data?.afterPhotoAt)}
+                                <div className="space-y-3">
+                                  {renderPhotoGroup(item, "before", "청소 전", data?.beforePhotos || [], "emerald")}
+                                  {renderPhotoGroup(item, "after", "청소 후", data?.afterPhotos || [], "emerald")}
                                 </div>
-                                {(!data?.beforePhotoUrl || !data?.afterPhotoUrl) && (
+                                {(!data?.beforePhotos?.length || !data?.afterPhotos?.length) && (
                                   <p className="text-xs text-primary font-bold mt-2 flex items-center gap-1">
                                     <AlertCircle className="w-3.5 h-3.5" /> 전/후 사진을 모두 첨부해야 저장할 수 있어요
                                   </p>
@@ -716,11 +725,11 @@ export default function CleaningChecklist() {
                                 <p className="text-sm font-bold text-primary pt-3 flex items-center gap-1.5">
                                   <AlertCircle className="w-4 h-4" /> 문제 상세 기록
                                 </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {renderPhotoSlot(item, "before", "청소 전", data?.beforePhotoUrl, "red", data?.beforePhotoAt)}
-                                  {renderPhotoSlot(item, "after", "청소 후", data?.afterPhotoUrl, "red", data?.afterPhotoAt)}
+                                <div className="space-y-3">
+                                  {renderPhotoGroup(item, "before", "청소 전", data?.beforePhotos || [], "red")}
+                                  {renderPhotoGroup(item, "after", "청소 후", data?.afterPhotos || [], "red")}
                                 </div>
-                                {(!data?.beforePhotoUrl || !data?.afterPhotoUrl) && (
+                                {(!data?.beforePhotos?.length || !data?.afterPhotos?.length) && (
                                   <p className="text-xs text-primary font-bold flex items-center gap-1">
                                     <AlertCircle className="w-3.5 h-3.5" /> 전/후 사진을 모두 첨부해야 저장할 수 있어요
                                   </p>

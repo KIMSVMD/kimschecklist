@@ -37,15 +37,32 @@ function getWeekRangesInMonth(year: number, month: number) {
   return ranges;
 }
 
+type PhotoEntry = { url: string; hash?: string; at?: string };
+
 type ItemData = {
   status?: string | null;
   memo?: string | null;
   photoUrl?: string | null;
+  beforePhotos?: PhotoEntry[];
+  afterPhotos?: PhotoEntry[];
   beforePhotoUrl?: string | null;
   beforePhotoAt?: string | null;
   afterPhotoUrl?: string | null;
   afterPhotoAt?: string | null;
 };
+
+// Cleaning items can hold multiple before/after photos (beforePhotos/afterPhotos);
+// records saved before that supported only one each (beforePhotoUrl/afterPhotoUrl, or
+// legacy photoUrl for "before"). This reads either shape as a uniform array.
+function getPhotos(data: ItemData, slot: "before" | "after"): PhotoEntry[] {
+  const arr = slot === "before" ? data.beforePhotos : data.afterPhotos;
+  if (arr && arr.length > 0) return arr;
+  if (slot === "before") {
+    const url = data.beforePhotoUrl ?? data.photoUrl;
+    return url ? [{ url, at: data.beforePhotoAt ?? undefined }] : [];
+  }
+  return data.afterPhotoUrl ? [{ url: data.afterPhotoUrl, at: data.afterPhotoAt ?? undefined }] : [];
+}
 
 export default function CleaningReport() {
   const [, setLocation] = useLocation();
@@ -149,7 +166,7 @@ export default function CleaningReport() {
         .item:first-child { border-top: none; }
         .item-name { font-weight: 700; }
         .item-memo { color: #b91c1c; font-size: 12px; margin-top: 2px; }
-        .photos { display: flex; gap: 8px; margin-top: 6px; }
+        .photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
         .photo { width: 220px; }
         .photo img { width: 100%; height: 165px; object-fit: cover; border: 1px solid #ddd; border-radius: 8px; display: block; }
         .photo span { font-size: 10px; color: #888; }
@@ -242,8 +259,8 @@ export default function CleaningReport() {
                 </span>
               </div>
               {Object.entries(items).map(([name, v]) => {
-                const before = v.beforePhotoUrl ?? v.photoUrl ?? null;
-                const after = v.afterPhotoUrl ?? null;
+                const before = getPhotos(v, "before");
+                const after = getPhotos(v, "after");
                 return (
                   <div className="item" key={name}>
                     <div>
@@ -253,20 +270,20 @@ export default function CleaningReport() {
                       </span>
                     </div>
                     {v.memo && <div className="item-memo">{v.memo}</div>}
-                    {(before || after) && (
+                    {(before.length > 0 || after.length > 0) && (
                       <div className="photos">
-                        {before && (
-                          <div className="photo">
-                            <img src={before} alt={`${name} 청소 전`} />
-                            <span>청소 전{v.beforePhotoAt ? ` · ${format(new Date(v.beforePhotoAt), "HH:mm")}` : ""}</span>
+                        {before.map((p, i) => (
+                          <div className="photo" key={`before-${i}`}>
+                            <img src={p.url} alt={`${name} 청소 전 ${i + 1}`} />
+                            <span>청소 전{p.at ? ` · ${format(new Date(p.at), "HH:mm")}` : ""}</span>
                           </div>
-                        )}
-                        {after && (
-                          <div className="photo">
-                            <img src={after} alt={`${name} 청소 후`} />
-                            <span>청소 후{v.afterPhotoAt ? ` · ${format(new Date(v.afterPhotoAt), "HH:mm")}` : ""}</span>
+                        ))}
+                        {after.map((p, i) => (
+                          <div className="photo" key={`after-${i}`}>
+                            <img src={p.url} alt={`${name} 청소 후 ${i + 1}`} />
+                            <span>청소 후{p.at ? ` · ${format(new Date(p.at), "HH:mm")}` : ""}</span>
                           </div>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>
