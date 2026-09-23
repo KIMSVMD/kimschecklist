@@ -467,7 +467,12 @@ export default function CleaningChecklist() {
           ref={el => { fileRefs.current[key] = el; }}
           type="file"
           accept="image/*"
-          multiple
+          // No `multiple` here: on Samsung Internet / some Android WebViews,
+          // <input type="file" multiple accept="image/*"> skips the OS chooser
+          // (camera vs gallery) and launches the camera directly — iOS Safari isn't
+          // affected, which is why this only showed up on Galaxy phones. Tapping
+          // "추가" repeatedly still adds as many photos as before via
+          // handleFilesSelected, just one picker call each time.
           className="hidden"
           onChange={e => {
             const files = e.target.files;
