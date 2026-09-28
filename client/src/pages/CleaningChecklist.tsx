@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ChangeEvent } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Layout } from "@/components/Layout";
 import { useCreateCleaning, useCleaningInspections, checkCleaningPhotoHash } from "@/hooks/use-cleaning";
@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Droplets,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
@@ -410,8 +411,11 @@ export default function CleaningChecklist() {
   };
 
   // Renders one before/after group as a horizontally-scrolling strip of thumbnails
-  // (each removable) plus a dashed "추가" tile — multiple photos per slot instead of
-  // the old single-photo box, so a messy spot can be documented from more than one angle.
+  // (each removable) plus two explicit add tiles — "촬영" and "보관함" — instead of
+  // one tile that hands the choice to the OS's own file-picker chooser. Samsung
+  // Internet and some other Android browsers don't reliably show that chooser (see
+  // the `capture` note below), so each tile opens its own dedicated <input> to
+  // guarantee both paths work everywhere, iOS included.
   const renderPhotoGroup = (
     item: string,
     slot: PhotoSlot,
@@ -420,11 +424,18 @@ export default function CleaningChecklist() {
     theme: "emerald" | "red",
   ) => {
     const key = `${item}:${slot}`;
+    const cameraKey = `${key}:camera`;
+    const libraryKey = `${key}:library`;
     const isUploading = uploadingSlot === key;
     const dashBorder = theme === "emerald" ? "border-emerald-300" : "border-red-300";
     const addBg = theme === "emerald" ? "bg-emerald-50/50" : "bg-red-50";
     const iconColor = theme === "emerald" ? "text-emerald-400" : "text-red-400";
     const labelColor = theme === "emerald" ? "text-emerald-600" : "text-red-500";
+    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files && files.length > 0) handleFilesSelected(item, slot, files);
+      e.target.value = "";
+    };
     return (
       <div key={key}>
         <p className={`text-xs font-bold mb-1.5 ${labelColor}`}>{label} ({photos.length}장)</p>
@@ -449,7 +460,7 @@ export default function CleaningChecklist() {
           ))}
           <button
             type="button"
-            onClick={() => fileRefs.current[key]?.click()}
+            onClick={() => fileRefs.current[cameraKey]?.click()}
             disabled={isUploading}
             className={`shrink-0 w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-50 ${dashBorder} ${addBg}`}
           >
@@ -458,27 +469,44 @@ export default function CleaningChecklist() {
             ) : (
               <>
                 <Camera className={`w-5 h-5 ${iconColor}`} />
-                <span className={`text-[10px] font-medium ${labelColor}`}>추가</span>
+                <span className={`text-[10px] font-medium ${labelColor}`}>촬영</span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRefs.current[libraryKey]?.click()}
+            disabled={isUploading}
+            className={`shrink-0 w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all disabled:opacity-50 ${dashBorder} ${addBg}`}
+          >
+            {isUploading ? (
+              <Loader2 className={`w-5 h-5 animate-spin ${iconColor}`} />
+            ) : (
+              <>
+                <ImageIcon className={`w-5 h-5 ${iconColor}`} />
+                <span className={`text-[10px] font-medium ${labelColor}`}>보관함</span>
               </>
             )}
           </button>
         </div>
+        {/* Two separate inputs, not one relying on the OS chooser: `capture` forces
+            the camera app open directly, and its absence forces the gallery/file
+            browser — this works consistently across iOS and Android instead of
+            depending on how a given browser renders the camera-vs-library picker. */}
         <input
-          ref={el => { fileRefs.current[key] = el; }}
+          ref={el => { fileRefs.current[cameraKey] = el; }}
           type="file"
           accept="image/*"
-          // No `multiple` here: on Samsung Internet / some Android WebViews,
-          // <input type="file" multiple accept="image/*"> skips the OS chooser
-          // (camera vs gallery) and launches the camera directly — iOS Safari isn't
-          // affected, which is why this only showed up on Galaxy phones. Tapping
-          // "추가" repeatedly still adds as many photos as before via
-          // handleFilesSelected, just one picker call each time.
+          capture="environment"
           className="hidden"
-          onChange={e => {
-            const files = e.target.files;
-            if (files && files.length > 0) handleFilesSelected(item, slot, files);
-            e.target.value = "";
-          }}
+          onChange={handleChange}
+        />
+        <input
+          ref={el => { fileRefs.current[libraryKey] = el; }}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleChange}
         />
       </div>
     );
