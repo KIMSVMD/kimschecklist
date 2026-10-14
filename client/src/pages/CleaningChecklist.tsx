@@ -352,8 +352,8 @@ export default function CleaningChecklist() {
         ...prev,
         [item]: { ...prev[item], [field]: [...(prev[item]?.[field] || []), entry] },
       }));
-    } catch {
-      toast({ title: "사진 업로드 실패", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "사진 업로드 실패", description: err?.message, variant: "destructive" });
     } finally {
       setUploadingSlot(null);
     }
