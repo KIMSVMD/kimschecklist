@@ -1386,6 +1386,17 @@ function getMondayOfWeek(d: Date) {
 const CLEANING_TREND_WEEKS = 8;
 const CLEANING_ZONES = ['공통', '농산', '축산', '수산', '공산'];
 
+// 달성율: the 5 zones together make up 100%, each worth 20. A zone that hasn't been done this
+// week counts as 0, so a branch that finished one zone with a perfect score is at 20% rather
+// than "100점". `zoneScores` maps zone -> that week's scores for the zone (averaged if >1).
+function cleaningAchievementRate(zoneScores?: Record<string, number[]>): number {
+  const sum = CLEANING_ZONES.reduce((acc, zone) => {
+    const s = zoneScores?.[zone];
+    return acc + (s && s.length > 0 ? s.reduce((a, b) => a + b, 0) / s.length : 0);
+  }, 0);
+  return Math.round(sum / CLEANING_ZONES.length);
+}
+
 type CleaningPhotoEntry = { url: string; hash?: string; at?: string };
 
 // Cleaning items can hold multiple before/after photos (beforePhotos/afterPhotos);
@@ -1454,56 +1465,31 @@ function CleaningManager() {
       const monday = getMondayOfWeek(d);
       weeks.push({ key: monday.toISOString().slice(0, 10), label: `${monday.getMonth() + 1}/${monday.getDate()}` });
     }
-    const buckets: Record<string, number[]> = {};
-    weeks.forEach(w => { buckets[w.key] = []; });
-    records
-      .filter(r => selectedBranch === '전체' || r.branch === selectedBranch)
-      .forEach(r => {
-        const key = getMondayOfWeek(new Date(r.createdAt)).toISOString().slice(0, 10);
-        if (!(key in buckets)) return;
-        const items = (r.items as Record<string, { status: string }>) || {};
-        if (Object.keys(items).length > 0) buckets[key].push(calcCleaningScore(items));
-      });
-    return weeks.map(w => {
-      const scores = buckets[w.key];
-      return {
-        label: w.label,
-        score: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
-      };
+    // week -> branch -> zone -> scores, so each point is a 달성율 (see cleaningAchievementRate)
+    const byWeek: Record<string, Record<string, Record<string, number[]>>> = {};
+    weeks.forEach(w => { byWeek[w.key] = {}; });
+    records.forEach(r => {
+      const key = getMondayOfWeek(new Date(r.createdAt)).toISOString().slice(0, 10);
+      if (!(key in byWeek)) return;
+      const items = (r.items as Record<string, { status: string }>) || {};
+      if (Object.keys(items).length === 0) return;
+      const byZone = (byWeek[key][r.branch] ??= {});
+      (byZone[r.zone] ??= []).push(calcCleaningScore(items));
     });
-  }, [records, selectedBranch]);
+    const targetBranches = selectedBranch === '전체' ? branches : [selectedBranch];
+    return weeks.map(w => {
+      const anyData = targetBranches.some(b => byWeek[w.key][b]);
+      if (!anyData) return { label: w.label, score: null as number | null };
+      // 전체: average over every branch, so a branch that did nothing pulls it down.
+      const rates = targetBranches.map(b => cleaningAchievementRate(byWeek[w.key][b]));
+      return { label: w.label, score: Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) };
+    });
+  }, [records, selectedBranch, branches]);
 
-  const avgByBranchInRange = (start: Date, end: Date) => {
-    const byBranch: Record<string, number[]> = {};
-    records
-      .filter(r => { const d = new Date(r.createdAt); return d >= start && d <= end; })
-      .forEach(r => {
-        const items = (r.items as Record<string, { status: string }>) || {};
-        if (Object.keys(items).length === 0) return;
-        (byBranch[r.branch] ??= []).push(calcCleaningScore(items));
-      });
-    return byBranch;
-  };
-
-  const branchScores = useMemo(() => {
-    const current = avgByBranchInRange(scoreWeekStart, scoreWeekEnd);
-    const prev = avgByBranchInRange(prevScoreWeekStart, prevScoreWeekEnd);
-    return branches
-      .map(branch => {
-        const scores = current[branch] || [];
-        const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-        const prevScores = prev[branch] || [];
-        const prevAvg = prevScores.length > 0 ? Math.round(prevScores.reduce((a, b) => a + b, 0) / prevScores.length) : null;
-        const delta = avg !== null && prevAvg !== null ? avg - prevAvg : null;
-        return { branch, avg, count: scores.length, delta };
-      })
-      .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1));
-  }, [records, branches, scoreWeekStart, scoreWeekEnd, prevScoreWeekStart, prevScoreWeekEnd]);
-
-  const branchZoneScores = useMemo(() => {
+  const zoneScoresInRange = (start: Date, end: Date) => {
     const map: Record<string, Record<string, number[]>> = {};
     records
-      .filter(r => { const d = new Date(r.createdAt); return d >= scoreWeekStart && d <= scoreWeekEnd; })
+      .filter(r => { const d = new Date(r.createdAt); return d >= start && d <= end; })
       .forEach(r => {
         const items = (r.items as Record<string, { status: string }>) || {};
         if (Object.keys(items).length === 0) return;
@@ -1511,7 +1497,26 @@ function CleaningManager() {
         (byZone[r.zone] ??= []).push(calcCleaningScore(items));
       });
     return map;
-  }, [records, scoreWeekStart, scoreWeekEnd]);
+  };
+
+  const branchZoneScores = useMemo(
+    () => zoneScoresInRange(scoreWeekStart, scoreWeekEnd),
+    [records, scoreWeekStart, scoreWeekEnd],
+  );
+
+  const branchScores = useMemo(() => {
+    const prev = zoneScoresInRange(prevScoreWeekStart, prevScoreWeekEnd);
+    return branches
+      .map(branch => {
+        const zonesDone = Object.keys(branchZoneScores[branch] || {}).length;
+        const rate = zonesDone > 0 ? cleaningAchievementRate(branchZoneScores[branch]) : null;
+        const prevDone = Object.keys(prev[branch] || {}).length;
+        const prevRate = prevDone > 0 ? cleaningAchievementRate(prev[branch]) : null;
+        const delta = rate !== null && prevRate !== null ? rate - prevRate : null;
+        return { branch, rate, zonesDone, delta };
+      })
+      .sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
+  }, [records, branches, branchZoneScores, prevScoreWeekStart, prevScoreWeekEnd]);
 
   if (isLoading) {
     return (
@@ -1576,16 +1581,19 @@ function CleaningManager() {
       {/* Branch score table */}
       <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
         <div className="px-4 py-3 bg-emerald-50 border-b border-border flex items-center justify-between">
-          <span className="font-black text-emerald-700 text-base">지점별 청소 점수</span>
+          <span className="font-black text-emerald-700 text-base">지점별 청소 달성율</span>
           <span className="text-xs text-muted-foreground font-medium">전주 대비</span>
         </div>
+        <p className="px-4 py-2 text-[11px] text-muted-foreground bg-emerald-50/40 border-b border-border/50">
+          5개 구역(공통·농산·축산·수산·공산)이 100%예요. 아직 안 한 구역은 0점으로 계산돼서, 구역을 다 해야 100%가 됩니다.
+        </p>
         {branchScores.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 없습니다.</div>
         ) : (
           <div className="divide-y divide-border/50">
-            {branchScores.map(({ branch, avg, count, delta }, i) => {
+            {branchScores.map(({ branch, rate, zonesDone, delta }, i) => {
               const isExpanded = expandedBranch === branch;
-              const grade = avg !== null ? computeAbsoluteGrade(avg) : null;
+              const grade = rate !== null ? computeAbsoluteGrade(rate) : null;
               return (
                 <div key={branch}>
                   <button
@@ -1602,12 +1610,14 @@ function CleaningManager() {
                         <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                       )}
                       <span className="text-sm font-bold text-secondary truncate">{branch}점</span>
-                      <span className="text-xs text-muted-foreground">{count}건</span>
+                      <span className={`text-xs font-bold ${zonesDone === CLEANING_ZONES.length ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {zonesDone}/{CLEANING_ZONES.length}구역
+                      </span>
                     </div>
-                    {avg !== null ? (
+                    {rate !== null ? (
                       <div className="flex items-center gap-2 shrink-0">
                         <div className="text-right">
-                          <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(avg)}`}>{avg}점</div>
+                          <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(rate)}`}>{rate}%</div>
                           {delta !== null && delta !== 0 && (
                             <div className={`text-[10px] font-bold mt-0.5 ${delta > 0 ? 'text-blue-600' : 'text-red-600'}`}>
                               {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
@@ -1633,7 +1643,7 @@ function CleaningManager() {
                             {zoneAvg !== null ? (
                               <span className={`inline-block px-1.5 py-0.5 rounded-lg border text-xs font-black ${scoreColor(zoneAvg)}`}>{zoneAvg}</span>
                             ) : (
-                              <span className="text-[11px] text-muted-foreground">-</span>
+                              <span className="text-[11px] font-bold text-red-500">미점검</span>
                             )}
                           </div>
                         );
@@ -1650,7 +1660,7 @@ function CleaningManager() {
       {/* Weekly trend chart */}
       <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="font-black text-secondary text-base">주간 점수 추이</span>
+          <span className="font-black text-secondary text-base">주간 달성율 추이</span>
           <select
             value={selectedBranch}
             onChange={e => setSelectedBranch(e.target.value)}
@@ -1667,7 +1677,7 @@ function CleaningManager() {
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: any) => (v == null ? '기록 없음' : `${v}점`)} />
+              <Tooltip formatter={(v: any) => (v == null ? '기록 없음' : `${v}%`)} />
               <Line type="monotone" dataKey="score" stroke="#006341" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
