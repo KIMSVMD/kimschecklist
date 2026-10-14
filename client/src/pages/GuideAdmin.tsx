@@ -25,6 +25,7 @@ import {
   LogOut,
   Loader2,
   X,
+  Camera,
   Image as ImageIcon,
   ChevronDown,
   ChevronUp,
@@ -1863,6 +1864,10 @@ function CleaningMonitoringManager() {
   const [uploadingZone, setUploadingZone] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Mirror of `items` readable from async handlers (state captured at call time goes stale
+  // across the awaits in handleAddPhotos).
+  const itemsRef = useRef<MonitoringItem[]>([]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   const { data: feedbackList = [], isLoading } = useCleaningMonitoringFeedback({ branch, year, month });
   const existing = feedbackList[0];
@@ -1901,7 +1906,29 @@ function CleaningMonitoringManager() {
       const uploaded = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled').map(r => r.value);
       const failedCount = results.length - uploaded.length;
       if (uploaded.length > 0) {
-        setItems(prev => [...prev, ...uploaded.map(url => ({ zone, photoUrl: url, comment: '', createdAt }))]);
+        const nextItems: MonitoringItem[] = [
+          ...itemsRef.current,
+          ...uploaded.map(url => ({ zone, photoUrl: url, comment: '', createdAt })),
+        ];
+        itemsRef.current = nextItems;
+        setItems(nextItems);
+        // Save right away. These photos used to live only in this page's state until
+        // 저장 was pressed, so anything that reloaded the page (the phone browser being
+        // discarded while the camera/gallery app was in front, a refresh) silently threw
+        // the uploaded photos away even though they were already in Firebase.
+        if (branch) {
+          try {
+            await saveMutation.mutateAsync({ branch, year, month, items: nextItems });
+            toast({ title: `사진 ${uploaded.length}장 저장됨` });
+          } catch (err: any) {
+            console.error('monitoring auto-save failed', err);
+            toast({
+              title: '사진은 올라갔지만 저장에 실패했어요',
+              description: '아래 "모니터링 피드백 저장" 버튼을 눌러주세요.',
+              variant: 'destructive',
+            });
+          }
+        }
       }
       if (failedCount > 0) {
         results.forEach(r => { if (r.status === 'rejected') console.error('monitoring photo upload failed', r.reason); });
@@ -2057,26 +2084,40 @@ function CleaningMonitoringManager() {
                     </div>
                   ))}
 
-                  <button
-                    type="button"
-                    onClick={() => fileInputRefs.current[zone]?.click()}
-                    disabled={uploadingZone === zone}
-                    className="w-full py-3 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
-                    data-testid={`btn-monitoring-add-photo-${zone}`}
-                  >
-                    {uploadingZone === zone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    {uploadingZone === zone && uploadProgress
-                      ? `업로드 중 ${uploadProgress.done}/${uploadProgress.total}장`
-                      : `${zone} 사진 추가하기`}
-                  </button>
-                  <input
-                    ref={el => { fileInputRefs.current[zone] = el; }}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={e => { handleAddPhotos(zone, e.target.files); e.target.value = ''; }}
-                  />
+                  {/* Separate 촬영 / 보관함 buttons, each with its own input: a single input
+                      with `multiple` makes Samsung Internet jump straight to the camera with no
+                      gallery option (same problem fixed on the staff cleaning page). */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {([['camera', '촬영', Camera], ['library', '보관함', ImageIcon]] as const).map(([mode, label, Icon]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => fileInputRefs.current[`${zone}:${mode}`]?.click()}
+                        disabled={uploadingZone === zone}
+                        className="py-3 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
+                        data-testid={`btn-monitoring-add-photo-${zone}-${mode}`}
+                      >
+                        {uploadingZone === zone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
+                        {zone} {label}
+                      </button>
+                    ))}
+                  </div>
+                  {uploadingZone === zone && uploadProgress && (
+                    <p className="text-xs font-bold text-primary text-center">
+                      업로드 중 {uploadProgress.done}/{uploadProgress.total}장
+                    </p>
+                  )}
+                  {(['camera', 'library'] as const).map(mode => (
+                    <input
+                      key={mode}
+                      ref={el => { fileInputRefs.current[`${zone}:${mode}`] = el; }}
+                      type="file"
+                      accept="image/*"
+                      {...(mode === 'camera' ? { capture: 'environment' as const } : {})}
+                      className="hidden"
+                      onChange={e => { handleAddPhotos(zone, e.target.files); e.target.value = ''; }}
+                    />
+                  ))}
                 </div>
               );
             })}
