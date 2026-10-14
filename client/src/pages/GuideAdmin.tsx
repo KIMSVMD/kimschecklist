@@ -1897,7 +1897,7 @@ function CleaningMonitoringManager() {
       let done = 0;
       const withDeadline = (f: File) =>
         Promise.race([
-          uploadFile(f),
+          uploadFile(f, { compress: true }),
           new Promise<string>((_, reject) =>
             setTimeout(() => reject(new Error(`시간 초과 (${Math.round(f.size / 1024 / 1024 * 10) / 10}MB)`)), UPLOAD_TIMEOUT_MS)),
         ]).finally(() => { done += 1; setUploadProgress({ done, total: files.length }); });

@@ -111,10 +111,10 @@ function MonitoringAfterPhotoSlot({
     setUploading(true);
     try {
       const { uploadFile } = await import("@/lib/upload");
-      const url = await uploadFile(file);
+      const url = await uploadFile(file, { compress: true });
       await addAfterPhotoMutation.mutateAsync({ id: feedbackId, itemIndex, afterPhotoUrl: url });
-    } catch {
-      toast({ title: '사진 업로드 실패', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: '사진 업로드 실패', description: err?.message, variant: 'destructive' });
     } finally {
       setUploading(false);
     }
