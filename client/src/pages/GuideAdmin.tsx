@@ -1861,6 +1861,7 @@ function CleaningMonitoringManager() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [items, setItems] = useState<MonitoringItem[]>([]);
   const [uploadingZone, setUploadingZone] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: feedbackList = [], isLoading } = useCleaningMonitoringFeedback({ branch, year, month });
@@ -1879,12 +1880,23 @@ function CleaningMonitoringManager() {
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList); // snapshot before any await — the input gets cleared right after this call
     setUploadingZone(zone);
+    setUploadProgress({ done: 0, total: files.length });
     try {
       const { uploadFile } = await import("@/lib/upload");
       // Upload each photo independently — with `multiple` select, one flaky/failed
       // photo must not discard the others that uploaded fine (previously used
       // Promise.all, which rejected the whole batch on a single failure).
-      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      // Each upload also gets a deadline: the Firebase SDK silently retries a stalled
+      // upload for ~10 minutes, which looked like an endless spinner with no error.
+      const UPLOAD_TIMEOUT_MS = 90_000;
+      let done = 0;
+      const withDeadline = (f: File) =>
+        Promise.race([
+          uploadFile(f),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error(`시간 초과 (${Math.round(f.size / 1024 / 1024 * 10) / 10}MB)`)), UPLOAD_TIMEOUT_MS)),
+        ]).finally(() => { done += 1; setUploadProgress({ done, total: files.length }); });
+      const results = await Promise.allSettled(files.map(withDeadline));
       const createdAt = new Date().toISOString();
       const uploaded = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled').map(r => r.value);
       const failedCount = results.length - uploaded.length;
@@ -1893,17 +1905,20 @@ function CleaningMonitoringManager() {
       }
       if (failedCount > 0) {
         results.forEach(r => { if (r.status === 'rejected') console.error('monitoring photo upload failed', r.reason); });
+        const firstErr = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
+        const reason = firstErr?.reason?.code || firstErr?.reason?.message || '';
         toast({
           title: uploaded.length > 0 ? `사진 ${failedCount}장 업로드 실패` : '사진 업로드 실패',
-          description: uploaded.length > 0 ? `${uploaded.length}장은 업로드되었습니다. 실패한 사진은 다시 시도해주세요.` : undefined,
+          description: `${uploaded.length > 0 ? `${uploaded.length}장은 업로드되었습니다. ` : ''}${reason ? `원인: ${reason}` : '다시 시도해주세요.'}`,
           variant: 'destructive',
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('monitoring photo upload failed', err);
-      toast({ title: '사진 업로드 실패', variant: 'destructive' });
+      toast({ title: '사진 업로드 실패', description: err?.code || err?.message, variant: 'destructive' });
     } finally {
       setUploadingZone(null);
+      setUploadProgress(null);
     }
   };
 
@@ -2050,7 +2065,9 @@ function CleaningMonitoringManager() {
                     data-testid={`btn-monitoring-add-photo-${zone}`}
                   >
                     {uploadingZone === zone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    {zone} 사진 추가하기
+                    {uploadingZone === zone && uploadProgress
+                      ? `업로드 중 ${uploadProgress.done}/${uploadProgress.total}장`
+                      : `${zone} 사진 추가하기`}
                   </button>
                   <input
                     ref={el => { fileInputRefs.current[zone] = el; }}
