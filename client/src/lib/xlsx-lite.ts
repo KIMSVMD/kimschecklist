@@ -1,18 +1,32 @@
-// Minimal .xlsx writer — one worksheet with styled cells, merged ranges, column widths and
-// frozen panes — so an export can look like the sheet people already use (coloured cells,
-// merged headers) instead of a bare CSV. No dependencies: an .xlsx is a zip of a few XML
-// files, and the zip below uses the "stored" (uncompressed) method.
+// Minimal .xlsx writer — one worksheet with styled cells, merged ranges, formulas, conditional
+// formatting, column widths and optional frozen panes — so an export can match a sheet people
+// already keep (their fonts, merged headers, colour bands) instead of a bare CSV. No
+// dependencies: an .xlsx is a zip of a few XML files, and the zip below uses the "stored"
+// (uncompressed) method.
+
+type BorderStyle = "thin" | "medium";
 
 export type XlsxStyle = {
+  font?: string; // default "맑은 고딕"
   bold?: boolean;
   size?: number;
   color?: string; // text colour, "RRGGBB"
   fill?: string; // background, "RRGGBB"
-  border?: boolean; // thin black border on all sides
+  /** true = thin on all four sides; or choose each side. */
+  border?: boolean | { l?: BorderStyle; r?: BorderStyle; t?: BorderStyle; b?: BorderStyle };
   align?: "left" | "center" | "right";
+  wrap?: boolean; // default true
+  numFmt?: "percent"; // 0%
 };
 
-export type XlsxCell = { v?: string | number | null; s?: number };
+/** `f` is a formula (without "="); `v` is its cached result (or the plain value when no `f`). */
+export type XlsxCell = { v?: string | number | null; s?: number; f?: string };
+
+export type XlsxCondFormat = {
+  ref: string; // e.g. "C6:N31"
+  /** Evaluated in order; the formula is written relative to the top-left cell of `ref`. */
+  rules: { formula: string; fill: string; fontColor?: string }[];
+};
 
 export type XlsxSheet = {
   name: string;
@@ -22,6 +36,7 @@ export type XlsxSheet = {
   colWidths?: number[];
   rowHeights?: Record<number, number>; // 1-based row -> points
   freeze?: { cols: number; rows: number };
+  conditionalFormats?: XlsxCondFormat[];
 };
 
 const enc = new TextEncoder();
@@ -46,20 +61,24 @@ function colName(index: number): string {
   return s;
 }
 
-function stylesXml(styles: XlsxStyle[]): string {
+function stylesXml(styles: XlsxStyle[], cf: XlsxCondFormat[]): string {
   const fonts: string[] = [];
   const fills: string[] = [
     '<fill><patternFill patternType="none"/></fill>',
     '<fill><patternFill patternType="gray125"/></fill>',
   ];
+  const borders: string[] = ['<border><left/><right/><top/><bottom/><diagonal/></border>'];
   const fontIdx = new Map<string, number>();
   const fillIdx = new Map<string, number>();
+  const borderIdx = new Map<string, number>();
+
   const xfs = styles.map(st => {
-    const fontKey = `${st.bold ? 1 : 0}|${st.size ?? 11}|${st.color ?? "000000"}`;
+    const fontName = st.font ?? "맑은 고딕";
+    const fontKey = `${fontName}|${st.bold ? 1 : 0}|${st.size ?? 11}|${st.color ?? "000000"}`;
     if (!fontIdx.has(fontKey)) {
       fontIdx.set(fontKey, fonts.length);
       fonts.push(
-        `<font>${st.bold ? "<b/>" : ""}<sz val="${st.size ?? 11}"/><color rgb="FF${st.color ?? "000000"}"/><name val="Malgun Gothic"/><family val="2"/></font>`,
+        `<font>${st.bold ? "<b/>" : ""}<sz val="${st.size ?? 11}"/><color rgb="FF${st.color ?? "000000"}"/><name val="${esc(fontName)}"/><family val="2"/></font>`,
       );
     }
     let fillId = 0;
@@ -70,23 +89,42 @@ function stylesXml(styles: XlsxStyle[]): string {
       }
       fillId = fillIdx.get(st.fill)!;
     }
+    let borderId = 0;
+    if (st.border) {
+      const b = st.border === true ? { l: "thin", r: "thin", t: "thin", b: "thin" } : st.border;
+      const key = `${b.l ?? ""}|${b.r ?? ""}|${b.t ?? ""}|${b.b ?? ""}`;
+      if (!borderIdx.has(key)) {
+        const side = (tag: string, style?: string) =>
+          style ? `<${tag} style="${style}"><color rgb="FF000000"/></${tag}>` : `<${tag}/>`;
+        borderIdx.set(key, borders.length);
+        borders.push(`<border>${side("left", b.l)}${side("right", b.r)}${side("top", b.t)}${side("bottom", b.b)}<diagonal/></border>`);
+      }
+      borderId = borderIdx.get(key)!;
+    }
     return (
-      `<xf numFmtId="0" fontId="${fontIdx.get(fontKey)}" fillId="${fillId}" borderId="${st.border ? 1 : 0}" xfId="0" ` +
-      `applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">` +
-      `<alignment horizontal="${st.align ?? "center"}" vertical="center" wrapText="1"/></xf>`
+      `<xf numFmtId="${st.numFmt === "percent" ? 9 : 0}" fontId="${fontIdx.get(fontKey)}" fillId="${fillId}" borderId="${borderId}" xfId="0" ` +
+      `applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">` +
+      `<alignment horizontal="${st.align ?? "center"}" vertical="center"${st.wrap === false ? "" : ' wrapText="1"'}/></xf>`
     );
   });
-  const side = (n: string) => `<${n} style="thin"><color rgb="FF000000"/></${n}>`;
+
+  // One differential format per conditional-format rule, in the order the rules appear.
+  const dxfs = cf.flatMap(c => c.rules).map(
+    r =>
+      `<dxf>${r.fontColor ? `<font><color rgb="FF${r.fontColor}"/></font>` : ""}` +
+      `<fill><patternFill patternType="solid"><fgColor rgb="FF${r.fill}"/><bgColor rgb="FF${r.fill}"/></patternFill></fill></dxf>`,
+  );
+
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
     `<fonts count="${fonts.length}">${fonts.join("")}</fonts>` +
     `<fills count="${fills.length}">${fills.join("")}</fills>` +
-    `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>` +
-    `<border>${side("left")}${side("right")}${side("top")}${side("bottom")}<diagonal/></border></borders>` +
+    `<borders count="${borders.length}">${borders.join("")}</borders>` +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
     `<cellXfs count="${xfs.length}">${xfs.join("")}</cellXfs>` +
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+    `<dxfs count="${dxfs.length}">${dxfs.join("")}</dxfs>` +
     "</styleSheet>"
   );
 }
@@ -102,6 +140,16 @@ function sheetXml(sheet: XlsxSheet): string {
         .map((cell, c) => {
           const ref = `${colName(c)}${r + 1}`;
           const s = cell.s ?? 0;
+          if (cell.f) {
+            const cached =
+              cell.v === null || cell.v === undefined || cell.v === ""
+                ? ""
+                : typeof cell.v === "number"
+                  ? `<v>${cell.v}</v>`
+                  : `<v>${esc(String(cell.v))}</v>`;
+            const t = typeof cell.v === "string" && cell.v !== "" ? ' t="str"' : "";
+            return `<c r="${ref}" s="${s}"${t}><f>${esc(cell.f)}</f>${cached}</c>`;
+          }
           if (cell.v === null || cell.v === undefined || cell.v === "") return `<c r="${ref}" s="${s}"/>`;
           if (typeof cell.v === "number") return `<c r="${ref}" s="${s}"><v>${cell.v}</v></c>`;
           return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${esc(String(cell.v))}</t></is></c>`;
@@ -117,14 +165,26 @@ function sheetXml(sheet: XlsxSheet): string {
   const merges = sheet.merges?.length
     ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map(m => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`
     : "";
+  let dxfId = 0;
+  let priority = 1;
+  const cfXml = (sheet.conditionalFormats ?? [])
+    .map(
+      c =>
+        `<conditionalFormatting sqref="${c.ref}">` +
+        c.rules
+          .map(r => `<cfRule type="expression" dxfId="${dxfId++}" priority="${priority++}"><formula>${esc(r.formula)}</formula></cfRule>`)
+          .join("") +
+        "</conditionalFormatting>",
+    )
+    .join("");
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
     `<sheetViews><sheetView workbookViewId="0" showGridLines="0">${pane}</sheetView></sheetViews>` +
-    '<sheetFormatPr defaultRowHeight="20"/>' +
+    '<sheetFormatPr defaultRowHeight="17.4"/>' +
     (cols ? `<cols>${cols}</cols>` : "") +
-    `<sheetData>${rows}</sheetData>${merges}` +
-    '<pageMargins left="0.5" right="0.5" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>' +
+    `<sheetData>${rows}</sheetData>${merges}${cfXml}` +
+    '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>' +
     "</worksheet>"
   );
 }
@@ -228,7 +288,8 @@ export function buildXlsx(sheet: XlsxSheet): Uint8Array {
       text:
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-        `<sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+        `<sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets>` +
+        '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>',
     },
     {
       name: "xl/_rels/workbook.xml.rels",
@@ -239,7 +300,7 @@ export function buildXlsx(sheet: XlsxSheet): Uint8Array {
         '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
         "</Relationships>",
     },
-    { name: "xl/styles.xml", text: stylesXml(sheet.styles) },
+    { name: "xl/styles.xml", text: stylesXml(sheet.styles, sheet.conditionalFormats ?? []) },
     { name: "xl/worksheets/sheet1.xml", text: sheetXml(sheet) },
   ];
   return zipStore(files.map(f => ({ name: f.name, data: enc.encode(f.text) })));

@@ -1510,102 +1510,136 @@ function CleaningManager() {
       .sort((a, b) => b.rate - a.rate);
   }, [branches, branchZoneScores]);
 
-  // Excel export laid out like the sheet people already keep: zones across (농산 수산 축산
-  // 공산 공통, then 달성률), the month's weeks under each, one row per branch, cells coloured
-  // by score (≤80 red, 81–89 orange, ≥90 green; 달성률 ≤60 red, 61–80 orange, ≥81 green) and
-  // an average row on top. Blank = zone not done that week.
+  // Excel export in the team's "VM 체크리스트 주간별 진행률" form: zones across (농산 수산 축산
+  // 공산 공통) with the two most recent weeks under each, then 월별 달성율 for the month so far
+  // and the next one. Every number is a percent of completion: a zone-week is 100% when that
+  // zone was submitted that week and 0% when not (marking items 문제있음 doesn't lower it);
+  // the 점포명 row averages each column; 월별 달성율 = done zone-weeks / (5 zones x weeks so far).
+  // Colours (conditional formatting): 0-60% red, 61-80% orange, 81%+ green.
   const handleExportAchievementXlsx = async () => {
     try {
       const { downloadXlsx } = await import('@/lib/xlsx-lite');
-      // The selected week's Thursday decides the month, so 9/28–10/4 is "10월 1주차".
-      const thu = new Date(scoreWeekStart);
-      thu.setDate(thu.getDate() + 3);
-      const year = thu.getFullYear();
-      const month = thu.getMonth() + 1;
-      const today = new Date();
-      const weeks: { start: Date; end: Date; label: string }[] = [];
-      for (let cur = getMondayOfWeek(new Date(year, month - 1, 1)); cur <= new Date(year, month, 0); cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 7)) {
-        if (cur > today) break;
-        const end = new Date(cur);
-        end.setDate(end.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-        weeks.push({ start: new Date(cur), end, label: `${month}월 ${weeks.length + 1}주차` });
-      }
-      if (weeks.length === 0) { toast({ title: '내보낼 주차가 없어요', variant: 'destructive' }); return; }
+      const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+      const mondayKey = (d: Date) => { const m = getMondayOfWeek(d); return `${m.getFullYear()}-${m.getMonth() + 1}-${m.getDate()}`; };
+      // A week belongs to the month its Thursday falls in, so 9/28-10/4 is "10월 1주차" and the
+      // numbering never overlaps between months.
+      const weekInfo = (monday: Date) => {
+        const thu = addDays(monday, 3);
+        return { year: thu.getFullYear(), month: thu.getMonth() + 1, n: Math.floor((thu.getDate() - 1) / 7) + 1 };
+      };
+      const lastMonday = getMondayOfWeek(scoreWeekStart);
+      const shown = [addDays(lastMonday, -7), lastMonday]; // oldest first, like the form
+      const asOf = addDays(lastMonday, 6); // month-to-date counts weeks up to the selected one
+      const cur = weekInfo(lastMonday);
+      const nextMonth = cur.month === 12 ? 1 : cur.month + 1;
+      const nextYear = cur.month === 12 ? cur.year + 1 : cur.year;
+      const weeksSoFar = (y: number, m: number) => {
+        const list: Date[] = [];
+        for (let mon = addDays(getMondayOfWeek(new Date(y, m - 1, 1)), -7); mon <= asOf; mon = addDays(mon, 7)) {
+          const w = weekInfo(mon);
+          if (w.year === y && w.month === m) list.push(mon);
+        }
+        return list;
+      };
 
-      // branch|zone|weekIndex -> scores
-      const byCell: Record<string, number[]> = {};
+      // branch|zone|monday -> submitted that week
+      const done = new Set<string>();
       records.forEach(r => {
-        const items = (r.items as Record<string, { status: string }>) || {};
+        const items = (r.items as Record<string, unknown>) || {};
         if (Object.keys(items).length === 0) return;
-        const d = new Date(r.createdAt);
-        const wi = weeks.findIndex(w => d >= w.start && d <= w.end);
-        if (wi < 0) return;
-        (byCell[`${r.branch}|${r.zone}|${wi}`] ??= []).push(calcCleaningScore(items));
+        done.add(`${r.branch}|${r.zone}|${mondayKey(new Date(r.createdAt))}`);
       });
-      const cellScore = (b: string, z: string, wi: number): number | null => {
-        const s = byCell[`${b}|${z}|${wi}`];
-        return s && s.length > 0 ? Math.round(s.reduce((a, c) => a + c, 0) / s.length) : null;
+      const zoneDone = (b: string, z: string, mon: Date) => done.has(`${b}|${z}|${mondayKey(mon)}`);
+      const monthRate = (b: string, y: number, m: number): number | null => {
+        const wk = weeksSoFar(y, m);
+        if (wk.length === 0) return null;
+        let n = 0;
+        wk.forEach(mon => CLEANING_ZONES.forEach(z => { if (zoneDone(b, z, mon)) n += 1; }));
+        return n / (wk.length * CLEANING_ZONES.length);
       };
 
       const ZONE_ORDER = ['농산', '수산', '축산', '공산', '공통'];
-      const W = weeks.length;
-      const S = { def: 0, head: 1, name: 2, red: 3, orange: 4, green: 5, blank: 6, avg: 7, corner: 8 };
+      // Row order the team uses in its form.
+      const BRANCH_ORDER = ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '산본', '동수원', '해운대', '부산대', '괴정', '인천', '고잔', '중계', '청주', '김포'];
+      const rowsOrder = [...BRANCH_ORDER.filter(b => branches.includes(b)), ...branches.filter(b => !BRANCH_ORDER.includes(b))];
+
+      const FIRST = 7; // first branch row
+      const LAST = FIRST + rowsOrder.length - 1;
+      const letter = (i: number) => { let n = i + 1, s = ''; while (n > 0) { s = String.fromCharCode(65 + ((n - 1) % 26)) + s; n = Math.floor((n - 1) / 26); } return s; };
+
+      const medL = { l: 'medium' as const, r: 'thin' as const, t: 'thin' as const, b: 'thin' as const };
+      const T = { bold: true, border: true } as const;
       const styles = [
         {},
-        { bold: true, color: 'FFFFFF', fill: '404354', border: true, size: 11 },
-        { bold: true, border: true, size: 12, align: 'left' as const },
-        { bold: true, border: true, size: 12, fill: 'FF0000' },
-        { bold: true, border: true, size: 12, fill: 'FFC000' },
-        { bold: true, border: true, size: 12, fill: '00B050' },
-        { border: true },
-        { bold: true, border: true, size: 12 },
-        { bold: true, border: true, size: 16, fill: 'E7E6E6' },
+        { ...T, size: 14, color: 'FFFFFF', fill: '0070C0' },                                  // 1 title bar
+        { ...T, font: 'Arial Unicode MS', size: 14, fill: 'D9D9D9', border: medL },            // 2 구분
+        { ...T, size: 12, fill: 'D9D9D9' },                                                    // 3 zone header
+        { ...T, size: 10, color: 'FFFFFF', fill: '424450' },                                   // 4 week / month header
+        { ...T, font: 'Arial Unicode MS', size: 12, color: 'FFFFFF', fill: '424450' },         // 5 월별 달성율
+        { ...T, font: 'Arial Unicode MS', size: 12, fill: 'F2F2F2', border: medL },            // 6 점포명
+        { ...T, size: 12, fill: 'F2F2F2', numFmt: 'percent' as const },                        // 7 average
+        { ...T, font: 'Arial', size: 12, fill: 'D9D9D9', border: medL },                       // 8 branch name
+        { ...T, font: 'Arial', size: 12, fill: 'D9D9D9' },                                     // 9 manager
+        { ...T, size: 12, numFmt: 'percent' as const },                                        // 10 weekly cell
+        { ...T, size: 14, numFmt: 'percent' as const },                                        // 11 monthly cell
       ];
-      const scoreStyle = (v: number) => (v <= 80 ? S.red : v <= 89 ? S.orange : S.green);
-      const rateStyle = (v: number) => (v >= 81 ? S.green : v >= 61 ? S.orange : S.red);
-      const avgOf = (vals: (number | null)[]) => {
-        const nums = vals.filter((v): v is number => v !== null);
-        return nums.length > 0 ? Math.round(nums.reduce((a, c) => a + c, 0) / nums.length) : null;
-      };
+      const S = { title: 1, corner: 2, zone: 3, head: 4, monthTitle: 5, avgLabel: 6, avg: 7, name: 8, mgr: 9, cell: 10, month: 11 };
 
-      type Col = { zone: string | null; wi: number };
-      const cols: Col[] = [...ZONE_ORDER, null].flatMap(zone => weeks.map((_, wi) => ({ zone, wi })));
-      const valueOf = (branch: string, c: Col): number | null => {
-        if (c.zone) return cellScore(branch, c.zone, c.wi);
-        const done = CLEANING_ZONES.filter(z => cellScore(branch, z, c.wi) !== null).length;
-        return Math.round((done / CLEANING_ZONES.length) * 100);
-      };
-      const styleOf = (c: Col, v: number | null) => (v === null ? S.blank : c.zone ? scoreStyle(v) : rateStyle(v));
-
-      const group = (c: Col, i: number) => (i % W === 0 ? { v: c.zone ?? '달성률(%)', s: S.head } : { s: S.head });
-      const row1 = [{ v: '구분', s: S.corner }, { s: S.corner }, ...cols.map(group)];
-      const row2 = [{ s: S.corner }, { s: S.corner }, ...cols.map(c => ({ v: weeks[c.wi].label, s: S.head }))];
-      const avgRow = [
-        { v: '점포명 (평균)', s: S.avg }, { s: S.avg },
-        ...cols.map(c => {
-          const a = avgOf(branches.map(b => valueOf(b, c)));
-          return { v: a, s: a === null ? S.blank : S.avg };
-        }),
+      type Col = { zone: string | null; mon: Date | null; month?: { y: number; m: number } };
+      const cols: Col[] = [
+        ...ZONE_ORDER.flatMap(zone => shown.map(mon => ({ zone, mon }))),
+        { zone: null, mon: null, month: { y: cur.year, m: cur.month } },
+        { zone: null, mon: null, month: { y: nextYear, m: nextMonth } },
       ];
-      const branchRows = branches.map(b => [
-        { v: `${b} 킴스`, s: S.name }, { s: S.name },
-        ...cols.map(c => { const v = valueOf(b, c); return { v, s: styleOf(c, v) }; }),
+      const valueOf = (b: string, c: Col): number | null =>
+        c.zone && c.mon ? (zoneDone(b, c.zone, c.mon) ? 1 : 0) : c.month ? monthRate(b, c.month.y, c.month.m) : null;
+
+      type Cell = { v?: string | number | null; s?: number; f?: string };
+      const width = 2 + cols.length; // A..N
+      const fill = (cells: Cell[], s: number): Cell[] => Array.from({ length: width }, (_, i) => cells[i] ?? { s });
+      const rTitle1: Cell[] = fill([], 0);
+      const rTitle2: Cell[] = fill([{ v: 'VM 체크리스트 주간별 진행률', s: S.title }], S.title);
+      const rTitle3: Cell[] = fill([], S.title);
+      const zoneRow: Cell[] = [{ v: '구분', s: S.corner }, { s: S.corner }, ...cols.map((c, i): Cell => (
+        c.zone ? (i % shown.length === 0 ? { v: c.zone, s: S.zone } : { s: S.zone })
+               : (c.month!.m === cur.month ? { v: '월별 달성율', s: S.monthTitle } : { s: S.monthTitle })
+      ))];
+      const headRow: Cell[] = [{ s: S.corner }, { s: S.corner }, ...cols.map((c): Cell => {
+        if (c.mon) { const w = weekInfo(c.mon); return { v: `${w.month}월\n${w.n}주차`, s: S.head }; }
+        return { v: `${c.month!.m}월`, s: S.head };
+      })];
+      const avgRow: Cell[] = [{ v: '점포명', s: S.avgLabel }, { s: S.avgLabel }, ...cols.map((c, i): Cell => {
+        const col = letter(2 + i);
+        const nums = rowsOrder.map(b => valueOf(b, c)).filter((v): v is number => v !== null);
+        const cached = nums.length > 0 ? nums.reduce((a, v) => a + v, 0) / nums.length : '-';
+        return { f: `IFERROR(AVERAGE(${col}${FIRST}:${col}${LAST}),"-")`, v: cached, s: S.avg };
+      })];
+      const branchRows: Cell[][] = rowsOrder.map(b => [
+        { v: `${b} 킴스`, s: S.name },
+        { s: S.mgr }, // 점장 이름: not stored in the app, fill in on the sheet
+        ...cols.map((c): Cell => ({ v: valueOf(b, c), s: c.zone ? S.cell : S.month })),
       ]);
 
-      const letter = (i: number) => { let n = i + 1, s = ''; while (n > 0) { s = String.fromCharCode(65 + ((n - 1) % 26)) + s; n = Math.floor((n - 1) / 26); } return s; };
-      const merges = ['A1:B2', 'A3:B3'];
-      if (W > 1) for (let g = 0; g < ZONE_ORDER.length + 1; g++) merges.push(`${letter(2 + g * W)}1:${letter(2 + g * W + W - 1)}1`);
+      const merges = ['A2:N3', 'A4:B5', 'M4:N4', ...ZONE_ORDER.map((_, g) => `${letter(2 + g * shown.length)}4:${letter(2 + g * shown.length + shown.length - 1)}4`)];
+      const rowHeights: Record<number, number> = { 1: 10.2, 2: 17.4, 3: 7.8, 4: 19.8, 5: 31.2, 6: 30 };
+      for (let r = FIRST; r <= LAST; r++) rowHeights[r] = 19.95;
 
       downloadXlsx({
-        name: `${month}월 청소 점수`,
+        name: '주간별 진행',
         styles,
-        rows: [row1, row2, avgRow, ...branchRows],
+        rows: [rTitle1, rTitle2, rTitle3, zoneRow, headRow, avgRow, ...branchRows],
         merges,
-        colWidths: [16, 10, ...cols.map(() => 11)],
-        rowHeights: { 1: 30, 2: 26, 3: 26 },
-        freeze: { cols: 2, rows: 3 },
-      }, `청소점수현황_${year}년${month}월.xlsx`);
+        colWidths: [15.4, 9, ...cols.map(c => (c.zone ? 9 : 10.5))],
+        rowHeights,
+        conditionalFormats: [{
+          ref: `C6:${letter(width - 1)}${LAST}`,
+          rules: [
+            { formula: 'AND(ISNUMBER(C6),C6<0.605)', fill: 'FF0000' },
+            { formula: 'AND(ISNUMBER(C6),C6>=0.605,C6<0.805)', fill: 'FFC000' },
+            { formula: 'AND(ISNUMBER(C6),C6>=0.805)', fill: '00B050' },
+          ],
+        }],
+      }, `VM체크리스트_주간별_진행_${cur.year}년${cur.month}월${weekInfo(lastMonday).n}주차.xlsx`);
     } catch (err: any) {
       console.error('achievement export failed', err);
       toast({ title: '엑셀 만들기 실패', description: err?.message, variant: 'destructive' });
