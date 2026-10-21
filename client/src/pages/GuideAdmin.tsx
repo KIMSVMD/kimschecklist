@@ -1386,15 +1386,23 @@ function getMondayOfWeek(d: Date) {
 const CLEANING_TREND_WEEKS = 8;
 const CLEANING_ZONES = ['공통', '농산', '축산', '수산', '공산'];
 
-// 달성율: the 5 zones together make up 100%, each worth 20. A zone that hasn't been done this
-// week counts as 0, so a branch that finished one zone with a perfect score is at 20% rather
-// than "100점". `zoneScores` maps zone -> that week's scores for the zone (averaged if >1).
+// 달성율 = completion only: the 5 zones together make up 100%, each worth 20, counted as soon as
+// the zone has been submitted this week. The zone's score (how many items were marked 문제있음)
+// is a quality measure and does NOT lower the rate. `zoneScores` maps zone -> that week's
+// scores for the zone; only whether the zone has any submission matters here.
 function cleaningAchievementRate(zoneScores?: Record<string, number[]>): number {
-  const sum = CLEANING_ZONES.reduce((acc, zone) => {
-    const s = zoneScores?.[zone];
-    return acc + (s && s.length > 0 ? s.reduce((a, b) => a + b, 0) / s.length : 0);
-  }, 0);
-  return Math.round(sum / CLEANING_ZONES.length);
+  const done = CLEANING_ZONES.filter(zone => (zoneScores?.[zone]?.length ?? 0) > 0).length;
+  return Math.round((done / CLEANING_ZONES.length) * 100);
+}
+
+// 전주 대비 변화를 등급으로: 늘어난 구역 수가 3개 이상 A, 2개 B, 1개 C. 같으면 유지, 줄면 하락.
+function improvementGrade(deltaPct: number): { text: string; cls: string } {
+  const zones = Math.round(deltaPct / (100 / CLEANING_ZONES.length));
+  if (zones >= 3) return { text: '상승 A', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+  if (zones === 2) return { text: '상승 B', cls: 'bg-sky-50 text-sky-700 border-sky-200' };
+  if (zones === 1) return { text: '상승 C', cls: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
+  if (zones === 0) return { text: '유지', cls: 'bg-gray-50 text-gray-500 border-gray-200' };
+  return { text: '하락', cls: 'bg-red-50 text-red-600 border-red-200' };
 }
 
 type CleaningPhotoEntry = { url: string; hash?: string; at?: string };
@@ -1585,7 +1593,8 @@ function CleaningManager() {
           <span className="text-xs text-muted-foreground font-medium">전주 대비</span>
         </div>
         <p className="px-4 py-2 text-[11px] text-muted-foreground bg-emerald-50/40 border-b border-border/50">
-          5개 구역(공통·농산·축산·수산·공산)이 100%예요. 아직 안 한 구역은 0점으로 계산돼서, 구역을 다 해야 100%가 됩니다.
+          5개 구역(공통·농산·축산·수산·공산)이 100%예요. 구역을 점검 완료할 때마다 20%씩 올라가고, 이상없음/문제있음 결과는 달성율에 영향을 주지 않아요.
+          전주 대비는 늘어난 구역 수로 표시해요 (3개 이상 상승 A · 2개 B · 1개 C).
         </p>
         {branchScores.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 없습니다.</div>
@@ -1618,11 +1627,14 @@ function CleaningManager() {
                       <div className="flex items-center gap-2 shrink-0">
                         <div className="text-right">
                           <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(rate)}`}>{rate}%</div>
-                          {delta !== null && delta !== 0 && (
-                            <div className={`text-[10px] font-bold mt-0.5 ${delta > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                              {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
-                            </div>
-                          )}
+                          {delta !== null && (() => {
+                            const g = improvementGrade(delta);
+                            return (
+                              <div className={`inline-block text-[10px] font-bold mt-0.5 px-1.5 py-0.5 rounded-md border ${g.cls}`}>
+                                {g.text}
+                              </div>
+                            );
+                          })()}
                         </div>
                         {grade && (
                           <span className={`px-2 py-1 rounded-lg border text-xs font-black ${gradeColor(grade)}`}>{grade}</span>
