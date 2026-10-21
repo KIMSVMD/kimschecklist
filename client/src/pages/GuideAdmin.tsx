@@ -1515,7 +1515,7 @@ function CleaningManager() {
   // and the next one. Every number is a percent of completion: a zone-week is 100% when that
   // zone was submitted that week and 0% when not (marking items 문제있음 doesn't lower it);
   // the 점포명 row averages each column; 월별 달성율 = done zone-weeks / (5 zones x weeks so far).
-  // Colours (conditional formatting): 0-60% red, 61-80% orange, 81%+ green.
+  // Colours (conditional formatting): 0-50% red, 51-80% orange, 81%+ green.
   const handleExportAchievementXlsx = async () => {
     try {
       const { downloadXlsx } = await import('@/lib/xlsx-lite');
@@ -1634,8 +1634,8 @@ function CleaningManager() {
         conditionalFormats: [{
           ref: `C6:${letter(width - 1)}${LAST}`,
           rules: [
-            { formula: 'AND(ISNUMBER(C6),C6<0.605)', fill: 'FF0000' },
-            { formula: 'AND(ISNUMBER(C6),C6>=0.605,C6<0.805)', fill: 'FFC000' },
+            { formula: 'AND(ISNUMBER(C6),C6<0.505)', fill: 'FF0000' },
+            { formula: 'AND(ISNUMBER(C6),C6>=0.505,C6<0.805)', fill: 'FFC000' },
             { formula: 'AND(ISNUMBER(C6),C6>=0.805)', fill: '00B050' },
           ],
         }],
