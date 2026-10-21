@@ -1638,7 +1638,7 @@ export default function StaffDashboard() {
                     const items = (record.items as Record<string, any>) || {};
                     const issueItems = Object.entries(items).filter(([, v]) => v.status === 'issue');
                     const okItems = Object.entries(items).filter(([, v]) => v.status === 'ok');
-                    const renderPhotoItemCard = (name: string, v: { memo?: string | null }, theme: 'issue' | 'ok') => {
+                    const renderPhotoItemCard = (name: string, v: any, theme: 'issue' | 'ok') => {
                       const before = getCleaningPhotos(v, 'before');
                       const after = getCleaningPhotos(v, 'after');
                       const cardCls = theme === 'issue' ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200';

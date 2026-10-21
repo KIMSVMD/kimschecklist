@@ -251,7 +251,7 @@ export default function CleaningChecklist() {
     if (step !== "items" || !selectedZone || !branch || Object.keys(itemData).length === 0) return;
     if (draftPushTimer.current) clearTimeout(draftPushTimer.current);
     draftPushTimer.current = setTimeout(() => {
-      saveDraftMutation.mutate({ branch, zone: selectedZone, inspectionTime, items: itemData, staffName: staffName || undefined });
+      saveDraftMutation.mutate({ branch, zone: selectedZone, inspectionTime, items: itemData as any, staffName: staffName || undefined });
     }, 600);
     return () => { if (draftPushTimer.current) clearTimeout(draftPushTimer.current); };
   }, [itemData, step, selectedZone, inspectionTime, branch]);
