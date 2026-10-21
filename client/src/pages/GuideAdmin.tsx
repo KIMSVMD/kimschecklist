@@ -1429,6 +1429,7 @@ function CleaningManager() {
   const [selectedBranch, setSelectedBranch] = useState('전체');
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
   const [scoreWeekStart, setScoreWeekStart] = useState(() => getMondayOfWeek(new Date()));
+  const { toast } = useToast();
   const { data: records = [], isLoading } = useCleaningInspections();
 
   // Full branch list (not just branches that already submitted something) so an admin
@@ -1509,28 +1510,106 @@ function CleaningManager() {
       .sort((a, b) => b.rate - a.rate);
   }, [branches, branchZoneScores]);
 
-  // Excel-friendly CSV (UTF-8 with BOM so Korean opens correctly): one row per branch with
-  // each zone's done / not-done and the 달성률. "5/5구역" keeps the suffix so Excel doesn't
-  // read it as the date 5월 5일.
-  const handleExportAchievementCsv = () => {
-    const header = ['주차', '지점', ...CLEANING_ZONES, '완료 구역', '달성률(%)'];
-    const rows = branchScores.map(({ branch, rate, zonesDone }) => [
-      scoreWeekLabel,
-      `${branch}점`,
-      ...CLEANING_ZONES.map(z => ((branchZoneScores[branch]?.[z]?.length ?? 0) > 0 ? '완료' : '미점검')),
-      `${zonesDone}/${CLEANING_ZONES.length}구역`,
-      rate,
-    ]);
-    const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-    const csv = '﻿' + [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `청소_달성률_${String(scoreWeekLabel).replace(/\s+/g, '')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // Excel export laid out like the sheet people already keep: zones across (농산 수산 축산
+  // 공산 공통, then 달성률), the month's weeks under each, one row per branch, cells coloured
+  // by score (≤80 red, 81–89 orange, ≥90 green; 달성률 ≤60 red, 61–80 orange, ≥81 green) and
+  // an average row on top. Blank = zone not done that week.
+  const handleExportAchievementXlsx = async () => {
+    try {
+      const { downloadXlsx } = await import('@/lib/xlsx-lite');
+      // The selected week's Thursday decides the month, so 9/28–10/4 is "10월 1주차".
+      const thu = new Date(scoreWeekStart);
+      thu.setDate(thu.getDate() + 3);
+      const year = thu.getFullYear();
+      const month = thu.getMonth() + 1;
+      const today = new Date();
+      const weeks: { start: Date; end: Date; label: string }[] = [];
+      for (let cur = getMondayOfWeek(new Date(year, month - 1, 1)); cur <= new Date(year, month, 0); cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 7)) {
+        if (cur > today) break;
+        const end = new Date(cur);
+        end.setDate(end.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        weeks.push({ start: new Date(cur), end, label: `${month}월 ${weeks.length + 1}주차` });
+      }
+      if (weeks.length === 0) { toast({ title: '내보낼 주차가 없어요', variant: 'destructive' }); return; }
+
+      // branch|zone|weekIndex -> scores
+      const byCell: Record<string, number[]> = {};
+      records.forEach(r => {
+        const items = (r.items as Record<string, { status: string }>) || {};
+        if (Object.keys(items).length === 0) return;
+        const d = new Date(r.createdAt);
+        const wi = weeks.findIndex(w => d >= w.start && d <= w.end);
+        if (wi < 0) return;
+        (byCell[`${r.branch}|${r.zone}|${wi}`] ??= []).push(calcCleaningScore(items));
+      });
+      const cellScore = (b: string, z: string, wi: number): number | null => {
+        const s = byCell[`${b}|${z}|${wi}`];
+        return s && s.length > 0 ? Math.round(s.reduce((a, c) => a + c, 0) / s.length) : null;
+      };
+
+      const ZONE_ORDER = ['농산', '수산', '축산', '공산', '공통'];
+      const W = weeks.length;
+      const S = { def: 0, head: 1, name: 2, red: 3, orange: 4, green: 5, blank: 6, avg: 7, corner: 8 };
+      const styles = [
+        {},
+        { bold: true, color: 'FFFFFF', fill: '404354', border: true, size: 11 },
+        { bold: true, border: true, size: 12, align: 'left' as const },
+        { bold: true, border: true, size: 12, fill: 'FF0000' },
+        { bold: true, border: true, size: 12, fill: 'FFC000' },
+        { bold: true, border: true, size: 12, fill: '00B050' },
+        { border: true },
+        { bold: true, border: true, size: 12 },
+        { bold: true, border: true, size: 16, fill: 'E7E6E6' },
+      ];
+      const scoreStyle = (v: number) => (v <= 80 ? S.red : v <= 89 ? S.orange : S.green);
+      const rateStyle = (v: number) => (v >= 81 ? S.green : v >= 61 ? S.orange : S.red);
+      const avgOf = (vals: (number | null)[]) => {
+        const nums = vals.filter((v): v is number => v !== null);
+        return nums.length > 0 ? Math.round(nums.reduce((a, c) => a + c, 0) / nums.length) : null;
+      };
+
+      type Col = { zone: string | null; wi: number };
+      const cols: Col[] = [...ZONE_ORDER, null].flatMap(zone => weeks.map((_, wi) => ({ zone, wi })));
+      const valueOf = (branch: string, c: Col): number | null => {
+        if (c.zone) return cellScore(branch, c.zone, c.wi);
+        const done = CLEANING_ZONES.filter(z => cellScore(branch, z, c.wi) !== null).length;
+        return Math.round((done / CLEANING_ZONES.length) * 100);
+      };
+      const styleOf = (c: Col, v: number | null) => (v === null ? S.blank : c.zone ? scoreStyle(v) : rateStyle(v));
+
+      const group = (c: Col, i: number) => (i % W === 0 ? { v: c.zone ?? '달성률(%)', s: S.head } : { s: S.head });
+      const row1 = [{ v: '구분', s: S.corner }, { s: S.corner }, ...cols.map(group)];
+      const row2 = [{ s: S.corner }, { s: S.corner }, ...cols.map(c => ({ v: weeks[c.wi].label, s: S.head }))];
+      const avgRow = [
+        { v: '점포명 (평균)', s: S.avg }, { s: S.avg },
+        ...cols.map(c => {
+          const a = avgOf(branches.map(b => valueOf(b, c)));
+          return { v: a, s: a === null ? S.blank : S.avg };
+        }),
+      ];
+      const branchRows = branches.map(b => [
+        { v: `${b} 킴스`, s: S.name }, { s: S.name },
+        ...cols.map(c => { const v = valueOf(b, c); return { v, s: styleOf(c, v) }; }),
+      ]);
+
+      const letter = (i: number) => { let n = i + 1, s = ''; while (n > 0) { s = String.fromCharCode(65 + ((n - 1) % 26)) + s; n = Math.floor((n - 1) / 26); } return s; };
+      const merges = ['A1:B2', 'A3:B3'];
+      if (W > 1) for (let g = 0; g < ZONE_ORDER.length + 1; g++) merges.push(`${letter(2 + g * W)}1:${letter(2 + g * W + W - 1)}1`);
+
+      downloadXlsx({
+        name: `${month}월 청소 점수`,
+        styles,
+        rows: [row1, row2, avgRow, ...branchRows],
+        merges,
+        colWidths: [16, 10, ...cols.map(() => 11)],
+        rowHeights: { 1: 30, 2: 26, 3: 26 },
+        freeze: { cols: 2, rows: 3 },
+      }, `청소점수현황_${year}년${month}월.xlsx`);
+    } catch (err: any) {
+      console.error('achievement export failed', err);
+      toast({ title: '엑셀 만들기 실패', description: err?.message, variant: 'destructive' });
+    }
   };
 
   if (isLoading) {
@@ -1599,7 +1678,7 @@ function CleaningManager() {
           <span className="font-black text-emerald-700 text-base">지점별 청소 달성율</span>
           <button
             type="button"
-            onClick={handleExportAchievementCsv}
+            onClick={handleExportAchievementXlsx}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-white text-emerald-700 text-xs font-bold active:scale-95 transition-all"
             data-testid="btn-cleaning-achievement-export"
           >
