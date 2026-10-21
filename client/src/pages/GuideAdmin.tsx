@@ -1395,6 +1395,13 @@ function cleaningAchievementRate(zoneScores?: Record<string, number[]>): number 
   return Math.round((done / CLEANING_ZONES.length) * 100);
 }
 
+// 달성율 colour bands: 0–60% red, 61–80% orange, 81–100% green.
+function achievementColor(rate: number): string {
+  if (rate >= 81) return 'bg-emerald-50 text-emerald-700 border-emerald-300';
+  if (rate >= 61) return 'bg-orange-50 text-orange-600 border-orange-300';
+  return 'bg-red-50 text-red-600 border-red-300';
+}
+
 type CleaningPhotoEntry = { url: string; hash?: string; at?: string };
 
 // Cleaning items can hold multiple before/after photos (beforePhotos/afterPhotos);
@@ -1495,11 +1502,36 @@ function CleaningManager() {
     return branches
       .map(branch => {
         const zonesDone = Object.keys(branchZoneScores[branch] || {}).length;
-        const rate = zonesDone > 0 ? cleaningAchievementRate(branchZoneScores[branch]) : null;
+        // A branch with no check-in this week is 0%, not "기록 없음".
+        const rate = cleaningAchievementRate(branchZoneScores[branch]);
         return { branch, rate, zonesDone };
       })
-      .sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
+      .sort((a, b) => b.rate - a.rate);
   }, [branches, branchZoneScores]);
+
+  // Excel-friendly CSV (UTF-8 with BOM so Korean opens correctly): one row per branch with
+  // each zone's done / not-done and the 달성률. "5/5구역" keeps the suffix so Excel doesn't
+  // read it as the date 5월 5일.
+  const handleExportAchievementCsv = () => {
+    const header = ['주차', '지점', ...CLEANING_ZONES, '완료 구역', '달성률(%)'];
+    const rows = branchScores.map(({ branch, rate, zonesDone }) => [
+      scoreWeekLabel,
+      `${branch}점`,
+      ...CLEANING_ZONES.map(z => ((branchZoneScores[branch]?.[z]?.length ?? 0) > 0 ? '완료' : '미점검')),
+      `${zonesDone}/${CLEANING_ZONES.length}구역`,
+      rate,
+    ]);
+    const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = '﻿' + [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `청소_달성률_${String(scoreWeekLabel).replace(/\s+/g, '')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   if (isLoading) {
     return (
@@ -1565,6 +1597,14 @@ function CleaningManager() {
       <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
         <div className="px-4 py-3 bg-emerald-50 border-b border-border flex items-center justify-between">
           <span className="font-black text-emerald-700 text-base">지점별 청소 달성율</span>
+          <button
+            type="button"
+            onClick={handleExportAchievementCsv}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-white text-emerald-700 text-xs font-bold active:scale-95 transition-all"
+            data-testid="btn-cleaning-achievement-export"
+          >
+            <Download className="w-3.5 h-3.5" /> 엑셀
+          </button>
         </div>
         <p className="px-4 py-2 text-[11px] text-muted-foreground bg-emerald-50/40 border-b border-border/50">
           5개 구역(공통·농산·축산·수산·공산)이 100%예요. 구역을 점검 완료할 때마다 20%씩 올라가고, 이상없음/문제있음 결과는 달성율에 영향을 주지 않아요.
@@ -1575,7 +1615,7 @@ function CleaningManager() {
           <div className="divide-y divide-border/50">
             {branchScores.map(({ branch, rate, zonesDone }, i) => {
               const isExpanded = expandedBranch === branch;
-              const grade = rate !== null ? computeAbsoluteGrade(rate) : null;
+              const grade = computeAbsoluteGrade(rate);
               return (
                 <div key={branch}>
                   <button
@@ -1596,18 +1636,12 @@ function CleaningManager() {
                         {zonesDone}/{CLEANING_ZONES.length}구역
                       </span>
                     </div>
-                    {rate !== null ? (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-right">
-                          <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(rate)}`}>{rate}%</div>
-                        </div>
-                        {grade && (
-                          <span className={`px-2 py-1 rounded-lg border text-xs font-black ${gradeColor(grade)}`}>{grade}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">기록 없음</span>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className={`px-3 py-1 rounded-xl border text-sm font-black ${achievementColor(rate)}`}>{rate}%</div>
+                      {grade && (
+                        <span className={`px-2 py-1 rounded-lg border text-xs font-black ${gradeColor(grade)}`}>{grade}</span>
+                      )}
+                    </div>
                   </button>
                   {isExpanded && (
                     <div className="grid grid-cols-5 gap-1.5 px-4 pb-3 bg-gray-50/60">
