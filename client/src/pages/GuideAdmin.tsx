@@ -1510,11 +1510,12 @@ function CleaningManager() {
       .sort((a, b) => b.rate - a.rate);
   }, [branches, branchZoneScores]);
 
-  // Excel export in the team's "VM 체크리스트 주간별 진행률" form: zones across (농산 수산 축산
-  // 공산 공통) with the two most recent weeks under each, then 월별 달성율 for the month so far
-  // and the next one. Every number is a percent of completion: a zone-week is 100% when that
-  // zone was submitted that week and 0% when not (marking items 문제있음 doesn't lower it);
-  // the 점포명 row averages each column; 월별 달성율 = done zone-weeks / (5 zones x weeks so far).
+  // Excel export in the team's "VM 체크리스트 주간별 진행률" form, measured in checklist ITEMS:
+  // a branch's total is every item across the 5 zones (공통 6 + 4 zones x 7 = 34), and a zone
+  // counts the items in the submission it handed in that week (marking items 문제있음 doesn't
+  // lower it). A branch that did not submit anything in a week is left blank (white) for that
+  // week; only participating branches show progress. 월별 달성율 = items done / (all items x
+  // weeks so far). The three 완료 항목 columns show the same thing as "done/total" counts.
   // Colours (conditional formatting): 0% blank/white, under 30% red, 30% to under 80% orange, 80%+ green.
   const handleExportAchievementXlsx = async () => {
     try {
@@ -1542,23 +1543,32 @@ function CleaningManager() {
         return list;
       };
 
-      // branch|zone|monday -> submitted that week
-      const done = new Set<string>();
+      const ZONE_ORDER = ['농산', '수산', '축산', '공산', '공통'];
+      // Items per zone: what the zone's most recent submission contained (fallback: today's lists).
+      const zoneTotal: Record<string, number> = { 공통: 6, 농산: 7, 수산: 7, 축산: 7, 공산: 7 };
+      const latest: Record<string, { t: number; n: number }> = {};
+      // branch|monday -> zone -> items handed in that week
+      const sub: Record<string, Record<string, number>> = {};
       records.forEach(r => {
-        const items = (r.items as Record<string, unknown>) || {};
-        if (Object.keys(items).length === 0) return;
-        done.add(`${r.branch}|${r.zone}|${mondayKey(new Date(r.createdAt))}`);
+        const n = Object.keys((r.items as Record<string, unknown>) || {}).length;
+        if (n === 0) return;
+        const t = new Date(r.createdAt).getTime();
+        if (!latest[r.zone] || t > latest[r.zone].t) latest[r.zone] = { t, n };
+        const byZone = (sub[`${r.branch}|${mondayKey(new Date(r.createdAt))}`] ??= {});
+        byZone[r.zone] = Math.max(byZone[r.zone] ?? 0, n);
       });
-      const zoneDone = (b: string, z: string, mon: Date) => done.has(`${b}|${z}|${mondayKey(mon)}`);
-      const monthRate = (b: string, y: number, m: number): number | null => {
+      ZONE_ORDER.forEach(z => { if (latest[z]) zoneTotal[z] = latest[z].n; });
+      const totalItems = ZONE_ORDER.reduce((a, z) => a + zoneTotal[z], 0);
+
+      const subOf = (b: string, mon: Date) => sub[`${b}|${mondayKey(mon)}`];
+      const itemsDone = (b: string, mon: Date) =>
+        ZONE_ORDER.reduce((a, z) => a + Math.min(subOf(b, mon)?.[z] ?? 0, zoneTotal[z]), 0);
+      const monthStat = (b: string, y: number, m: number) => {
         const wk = weeksSoFar(y, m);
-        if (wk.length === 0) return null;
-        let n = 0;
-        wk.forEach(mon => CLEANING_ZONES.forEach(z => { if (zoneDone(b, z, mon)) n += 1; }));
-        return n / (wk.length * CLEANING_ZONES.length);
+        if (!wk.some(mon => subOf(b, mon))) return null; // hasn't taken part this month
+        return { done: wk.reduce((a, mon) => a + itemsDone(b, mon), 0), total: totalItems * wk.length };
       };
 
-      const ZONE_ORDER = ['농산', '수산', '축산', '공산', '공통'];
       // Row order the team uses in its form.
       const BRANCH_ORDER = ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '산본', '동수원', '해운대', '부산대', '괴정', '인천', '고잔', '중계', '청주', '김포'];
       const rowsOrder = [...BRANCH_ORDER.filter(b => branches.includes(b)), ...branches.filter(b => !BRANCH_ORDER.includes(b))];
@@ -1575,52 +1585,86 @@ function CleaningManager() {
         { ...T, font: 'Arial Unicode MS', size: 14, fill: 'D9D9D9', border: medL },            // 2 구분
         { ...T, size: 12, fill: 'D9D9D9' },                                                    // 3 zone header
         { ...T, size: 10, color: 'FFFFFF', fill: '424450' },                                   // 4 week / month header
-        { ...T, font: 'Arial Unicode MS', size: 12, color: 'FFFFFF', fill: '424450' },         // 5 월별 달성율
+        { ...T, font: 'Arial Unicode MS', size: 12, color: 'FFFFFF', fill: '424450' },         // 5 월별 달성율 / 완료 항목
         { ...T, font: 'Arial Unicode MS', size: 12, fill: 'F2F2F2', border: medL },            // 6 점포명
         { ...T, size: 12, fill: 'F2F2F2', numFmt: 'percent' as const },                        // 7 average
         { ...T, font: 'Arial', size: 12, fill: 'D9D9D9', border: medL },                       // 8 branch name
         { ...T, font: 'Arial', size: 12, fill: 'D9D9D9' },                                     // 9 manager
         { ...T, size: 12, numFmt: 'percent' as const },                                        // 10 weekly cell
         { ...T, size: 14, numFmt: 'percent' as const },                                        // 11 monthly cell
+        { ...T, size: 11 },                                                                    // 12 item count
+        { ...T, size: 12, fill: 'F2F2F2' },                                                    // 13 count column, 점포명 row
       ];
-      const S = { title: 1, corner: 2, zone: 3, head: 4, monthTitle: 5, avgLabel: 6, avg: 7, name: 8, mgr: 9, cell: 10, month: 11 };
+      const S = { title: 1, corner: 2, zone: 3, head: 4, groupTitle: 5, avgLabel: 6, avg: 7, name: 8, mgr: 9, cell: 10, month: 11, count: 12, countAvg: 13 };
 
-      type Col = { zone: string | null; mon: Date | null; month?: { y: number; m: number } };
+      type Col =
+        | { kind: 'zone'; zone: string; mon: Date }
+        | { kind: 'month'; y: number; m: number }
+        | { kind: 'countWeek'; mon: Date }
+        | { kind: 'countMonth'; y: number; m: number };
       const cols: Col[] = [
-        ...ZONE_ORDER.flatMap(zone => shown.map(mon => ({ zone, mon }))),
-        { zone: null, mon: null, month: { y: cur.year, m: cur.month } },
-        { zone: null, mon: null, month: { y: nextYear, m: nextMonth } },
+        ...ZONE_ORDER.flatMap((zone): Col[] => shown.map(mon => ({ kind: 'zone', zone, mon }))),
+        { kind: 'month', y: cur.year, m: cur.month },
+        { kind: 'month', y: nextYear, m: nextMonth },
+        ...shown.map((mon): Col => ({ kind: 'countWeek', mon })),
+        { kind: 'countMonth', y: cur.year, m: cur.month },
       ];
-      const valueOf = (b: string, c: Col): number | null =>
-        c.zone && c.mon ? (zoneDone(b, c.zone, c.mon) ? 1 : 0) : c.month ? monthRate(b, c.month.y, c.month.m) : null;
+      const percentCols = cols.filter(c => c.kind === 'zone' || c.kind === 'month').length;
+      const valueOf = (b: string, c: Col): number | string | null => {
+        if (c.kind === 'zone') {
+          const s = subOf(b, c.mon);
+          return s ? Math.min(1, (s[c.zone] ?? 0) / zoneTotal[c.zone]) : null;
+        }
+        if (c.kind === 'month') { const st = monthStat(b, c.y, c.m); return st ? st.done / st.total : null; }
+        if (c.kind === 'countWeek') return subOf(b, c.mon) ? `${itemsDone(b, c.mon)}/${totalItems}` : null;
+        const st = monthStat(b, c.y, c.m);
+        return st ? `${st.done}/${st.total}` : null;
+      };
 
       type Cell = { v?: string | number | null; s?: number; f?: string };
-      const width = 2 + cols.length; // A..N
-      const fill = (cells: Cell[], s: number): Cell[] => Array.from({ length: width }, (_, i) => cells[i] ?? { s });
-      const rTitle1: Cell[] = fill([], 0);
-      const rTitle2: Cell[] = fill([{ v: 'VM 체크리스트 주간별 진행률', s: S.title }], S.title);
-      const rTitle3: Cell[] = fill([], S.title);
-      const zoneRow: Cell[] = [{ v: '구분', s: S.corner }, { s: S.corner }, ...cols.map((c, i): Cell => (
-        c.zone ? (i % shown.length === 0 ? { v: c.zone, s: S.zone } : { s: S.zone })
-               : (c.month!.m === cur.month ? { v: '월별 달성율', s: S.monthTitle } : { s: S.monthTitle })
-      ))];
+      const width = 2 + cols.length; // A..Q
+      const fillRow = (cells: Cell[], s: number): Cell[] => Array.from({ length: width }, (_, i) => cells[i] ?? { s });
+      const rTitle1: Cell[] = fillRow([], 0);
+      const rTitle2: Cell[] = fillRow([{ v: 'VM 체크리스트 주간별 진행률', s: S.title }], S.title);
+      const rTitle3: Cell[] = fillRow([], S.title);
+      const firstOf = (kind: Col['kind']) => cols.findIndex(c => c.kind === kind);
+      const zoneRow: Cell[] = [{ v: '구분', s: S.corner }, { s: S.corner }, ...cols.map((c, i): Cell => {
+        if (c.kind === 'zone') return i % shown.length === 0 ? { v: c.zone, s: S.zone } : { s: S.zone };
+        if (c.kind === 'month') return i === firstOf('month') ? { v: '월별 달성율', s: S.groupTitle } : { s: S.groupTitle };
+        return i === firstOf('countWeek') ? { v: '완료 항목(개)', s: S.groupTitle } : { s: S.groupTitle };
+      })];
       const headRow: Cell[] = [{ s: S.corner }, { s: S.corner }, ...cols.map((c): Cell => {
-        if (c.mon) { const w = weekInfo(c.mon); return { v: `${w.month}월\n${w.n}주차`, s: S.head }; }
-        return { v: `${c.month!.m}월`, s: S.head };
+        if (c.kind === 'zone' || c.kind === 'countWeek') { const w = weekInfo(c.mon); return { v: `${w.month}월\n${w.n}주차`, s: S.head }; }
+        if (c.kind === 'month') return { v: `${c.m}월`, s: S.head };
+        return { v: `${c.m}월\n누적`, s: S.head };
       })];
       const avgRow: Cell[] = [{ v: '점포명', s: S.avgLabel }, { s: S.avgLabel }, ...cols.map((c, i): Cell => {
+        if (c.kind === 'countWeek' || c.kind === 'countMonth') return { s: S.countAvg };
         const col = letter(2 + i);
-        const nums = rowsOrder.map(b => valueOf(b, c)).filter((v): v is number => v !== null);
+        // Blank cells (branches that did not take part) are skipped by AVERAGE.
+        const nums = rowsOrder.map(b => valueOf(b, c)).filter((v): v is number => typeof v === 'number');
         const cached = nums.length > 0 ? nums.reduce((a, v) => a + v, 0) / nums.length : '-';
         return { f: `IFERROR(AVERAGE(${col}${FIRST}:${col}${LAST}),"-")`, v: cached, s: S.avg };
       })];
       const branchRows: Cell[][] = rowsOrder.map(b => [
         { v: `${b} 킴스`, s: S.name },
         { s: S.mgr }, // 점장 이름: not stored in the app, fill in on the sheet
-        ...cols.map((c): Cell => ({ v: valueOf(b, c), s: c.zone ? S.cell : S.month })),
+        ...cols.map((c): Cell => ({
+          v: valueOf(b, c),
+          s: c.kind === 'zone' ? S.cell : c.kind === 'month' ? S.month : S.count,
+        })),
       ]);
 
-      const merges = ['A2:N3', 'A4:B5', 'M4:N4', ...ZONE_ORDER.map((_, g) => `${letter(2 + g * shown.length)}4:${letter(2 + g * shown.length + shown.length - 1)}4`)];
+      const groupMerge = (kind: Col['kind']) => {
+        const idx = cols.map((c, i) => (c.kind === kind ? i : -1)).filter(i => i >= 0);
+        return `${letter(2 + idx[0])}4:${letter(2 + idx[idx.length - 1])}4`;
+      };
+      const merges = [
+        `A2:${letter(width - 1)}3`, 'A4:B5',
+        ...ZONE_ORDER.map((_, g) => `${letter(2 + g * shown.length)}4:${letter(2 + g * shown.length + shown.length - 1)}4`),
+        groupMerge('month'),
+        `${letter(2 + firstOf('countWeek'))}4:${letter(width - 1)}4`,
+      ];
       const rowHeights: Record<number, number> = { 1: 10.2, 2: 17.4, 3: 7.8, 4: 19.8, 5: 31.2, 6: 30 };
       for (let r = FIRST; r <= LAST; r++) rowHeights[r] = 19.95;
 
@@ -1629,10 +1673,10 @@ function CleaningManager() {
         styles,
         rows: [rTitle1, rTitle2, rTitle3, zoneRow, headRow, avgRow, ...branchRows],
         merges,
-        colWidths: [15.4, 9, ...cols.map(c => (c.zone ? 9 : 10.5))],
+        colWidths: [15.4, 9, ...cols.map(c => (c.kind === 'zone' ? 9 : c.kind === 'month' ? 10.5 : 11))],
         rowHeights,
         conditionalFormats: [{
-          ref: `C6:${letter(width - 1)}${LAST}`,
+          ref: `C6:${letter(1 + percentCols)}${LAST}`,
           rules: [
             { formula: 'AND(ISNUMBER(C6),C6=0)', fill: 'FFFFFF', fontColor: 'FFFFFF' },
             { formula: 'AND(ISNUMBER(C6),C6>0,C6<0.295)', fill: 'FF0000' },
