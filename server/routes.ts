@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { api } from "../shared/routes";
-import { insertGuideSchema, insertProductSchema, insertCleaningSchema, insertCleaningMonitoringFeedbackSchema, insertCleaningDraftSchema, staffScoreNotifications } from "../shared/schema";
+import { insertGuideSchema, insertProductSchema, insertCleaningSchema, insertCleaningMonitoringFeedbackSchema, insertCleaningDraftSchema, insertCleaningItemGuideSchema, staffScoreNotifications } from "../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import path from "path";
@@ -532,6 +532,29 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // 매뉴얼 가이드 (BEST/WORST example photos) per cleaning zone + item. Anyone can read them
+  // (store staff see them while checking); only admin can set them.
+  app.get('/api/cleaning-guides', async (_req, res) => {
+    try {
+      res.json(await storage.getCleaningItemGuides());
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put('/api/cleaning-guides', requireAdmin, async (req, res) => {
+    try {
+      const input = insertCleaningItemGuideSchema.parse(req.body);
+      res.json(await storage.upsertCleaningItemGuide(input));
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ message: err.errors[0].message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
     }
   });
 

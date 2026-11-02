@@ -19,31 +19,11 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { calcCleaningScore, scoreColor } from "@/lib/scoring";
+import { ZONE_ITEMS } from "@/lib/cleaning-items";
+import { CleaningItemGuidePanel } from "@/components/CleaningItemGuide";
+import { useCleaningItemGuides } from "@/hooks/use-cleaning-guides";
 
 const ZONES = ["공통", "농산", "축산", "수산", "공산"];
-
-const ZONE_ITEMS: Record<string, string[]> = {
-  "공통": [
-    "카트 정리 상태", "카트/장바구니 보관구역", "유/무인 계산대",
-    "매장 바닥(델리 등)", "상온 매대(델리 등)", "냉장 S/C(델리 등)",
-  ],
-  "농산": [
-    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
-  ],
-  "축산": [
-    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
-  ],
-  "수산": [
-    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
-  ],
-  "공산": [
-    "바닥 청결", "진열대 청결(상온)", "진열대 청결(냉장,냉동 S/C)", "냉동평대(이동식)",
-    "행사매대 주변 청결", "메인 통로 청결", "쇼케이스 외관 및 하단",
-  ],
-};
 
 const ITEM_DESCRIPTIONS: Record<string, Record<string, string>> = {
   "공통": {
@@ -199,6 +179,7 @@ export default function CleaningChecklist() {
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const currentItems = ZONE_ITEMS[selectedZone] || [];
+  const { data: itemGuides = [] } = useCleaningItemGuides();
   const allChecked = currentItems.every(item => itemData[item]?.status != null);
   const itemsMissingPhotos = currentItems.filter(item => {
     const d = itemData[item];
@@ -671,6 +652,10 @@ export default function CleaningChecklist() {
                   {currentItems.map((item, idx) => {
                     const data = itemData[item];
                     const status = data?.status;
+                    // Show the 매뉴얼 가이드 only once the admin has put something in it
+                    const guide = itemGuides.find(g =>
+                      g.zone === selectedZone && g.item === item &&
+                      (!!g.bestPhotos?.length || !!g.worstPhotos?.length || !!g.bestNote || !!g.worstNote));
                     return (
                       <motion.div
                         key={item}
@@ -720,6 +705,12 @@ export default function CleaningChecklist() {
                             </button>
                           </div>
                         </div>
+
+                        {guide && (
+                          <div className="px-5 pb-4">
+                            <CleaningItemGuidePanel guide={guide} />
+                          </div>
+                        )}
 
                         <AnimatePresence>
                           {status === "ok" && (

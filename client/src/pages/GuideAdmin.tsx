@@ -12,9 +12,12 @@ import {
 import { useProducts, useCreateProduct, useDeleteProduct, useUpsertProductFile, useUpdateProductFiles } from "@/hooks/use-products";
 import { useCleaningInspections } from "@/hooks/use-cleaning";
 import { useCleaningMonitoringFeedback, useSaveCleaningMonitoringFeedback } from "@/hooks/use-cleaning-monitoring";
+import { useCleaningItemGuides, useSaveCleaningItemGuide } from "@/hooks/use-cleaning-guides";
+import { queryClient } from "@/lib/queryClient";
+import { ZONE_ITEMS } from "@/lib/cleaning-items";
 import { calcCleaningScore, scoreColor, computeAbsoluteGrade, gradeColor } from "@/lib/scoring";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
-import type { Guide } from "@shared/schema";
+import type { Guide, CleaningItemGuide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -1425,7 +1428,7 @@ function getMonthWeekLabel(weekStart: Date) {
 }
 
 function CleaningManager() {
-  const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos' | 'monitoring'>('score');
+  const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos' | 'monitoring' | 'guide'>('score');
   const [selectedBranch, setSelectedBranch] = useState('전체');
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
   const [scoreWeekStart, setScoreWeekStart] = useState(() => getMondayOfWeek(new Date()));
@@ -1742,12 +1745,23 @@ function CleaningManager() {
         >
           모니터링 피드백
         </button>
+        <button
+          onClick={() => setCleaningSubTab('guide')}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+            cleaningSubTab === 'guide' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid="tab-cleaning-guide"
+        >
+          매뉴얼 가이드
+        </button>
       </div>
 
       {cleaningSubTab === 'photos' ? (
         <CleaningPhotoReview records={records} branches={branches} />
       ) : cleaningSubTab === 'monitoring' ? (
         <CleaningMonitoringManager />
+      ) : cleaningSubTab === 'guide' ? (
+        <CleaningGuideManager />
       ) : (
         <div className="space-y-4">
       {/* Week navigator */}
@@ -2027,6 +2041,162 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Admin editor for each cleaning item's 매뉴얼 가이드: BEST / WORST example photos (+ optional
+// caption) per zone, shown under that item on the store's 청소 점검 screen. Saves right away.
+function CleaningGuideManager() {
+  const { toast } = useToast();
+  const [zone, setZone] = useState(CLEANING_ZONES[0]);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const { data: guides = [], isLoading } = useCleaningItemGuides();
+  const saveMutation = useSaveCleaningItemGuide();
+  // Read the query cache (kept current by the save hook) rather than this render's `guides`, so a
+  // save that runs after a slow upload merges into the latest row (e.g. the other side saved meanwhile).
+  const guideOf = (item: string) =>
+    (queryClient.getQueryData<CleaningItemGuide[]>(["/api/cleaning-guides"]) ?? guides).find(g => g.zone === zone && g.item === item);
+
+  const save = async (item: string, patch: Partial<Pick<CleaningItemGuide, 'bestPhotos' | 'worstPhotos' | 'bestNote' | 'worstNote'>>) => {
+    const g = guideOf(item);
+    try {
+      await saveMutation.mutateAsync({
+        zone,
+        item,
+        bestPhotos: g?.bestPhotos ?? [],
+        worstPhotos: g?.worstPhotos ?? [],
+        bestNote: g?.bestNote ?? null,
+        worstNote: g?.worstNote ?? null,
+        ...patch,
+      });
+      return true;
+    } catch (err: any) {
+      console.error('cleaning guide save failed', err);
+      toast({ title: '저장 실패', description: err?.message || '다시 시도해주세요.', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const handleAddPhotos = async (item: string, side: 'best' | 'worst', fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList); // snapshot before any await — the input gets cleared right after this call
+    setUploadingKey(`${item}|${side}`);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const results = await Promise.allSettled(files.map(f => uploadFile(f, { compress: true })));
+      const uploaded = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled').map(r => r.value);
+      const failedCount = results.length - uploaded.length;
+      if (uploaded.length > 0) {
+        const g = guideOf(item);
+        const key = side === 'best' ? 'bestPhotos' : 'worstPhotos';
+        if (await save(item, { [key]: [...(g?.[key] ?? []), ...uploaded] })) {
+          toast({ title: `${side === 'best' ? 'BEST' : 'WORST'} 사진 ${uploaded.length}장 저장됨` });
+        }
+      }
+      if (failedCount > 0) {
+        results.forEach(r => { if (r.status === 'rejected') console.error('cleaning guide photo upload failed', r.reason); });
+        toast({ title: `사진 ${failedCount}장 업로드 실패`, description: '다시 시도해주세요.', variant: 'destructive' });
+      }
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
+  const handleRemovePhoto = (item: string, side: 'best' | 'worst', idx: number) => {
+    const key = side === 'best' ? 'bestPhotos' : 'worstPhotos';
+    const list = [...(guideOf(item)?.[key] ?? [])];
+    list.splice(idx, 1);
+    save(item, { [key]: list });
+  };
+
+  const renderSide = (item: string, side: 'best' | 'worst') => {
+    const g = guideOf(item);
+    const photos = (side === 'best' ? g?.bestPhotos : g?.worstPhotos) ?? [];
+    const note = (side === 'best' ? g?.bestNote : g?.worstNote) ?? '';
+    const uploading = uploadingKey === `${item}|${side}`;
+    return (
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className={`text-center text-xs font-black py-1 rounded-md ${side === 'best' ? 'bg-white text-black border-2 border-black' : 'bg-zinc-600 text-white'}`}>
+          {side === 'best' ? 'BEST' : 'WORST'}
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {photos.map((url, idx) => (
+            <div key={url + idx} className="relative">
+              <PhotoThumbnail src={url} className="w-full">
+                <img src={url} className="w-full aspect-square object-cover rounded-lg border border-border" alt={`${item} ${side} ${idx + 1}`} />
+              </PhotoThumbnail>
+              <button
+                type="button"
+                onClick={() => handleRemovePhoto(item, side, idx)}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                aria-label="사진 삭제"
+                data-testid={`btn-cleaning-guide-remove-${side}-${idx}`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+          <label className={`aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground cursor-pointer ${uploading ? 'opacity-60 pointer-events-none' : 'hover:border-primary hover:text-primary'}`}>
+            {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+            <span className="text-[10px] font-bold">{uploading ? '업로드 중' : '사진 추가'}</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={e => { handleAddPhotos(item, side, e.target.files); e.target.value = ''; }}
+              data-testid={`input-cleaning-guide-${side}`}
+            />
+          </label>
+        </div>
+        <textarea
+          key={`${zone}|${item}|${side}|${g?.updatedAt ?? ''}`}
+          defaultValue={note}
+          placeholder="설명 (선택)"
+          onBlur={e => { const v = e.target.value.trim(); if (v !== note) save(item, { [side === 'best' ? 'bestNote' : 'worstNote']: v || null }); }}
+          className="w-full p-2 rounded-lg border border-border text-xs resize-none h-16 focus:outline-none focus:border-primary"
+          data-testid={`textarea-cleaning-guide-${side}`}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground px-1">
+        항목별로 BEST / WORST 사진을 올리면 점포 청소 점검 화면의 해당 항목에 "매뉴얼 가이드"로 보여요. 사진과 설명은 바로 저장돼요.
+      </p>
+      <div className="flex gap-1.5 flex-wrap">
+        {CLEANING_ZONES.map(z => (
+          <button
+            key={z}
+            onClick={() => setZone(z)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${zone === z ? 'bg-secondary text-white' : 'bg-muted text-muted-foreground'}`}
+            data-testid={`btn-cleaning-guide-zone-${z}`}
+          >
+            {z}
+          </button>
+        ))}
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <div className="space-y-3">
+          {(ZONE_ITEMS[zone] || []).map((item, i) => (
+            <div key={item} className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-muted-foreground">{String(i + 1).padStart(2, '0')}</span>
+                <span className="font-bold text-secondary">{item}</span>
+              </div>
+              <div className="flex gap-3">
+                {renderSide(item, 'best')}
+                {renderSide(item, 'worst')}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
