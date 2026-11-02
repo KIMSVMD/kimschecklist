@@ -131,12 +131,13 @@ function getMondayOfWeek(d: Date) {
   return date;
 }
 
-// A Mon–Sun week belongs to the month its Thursday falls in; week 1 is the first week with a
-// Thursday in the month (so 11/2–11/8 is 11월 1주차).
+// Week 1 = the calendar week (Mon–Sun) containing the 1st of the month
 function getCurrentMonthWeek() {
-  const monday = getMondayOfWeek(new Date());
-  const thursday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3);
-  return { month: thursday.getMonth() + 1, week: Math.floor((thursday.getDate() - 1) / 7) + 1 };
+  const now = new Date();
+  const firstMonday = getMondayOfWeek(new Date(now.getFullYear(), now.getMonth(), 1));
+  const thisMonday = getMondayOfWeek(now);
+  const week = Math.round((thisMonday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return { month: now.getMonth() + 1, week };
 }
 
 type DraftStore = {

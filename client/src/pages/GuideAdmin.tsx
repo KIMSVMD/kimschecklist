@@ -1415,11 +1415,13 @@ function getCleaningPhotos(data: any, slot: 'before' | 'after'): CleaningPhotoEn
   return legacyUrl ? [{ url: legacyUrl }] : [];
 }
 
-// A Monday-start week belongs to the month its Thursday falls in, and week 1 is the first week
-// that has a Thursday in the month (so 10/26-11/1 is 10월 5주차 and 11/2-11/8 is 11월 1주차).
+// Week N = the Nth Monday-start calendar week of `weekStart`'s own month
 function getMonthWeekLabel(weekStart: Date) {
-  const thursday = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 3);
-  return { year: thursday.getFullYear(), month: thursday.getMonth() + 1, week: Math.floor((thursday.getDate() - 1) / 7) + 1 };
+  const year = weekStart.getFullYear();
+  const month = weekStart.getMonth() + 1;
+  const firstMonday = getMondayOfWeek(new Date(year, weekStart.getMonth(), 1));
+  const week = Math.round((weekStart.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return { year, month, week };
 }
 
 function CleaningManager() {
@@ -1520,7 +1522,7 @@ function CleaningManager() {
       const { downloadXlsx } = await import('@/lib/xlsx-lite');
       const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
       const mondayKey = (d: Date) => { const m = getMondayOfWeek(d); return `${m.getFullYear()}-${m.getMonth() + 1}-${m.getDate()}`; };
-      // Same week names as the app's week navigator (getMonthWeekLabel), e.g. 11/2 = 11월 1주차.
+      // Same week names as the app's week navigator (getMonthWeekLabel), e.g. 11/2 = 11월 2주차.
       const weekInfo = (monday: Date) => { const w = getMonthWeekLabel(monday); return { year: w.year, month: w.month, n: w.week }; };
       const lastMonday = getMondayOfWeek(scoreWeekStart);
       const shown = [addDays(lastMonday, -7), lastMonday]; // oldest first, like the form
