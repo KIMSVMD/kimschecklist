@@ -1415,11 +1415,13 @@ function getCleaningPhotos(data: any, slot: 'before' | 'after'): CleaningPhotoEn
   return legacyUrl ? [{ url: legacyUrl }] : [];
 }
 
-// Week N = the Nth Monday-start calendar week of `weekStart`'s own month
+// Week 1 = the Monday-start week containing the 1st of the month; a week belongs to the month its
+// Sunday falls in (so 10/26-11/1 is 11월 1주차, never also 10월 5주차).
 function getMonthWeekLabel(weekStart: Date) {
-  const year = weekStart.getFullYear();
-  const month = weekStart.getMonth() + 1;
-  const firstMonday = getMondayOfWeek(new Date(year, weekStart.getMonth(), 1));
+  const sunday = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+  const year = sunday.getFullYear();
+  const month = sunday.getMonth() + 1;
+  const firstMonday = getMondayOfWeek(new Date(year, sunday.getMonth(), 1));
   const week = Math.round((weekStart.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
   return { year, month, week };
 }
@@ -1522,12 +1524,9 @@ function CleaningManager() {
       const { downloadXlsx } = await import('@/lib/xlsx-lite');
       const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
       const mondayKey = (d: Date) => { const m = getMondayOfWeek(d); return `${m.getFullYear()}-${m.getMonth() + 1}-${m.getDate()}`; };
-      // A week belongs to the month its Thursday falls in, so 9/28-10/4 is "10월 1주차" and the
-      // numbering never overlaps between months.
-      const weekInfo = (monday: Date) => {
-        const thu = addDays(monday, 3);
-        return { year: thu.getFullYear(), month: thu.getMonth() + 1, n: Math.floor((thu.getDate() - 1) / 7) + 1 };
-      };
+      // Same numbering as the week navigator: week 1 is the week containing the 1st, so 9/28-10/4
+      // is 10월 1주차 and 10/26-11/1 is 11월 1주차 (a week is named after the month of its Sunday).
+      const weekInfo = (monday: Date) => { const w = getMonthWeekLabel(monday); return { year: w.year, month: w.month, n: w.week }; };
       const lastMonday = getMondayOfWeek(scoreWeekStart);
       const shown = [addDays(lastMonday, -7), lastMonday]; // oldest first, like the form
       const asOf = addDays(lastMonday, 6); // month-to-date counts weeks up to the selected one
