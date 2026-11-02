@@ -210,6 +210,27 @@ export const insertCleaningDraftSchema = createInsertSchema(cleaningDrafts).omit
 export type InsertCleaningDraft = z.infer<typeof insertCleaningDraftSchema>;
 export type CleaningDraft = typeof cleaningDrafts.$inferSelect;
 
+// 매뉴얼 가이드 for one cleaning item in one zone — BEST / WORST example photos the admin
+// uploads, shown under the item on the store's 청소 점검 screen. One row per (zone, item).
+export const cleaningItemGuides = pgTable("cleaning_item_guides", {
+  id: serial("id").primaryKey(),
+  zone: text("zone").notNull(),
+  item: text("item").notNull(),
+  bestPhotos: text("best_photos").array(),
+  worstPhotos: text("worst_photos").array(),
+  bestNote: text("best_note"),
+  worstNote: text("worst_note"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCleaningItemGuideSchema = createInsertSchema(cleaningItemGuides).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertCleaningItemGuide = z.infer<typeof insertCleaningItemGuideSchema>;
+export type CleaningItemGuide = typeof cleaningItemGuides.$inferSelect;
+
 // 4-digit access code per branch — required before starting/editing that branch's checklists
 export const branchAccessCodes = pgTable("branch_access_codes", {
   branch: text("branch").primaryKey(),
