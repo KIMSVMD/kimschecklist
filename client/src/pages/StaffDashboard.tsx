@@ -41,12 +41,16 @@ function getMonday(d: Date) {
   return date;
 }
 
-// Week 1 = the calendar week (Mon–Sun) containing the 1st of the month; may start in the prior month.
+// A Mon–Sun week belongs to the month its Thursday falls in; week 1 is the first week with a
+// Thursday in the month. The first/last week may start in the prior month or end in the next.
 function getWeekRangesInMonth(year: number, month: number) {
   const lastDay = new Date(year, month, 0);
   const ranges: { start: Date; end: Date }[] = [];
   let cursor = getMonday(new Date(year, month - 1, 1));
-  while (cursor <= lastDay) {
+  if (new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 3).getMonth() !== month - 1) {
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  while (new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 3) <= lastDay) {
     const start = new Date(cursor);
     const end = new Date(cursor);
     end.setDate(end.getDate() + 6);
@@ -56,6 +60,13 @@ function getWeekRangesInMonth(year: number, month: number) {
     cursor.setDate(cursor.getDate() + 7);
   }
   return ranges;
+}
+
+// Year/month a date's week is counted in (the month of that week's Thursday).
+function getWeekAnchor(date: Date) {
+  const monday = getMonday(date);
+  const thursday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 3);
+  return { year: thursday.getFullYear(), month: thursday.getMonth() + 1 };
 }
 
 function getCurrentWeekIndex(year: number, month: number, date: Date) {
@@ -191,9 +202,9 @@ export default function StaffDashboard() {
   const nowDate = new Date();
   const [vmFilterYear, setVmFilterYear] = useState(nowDate.getFullYear());
   const [vmFilterMonth, setVmFilterMonth] = useState(nowDate.getMonth() + 1);
-  const [cleaningYear, setCleaningYear] = useState(nowDate.getFullYear());
-  const [cleaningMonth, setCleaningMonth] = useState(nowDate.getMonth() + 1);
-  const [cleaningWeek, setCleaningWeek] = useState(() => getCurrentWeekIndex(nowDate.getFullYear(), nowDate.getMonth() + 1, nowDate));
+  const [cleaningYear, setCleaningYear] = useState(() => getWeekAnchor(nowDate).year);
+  const [cleaningMonth, setCleaningMonth] = useState(() => getWeekAnchor(nowDate).month);
+  const [cleaningWeek, setCleaningWeek] = useState(() => { const a = getWeekAnchor(nowDate); return getCurrentWeekIndex(a.year, a.month, nowDate); });
   const [filterTime, setFilterTime] = useState<'전체' | '오픈' | '마감'>('전체');
   const [filterZone, setFilterZone] = useState('전체');
   const [notifOpen, setNotifOpen] = useState(false);
@@ -276,9 +287,10 @@ export default function StaffDashboard() {
   const nextCleaningWeek = () => setCleaningWeek(w => Math.min(totalCleaningWeeks, w + 1));
   const goToCurrentWeek = () => {
     const t = new Date();
-    setCleaningYear(t.getFullYear());
-    setCleaningMonth(t.getMonth() + 1);
-    setCleaningWeek(getCurrentWeekIndex(t.getFullYear(), t.getMonth() + 1, t));
+    const a = getWeekAnchor(t);
+    setCleaningYear(a.year);
+    setCleaningMonth(a.month);
+    setCleaningWeek(getCurrentWeekIndex(a.year, a.month, t));
   };
 
   const deleteMutation = useDeleteChecklist();

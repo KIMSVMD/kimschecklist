@@ -13,8 +13,9 @@ import { calcCleaningScore } from "@/lib/scoring";
 
 const ZONES = ["공통", "농산", "축산", "수산", "공산"];
 
-// Monday-start "N주차" weeks of a month — week 1 is the Mon–Sun week containing the 1st
-// (may start in the previous month), matching the convention used across the app.
+// Monday-start "N주차" weeks of a month — a week belongs to the month its Thursday falls in and
+// week 1 is the first week with a Thursday in the month (may start in the previous month),
+// matching the convention used across the app.
 function getMondayOfWeek(d: Date) {
   const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
@@ -25,7 +26,11 @@ function getWeekRangesInMonth(year: number, month: number) {
   const last = new Date(year, month, 0);
   const ranges: { start: Date; end: Date }[] = [];
   let cur = getMondayOfWeek(first);
-  while (cur <= last) {
+  if (new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 3).getMonth() !== month - 1) {
+    cur = new Date(cur);
+    cur.setDate(cur.getDate() + 7);
+  }
+  while (new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 3) <= last) {
     const start = new Date(cur);
     const end = new Date(cur);
     end.setDate(end.getDate() + 6);
