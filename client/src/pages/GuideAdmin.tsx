@@ -1541,7 +1541,7 @@ function CleaningManager() {
         const list: Date[] = [];
         for (let mon = addDays(getMondayOfWeek(new Date(y, m - 1, 1)), -7); mon <= asOf; mon = addDays(mon, 7)) {
           const w = weekInfo(mon);
-          if (w.year === y && w.month === m) list.push(mon);
+          if (w.year === y && w.month === m && mon >= shown[0]) list.push(mon); // nothing before 10월 3주차
         }
         return list;
       };
@@ -1619,13 +1619,19 @@ function CleaningManager() {
         | { kind: 'monthTotal'; y: number; m: number }
         | { kind: 'countWeek'; mon: Date }
         | { kind: 'countMonth'; y: number; m: number };
-      // 월별 달성율 block: one column per week of the month so far, then the month's total.
-      const curWeeks = weeksSoFar(cur.year, cur.month);
+      // 월별 달성율 blocks, one per month from the first shown week's month up to the selected one:
+      // a column per week of that month (from 10월 3주차 on), then the month's total.
+      const months: { y: number; m: number }[] = [];
+      for (let { year: y, month: m } = weekInfo(shown[0]); y < cur.year || (y === cur.year && m <= cur.month); m === 12 ? (y++, m = 1) : m++) {
+        months.push({ y, m });
+      }
       const nextWeeks = weeksSoFar(nextYear, nextMonth);
       const cols: Col[] = [
         ...ZONE_ORDER.flatMap((zone): Col[] => shown.map(mon => ({ kind: 'zone', zone, mon }))),
-        ...curWeeks.map((mon): Col => ({ kind: 'monthWeek', y: cur.year, m: cur.month, mon })),
-        { kind: 'monthTotal', y: cur.year, m: cur.month },
+        ...months.flatMap(({ y, m }): Col[] => [
+          ...weeksSoFar(y, m).map((mon): Col => ({ kind: 'monthWeek', y, m, mon })),
+          { kind: 'monthTotal', y, m },
+        ]),
         ...(nextWeeks.length > 0 ? nextWeeks : [null]).map((mon): Col => ({ kind: 'monthWeek', y: nextYear, m: nextMonth, mon })),
         ...shown.map((mon): Col => ({ kind: 'countWeek', mon })),
         { kind: 'countMonth', y: cur.year, m: cur.month },
