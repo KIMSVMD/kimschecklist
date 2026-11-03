@@ -1518,7 +1518,7 @@ function CleaningManager() {
   // counts the items in the submission it handed in that week (marking items 문제있음 doesn't
   // lower it). A branch that did not submit anything in a week is left blank (white) for that
   // week; only participating branches show progress. 월 총 달성률 has a column per week of the month so far (items done / all items) plus a 합계 of
-  // items done / (all items x weeks so far). The three 완료 항목 columns show the same thing as "done/total" counts.
+  // items done / (all items x weeks so far). The 완료 항목 rows show the same thing as "done/total" counts. Branches run across, weeks run down.
   // Colours (conditional formatting): 0% blank/white, under 30% red, 30% to under 80% orange, 80%+ green.
   const handleExportAchievementXlsx = async () => {
     try {
@@ -1572,8 +1572,6 @@ function CleaningManager() {
       const BRANCH_ORDER = ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '산본', '동수원', '해운대', '부산대', '괴정', '인천', '고잔', '중계', '청주', '김포'];
       const rowsOrder = [...BRANCH_ORDER.filter(b => branches.includes(b)), ...branches.filter(b => !BRANCH_ORDER.includes(b))];
 
-      const FIRST = 7; // first branch row
-      const LAST = FIRST + rowsOrder.length - 1;
       const letter = (i: number) => { let n = i + 1, s = ''; while (n > 0) { s = String.fromCharCode(65 + ((n - 1) % 26)) + s; n = Math.floor((n - 1) / 26); } return s; };
 
       const medL = { l: 'medium' as const, r: 'thin' as const, t: 'thin' as const, b: 'thin' as const };
@@ -1627,13 +1625,19 @@ function CleaningManager() {
         return st ? `${st.done}/${st.total}` : null;
       };
 
+      // Layout: branches run across (one column each, after the 전체 평균 column) and the
+      // zone weeks / 월 총 달성률 / 완료 항목 run down, one row per `cols` entry.
       type Cell = { v?: string | number | null; s?: number; f?: string };
-      const width = 2 + cols.length;
+      const FIRST_ROW = 6; // first data row
+      const LAST_ROW = FIRST_ROW + cols.length - 1;
+      const FIRST_BRANCH_COL = 3; // D
+      const width = FIRST_BRANCH_COL + rowsOrder.length;
+      const lastCol = letter(width - 1);
       const fillRow = (cells: Cell[], s: number): Cell[] => Array.from({ length: width }, (_, i) => cells[i] ?? { s });
       const rTitle1: Cell[] = fillRow([], 0);
       const rTitle2: Cell[] = fillRow([{ v: 'VM 체크리스트 주간별 진행률', s: S.title }], S.title);
       const rTitle3: Cell[] = fillRow([], S.title);
-      // Column ranges per header group (a zone's weeks, a month's block, the item counts).
+      // Row ranges per group (a zone's weeks, a month's block, the item counts) — merged in column A.
       const groupKey = (c: Col, i: number) =>
         c.kind === 'zone' ? `z${Math.floor(i / shown.length)}`
         : c.kind === 'monthWeek' || c.kind === 'monthTotal' ? `m${c.y}-${c.m}`
@@ -1648,55 +1652,60 @@ function CleaningManager() {
         c.kind === 'zone' ? c.zone
         : c.kind === 'monthWeek' || c.kind === 'monthTotal' ? `${c.m}월 총 달성률`
         : '완료 항목(개)';
-      const zoneRow: Cell[] = [{ v: '구분', s: S.corner }, { s: S.corner }, ...cols.map((c, i): Cell => {
+      const weekLabel = (c: Col): string => {
+        if (c.kind === 'zone' || c.kind === 'countWeek') { const w = weekInfo(c.mon); return `${w.month}월 ${w.n}주차`; }
+        if (c.kind === 'monthWeek') return c.mon ? `${weekInfo(c.mon).n}주차` : '1주차';
+        if (c.kind === 'monthTotal') return '합계';
+        return `${c.m}월 누적`;
+      };
+      const branchHeadRow: Cell[] = [{ v: '구분', s: S.corner }, { s: S.corner }, { v: '전체 평균', s: S.avgLabel },
+        ...rowsOrder.map((b): Cell => ({ v: `${b} 킴스`, s: S.name }))];
+      const mgrRow: Cell[] = [{ s: S.corner }, { s: S.corner }, { s: S.avgLabel },
+        ...rowsOrder.map((): Cell => ({ s: S.mgr }))]; // 점장 이름: not stored in the app, fill in on the sheet
+      const dataRows: Cell[][] = cols.map((c, i): Cell[] => {
+        const r = FIRST_ROW + i;
         const g = groups.find(x => x.from <= i && i <= x.to)!;
-        const s = c.kind === 'zone' ? S.zone : S.groupTitle;
-        return i === g.from ? { v: groupTitle(c), s } : { s };
-      })];
-      const headRow: Cell[] = [{ s: S.corner }, { s: S.corner }, ...cols.map((c): Cell => {
-        if (c.kind === 'zone' || c.kind === 'countWeek') { const w = weekInfo(c.mon); return { v: `${w.month}월\n${w.n}주차`, s: S.head }; }
-        if (c.kind === 'monthWeek') return { v: c.mon ? `${weekInfo(c.mon).n}주차` : '1주차', s: S.head };
-        if (c.kind === 'monthTotal') return { v: '합계', s: S.head };
-        return { v: `${c.m}월\n누적`, s: S.head };
-      })];
-      const avgRow: Cell[] = [{ v: '점포명', s: S.avgLabel }, { s: S.avgLabel }, ...cols.map((c, i): Cell => {
-        if (!isPercent(c)) return { s: S.countAvg };
-        const col = letter(2 + i);
-        // Blank cells (branches that did not take part) are skipped by AVERAGE.
-        const nums = rowsOrder.map(b => valueOf(b, c)).filter((v): v is number => typeof v === 'number');
-        const cached = nums.length > 0 ? nums.reduce((a, v) => a + v, 0) / nums.length : '-';
-        return { f: `IFERROR(AVERAGE(${col}${FIRST}:${col}${LAST}),"-")`, v: cached, s: S.avg };
-      })];
-      const branchRows: Cell[][] = rowsOrder.map(b => [
-        { v: `${b} 킴스`, s: S.name },
-        { s: S.mgr }, // 점장 이름: not stored in the app, fill in on the sheet
-        ...cols.map((c): Cell => ({
-          v: valueOf(b, c),
-          s: c.kind === 'zone' || c.kind === 'monthWeek' ? S.cell : c.kind === 'monthTotal' ? S.month : S.count,
-        })),
-      ]);
+        const groupStyle = c.kind === 'zone' ? S.zone : S.groupTitle;
+        let avg: Cell = { s: S.countAvg };
+        if (isPercent(c)) {
+          // Blank cells (branches that did not take part) are skipped by AVERAGE.
+          const nums = rowsOrder.map(b => valueOf(b, c)).filter((v): v is number => typeof v === 'number');
+          const cached = nums.length > 0 ? nums.reduce((a, v) => a + v, 0) / nums.length : '-';
+          avg = { f: `IFERROR(AVERAGE(${letter(FIRST_BRANCH_COL)}${r}:${lastCol}${r}),"-")`, v: cached, s: S.avg };
+        }
+        return [
+          i === g.from ? { v: groupTitle(c), s: groupStyle } : { s: groupStyle },
+          { v: weekLabel(c), s: S.head },
+          avg,
+          ...rowsOrder.map((b): Cell => ({
+            v: valueOf(b, c),
+            s: c.kind === 'zone' || c.kind === 'monthWeek' ? S.cell : c.kind === 'monthTotal' ? S.month : S.count,
+          })),
+        ];
+      });
 
       const merges = [
-        `A2:${letter(width - 1)}3`, 'A4:B5',
-        ...groups.filter(g => g.to > g.from).map(g => `${letter(2 + g.from)}4:${letter(2 + g.to)}4`),
+        `A2:${lastCol}3`, 'A4:B5', 'C4:C5',
+        ...groups.filter(g => g.to > g.from).map(g => `A${FIRST_ROW + g.from}:A${FIRST_ROW + g.to}`),
       ];
-      const rowHeights: Record<number, number> = { 1: 10.2, 2: 17.4, 3: 7.8, 4: 19.8, 5: 31.2, 6: 30 };
-      for (let r = FIRST; r <= LAST; r++) rowHeights[r] = 19.95;
+      const rowHeights: Record<number, number> = { 1: 10.2, 2: 17.4, 3: 7.8, 4: 31.2, 5: 19.95 };
+      for (let r = FIRST_ROW; r <= LAST_ROW; r++) rowHeights[r] = 19.95;
 
       downloadXlsx({
         name: '주간별 진행',
         styles,
-        rows: [rTitle1, rTitle2, rTitle3, zoneRow, headRow, avgRow, ...branchRows],
+        rows: [rTitle1, rTitle2, rTitle3, branchHeadRow, mgrRow, ...dataRows],
         merges,
-        colWidths: [15.4, 9, ...cols.map(c => (c.kind === 'zone' || c.kind === 'monthWeek' ? 9 : c.kind === 'monthTotal' ? 10.5 : 11))],
+        colWidths: [14, 11, 10.5, ...rowsOrder.map(() => 9)],
         rowHeights,
+        // Percent rows come first (zones, then 월 총 달성률), so one block covers them all.
         conditionalFormats: [{
-          ref: `C6:${letter(1 + percentCols)}${LAST}`,
+          ref: `C${FIRST_ROW}:${lastCol}${FIRST_ROW + percentCols - 1}`,
           rules: [
-            { formula: 'AND(ISNUMBER(C6),C6=0)', fill: 'FFFFFF', fontColor: 'FFFFFF' },
-            { formula: 'AND(ISNUMBER(C6),C6>0,C6<0.295)', fill: 'FF0000' },
-            { formula: 'AND(ISNUMBER(C6),C6>=0.295,C6<0.795)', fill: 'FFC000' },
-            { formula: 'AND(ISNUMBER(C6),C6>=0.795)', fill: '00B050' },
+            { formula: `AND(ISNUMBER(C${FIRST_ROW}),C${FIRST_ROW}=0)`, fill: 'FFFFFF', fontColor: 'FFFFFF' },
+            { formula: `AND(ISNUMBER(C${FIRST_ROW}),C${FIRST_ROW}>0,C${FIRST_ROW}<0.295)`, fill: 'FF0000' },
+            { formula: `AND(ISNUMBER(C${FIRST_ROW}),C${FIRST_ROW}>=0.295,C${FIRST_ROW}<0.795)`, fill: 'FFC000' },
+            { formula: `AND(ISNUMBER(C${FIRST_ROW}),C${FIRST_ROW}>=0.795)`, fill: '00B050' },
           ],
         }],
       }, `VM체크리스트_주간별_진행_${cur.year}년${cur.month}월${weekInfo(lastMonday).n}주차.xlsx`);
