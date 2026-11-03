@@ -2491,13 +2491,17 @@ function CleaningMonitoringManager() {
                       업로드 중 {uploadProgress.done}/{uploadProgress.total}장
                     </p>
                   )}
+                  {/* 보관함 allows picking several photos at once. It lists explicit image types
+                      instead of image/*, since `multiple` + image/* is the combination that sends
+                      Samsung Internet to the camera. */}
                   {(['camera', 'library'] as const).map(mode => (
                     <input
                       key={mode}
                       ref={el => { fileInputRefs.current[`${zone}:${mode}`] = el; }}
                       type="file"
-                      accept="image/*"
-                      {...(mode === 'camera' ? { capture: 'environment' as const } : {})}
+                      {...(mode === 'camera'
+                        ? { accept: 'image/*', capture: 'environment' as const }
+                        : { accept: 'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif', multiple: true })}
                       className="hidden"
                       onChange={e => { handleAddPhotos(zone, e.target.files); e.target.value = ''; }}
                     />
