@@ -1518,7 +1518,7 @@ function CleaningManager() {
   // counts the items in the submission it handed in that week (marking items 문제있음 doesn't
   // lower it). A branch that did not submit anything in a week is left blank (white) for that
   // week; only participating branches show progress. 월 총 달성률 has a column per week of the month so far (items done / all items) plus a 합계 of
-  // items done / (all items x weeks so far). The three 완료 항목 columns show the same thing as "done/total" counts.
+  // items done / (all items x weeks so far). Each zone and the 완료 항목 block have a column per week from 10월 3주차 on; 완료 항목 shows "done/total" counts.
   // Colours (conditional formatting): 0% blank/white, under 30% red, 30% to under 80% orange, 80%+ green.
   const handleExportAchievementXlsx = async () => {
     try {
@@ -1528,7 +1528,11 @@ function CleaningManager() {
       // Same week names as the app's week navigator (getMonthWeekLabel), e.g. 11/2 = 11월 2주차.
       const weekInfo = (monday: Date) => { const w = getMonthWeekLabel(monday); return { year: w.year, month: w.month, n: w.week }; };
       const lastMonday = getMondayOfWeek(scoreWeekStart);
-      const shown = [addDays(lastMonday, -7), lastMonday]; // oldest first, like the form
+      // Every week from 10월 3주차 (week of 2026-10-12) up to the selected one, oldest first.
+      const FIRST_SHOWN_MONDAY = new Date(2026, 9, 12);
+      const shown: Date[] = [];
+      for (let mon = FIRST_SHOWN_MONDAY; mon <= lastMonday; mon = addDays(mon, 7)) shown.push(mon);
+      if (shown.length === 0) shown.push(lastMonday);
       const asOf = addDays(lastMonday, 6); // month-to-date counts weeks up to the selected one
       const cur = weekInfo(lastMonday);
       const nextMonth = cur.month === 12 ? 1 : cur.month + 1;
