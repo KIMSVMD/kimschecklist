@@ -1516,7 +1516,7 @@ function CleaningManager() {
   // Excel export in the team's "VM 체크리스트 주간별 진행률" form, measured in checklist ITEMS:
   // a branch's total is every item across the 5 zones (공통 6 + 4 zones x 7 = 34), and a zone
   // counts the items in the submission it handed in that week (marking items 문제있음 doesn't
-  // lower it). A branch that did not submit anything in a week is left blank (white) for that
+  // lower it). A zone still being filled in counts its finished items so far (see drafts below). A branch that did nothing in a week is left blank (white) for that
   // week; only participating branches show progress. 월 총 달성률 has a column per week of the month so far (items done / all items) plus a 합계 of
   // items done / (all items x weeks so far). Each zone and the 완료 항목 block have a column per week from 10월 3주차 on; 완료 항목 shows "done/total" counts.
   // Colours (conditional formatting): 0% blank/white, under 30% red, 30% to under 80% orange, 80%+ green.
@@ -1559,6 +1559,19 @@ function CleaningManager() {
         if (!latest[r.zone] || t > latest[r.zone].t) latest[r.zone] = { t, n };
         const byZone = (sub[`${r.branch}|${mondayKey(new Date(r.createdAt))}`] ??= {});
         byZone[r.zone] = Math.max(byZone[r.zone] ?? 0, n);
+      });
+      // Zones still being filled in (not submitted yet) count the items done so far — checked AND
+      // with both before/after photos, the same bar a submit needs — in the week of the draft's
+      // last change. Each branch+zone keeps only its latest draft, so older weeks can't be rebuilt.
+      const draftsRes = await fetch('/api/cleaning-drafts');
+      const drafts: { branch: string; zone: string; items: Record<string, any> | null; updatedAt: string }[] =
+        draftsRes.ok ? await draftsRes.json() : [];
+      const hasPhoto = (d: any, slot: 'before' | 'after') => (d?.[`${slot}Photos`]?.length ?? 0) > 0 || !!d?.[`${slot}PhotoUrl`];
+      drafts.forEach(d => {
+        const done = Object.values(d.items || {}).filter(i => i?.status && hasPhoto(i, 'before') && hasPhoto(i, 'after')).length;
+        if (done === 0) return;
+        const byZone = (sub[`${d.branch}|${mondayKey(new Date(d.updatedAt))}`] ??= {});
+        byZone[d.zone] = Math.max(byZone[d.zone] ?? 0, done);
       });
       ZONE_ORDER.forEach(z => { if (latest[z]) zoneTotal[z] = latest[z].n; });
       const totalItems = ZONE_ORDER.reduce((a, z) => a + zoneTotal[z], 0);
