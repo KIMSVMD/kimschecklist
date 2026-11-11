@@ -12,9 +12,12 @@ import {
 import { useProducts, useCreateProduct, useDeleteProduct, useUpsertProductFile, useUpdateProductFiles } from "@/hooks/use-products";
 import { useCleaningInspections } from "@/hooks/use-cleaning";
 import { useCleaningMonitoringFeedback, useSaveCleaningMonitoringFeedback } from "@/hooks/use-cleaning-monitoring";
+import { useCleaningItemGuides, useSaveCleaningItemGuide } from "@/hooks/use-cleaning-guides";
+import { queryClient } from "@/lib/queryClient";
+import { ZONE_ITEMS } from "@/lib/cleaning-items";
 import { calcCleaningScore, scoreColor, computeAbsoluteGrade, gradeColor } from "@/lib/scoring";
 import { PhotoThumbnail } from "@/components/PhotoLightbox";
-import type { Guide } from "@shared/schema";
+import type { Guide, CleaningItemGuide } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -25,6 +28,7 @@ import {
   LogOut,
   Loader2,
   X,
+  Camera,
   Image as ImageIcon,
   ChevronDown,
   ChevronUp,
@@ -1385,6 +1389,35 @@ function getMondayOfWeek(d: Date) {
 const CLEANING_TREND_WEEKS = 8;
 const CLEANING_ZONES = ['공통', '농산', '축산', '수산', '공산'];
 
+// 달성율 = completion only: the 5 zones together make up 100%, each worth 20, counted as soon as
+// the zone has been submitted this week. The zone's score (how many items were marked 문제있음)
+// is a quality measure and does NOT lower the rate. `zoneScores` maps zone -> that week's
+// scores for the zone; only whether the zone has any submission matters here.
+function cleaningAchievementRate(zoneScores?: Record<string, number[]>): number {
+  const done = CLEANING_ZONES.filter(zone => (zoneScores?.[zone]?.length ?? 0) > 0).length;
+  return Math.round((done / CLEANING_ZONES.length) * 100);
+}
+
+// 달성율 colour bands: 0–60% red, 61–80% orange, 81–100% green.
+function achievementColor(rate: number): string {
+  if (rate >= 81) return 'bg-emerald-50 text-emerald-700 border-emerald-300';
+  if (rate >= 61) return 'bg-orange-50 text-orange-600 border-orange-300';
+  return 'bg-red-50 text-red-600 border-red-300';
+}
+
+type CleaningPhotoEntry = { url: string; hash?: string; at?: string };
+
+// Cleaning items can hold multiple before/after photos (beforePhotos/afterPhotos);
+// records saved before that supported only one each (beforePhotoUrl/afterPhotoUrl, or
+// legacy photoUrl for "before"). This reads either shape as a uniform array.
+function getCleaningPhotos(data: any, slot: 'before' | 'after'): CleaningPhotoEntry[] {
+  if (!data) return [];
+  const arr = slot === 'before' ? data.beforePhotos : data.afterPhotos;
+  if (Array.isArray(arr) && arr.length > 0) return arr;
+  const legacyUrl = slot === 'before' ? (data.beforePhotoUrl ?? data.photoUrl) : data.afterPhotoUrl;
+  return legacyUrl ? [{ url: legacyUrl }] : [];
+}
+
 // Week N = the Nth Monday-start calendar week of `weekStart`'s own month
 function getMonthWeekLabel(weekStart: Date) {
   const year = weekStart.getFullYear();
@@ -1395,16 +1428,17 @@ function getMonthWeekLabel(weekStart: Date) {
 }
 
 function CleaningManager() {
-  const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos' | 'monitoring'>('score');
+  const [cleaningSubTab, setCleaningSubTab] = useState<'score' | 'photos' | 'monitoring' | 'guide'>('score');
   const [selectedBranch, setSelectedBranch] = useState('전체');
   const [expandedBranch, setExpandedBranch] = useState<string | null>(null);
   const [scoreWeekStart, setScoreWeekStart] = useState(() => getMondayOfWeek(new Date()));
+  const { toast } = useToast();
   const { data: records = [], isLoading } = useCleaningInspections();
 
-  const branches = useMemo(
-    () => [...new Set(records.map(r => r.branch))].sort(),
-    [records]
-  );
+  // Full branch list (not just branches that already submitted something) so an admin
+  // can select a branch that hasn't checked in yet — same list the 모니터링 피드백
+  // sub-tab already uses.
+  const branches = ALL_BRANCHES;
 
   const scoreWeekEnd = useMemo(() => {
     const e = new Date(scoreWeekStart);
@@ -1412,17 +1446,6 @@ function CleaningManager() {
     e.setHours(23, 59, 59, 999);
     return e;
   }, [scoreWeekStart]);
-  const prevScoreWeekStart = useMemo(() => {
-    const d = new Date(scoreWeekStart);
-    d.setDate(d.getDate() - 7);
-    return d;
-  }, [scoreWeekStart]);
-  const prevScoreWeekEnd = useMemo(() => {
-    const e = new Date(prevScoreWeekStart);
-    e.setDate(e.getDate() + 6);
-    e.setHours(23, 59, 59, 999);
-    return e;
-  }, [prevScoreWeekStart]);
   const isCurrentScoreWeek = useMemo(() => {
     const now = new Date();
     return now >= scoreWeekStart && now <= scoreWeekEnd;
@@ -1440,56 +1463,31 @@ function CleaningManager() {
       const monday = getMondayOfWeek(d);
       weeks.push({ key: monday.toISOString().slice(0, 10), label: `${monday.getMonth() + 1}/${monday.getDate()}` });
     }
-    const buckets: Record<string, number[]> = {};
-    weeks.forEach(w => { buckets[w.key] = []; });
-    records
-      .filter(r => selectedBranch === '전체' || r.branch === selectedBranch)
-      .forEach(r => {
-        const key = getMondayOfWeek(new Date(r.createdAt)).toISOString().slice(0, 10);
-        if (!(key in buckets)) return;
-        const items = (r.items as Record<string, { status: string }>) || {};
-        if (Object.keys(items).length > 0) buckets[key].push(calcCleaningScore(items));
-      });
-    return weeks.map(w => {
-      const scores = buckets[w.key];
-      return {
-        label: w.label,
-        score: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
-      };
+    // week -> branch -> zone -> scores, so each point is a 달성율 (see cleaningAchievementRate)
+    const byWeek: Record<string, Record<string, Record<string, number[]>>> = {};
+    weeks.forEach(w => { byWeek[w.key] = {}; });
+    records.forEach(r => {
+      const key = getMondayOfWeek(new Date(r.createdAt)).toISOString().slice(0, 10);
+      if (!(key in byWeek)) return;
+      const items = (r.items as Record<string, { status: string }>) || {};
+      if (Object.keys(items).length === 0) return;
+      const byZone = (byWeek[key][r.branch] ??= {});
+      (byZone[r.zone] ??= []).push(calcCleaningScore(items));
     });
-  }, [records, selectedBranch]);
+    const targetBranches = selectedBranch === '전체' ? branches : [selectedBranch];
+    return weeks.map(w => {
+      const anyData = targetBranches.some(b => byWeek[w.key][b]);
+      if (!anyData) return { label: w.label, score: null as number | null };
+      // 전체: average over every branch, so a branch that did nothing pulls it down.
+      const rates = targetBranches.map(b => cleaningAchievementRate(byWeek[w.key][b]));
+      return { label: w.label, score: Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) };
+    });
+  }, [records, selectedBranch, branches]);
 
-  const avgByBranchInRange = (start: Date, end: Date) => {
-    const byBranch: Record<string, number[]> = {};
-    records
-      .filter(r => { const d = new Date(r.createdAt); return d >= start && d <= end; })
-      .forEach(r => {
-        const items = (r.items as Record<string, { status: string }>) || {};
-        if (Object.keys(items).length === 0) return;
-        (byBranch[r.branch] ??= []).push(calcCleaningScore(items));
-      });
-    return byBranch;
-  };
-
-  const branchScores = useMemo(() => {
-    const current = avgByBranchInRange(scoreWeekStart, scoreWeekEnd);
-    const prev = avgByBranchInRange(prevScoreWeekStart, prevScoreWeekEnd);
-    return branches
-      .map(branch => {
-        const scores = current[branch] || [];
-        const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-        const prevScores = prev[branch] || [];
-        const prevAvg = prevScores.length > 0 ? Math.round(prevScores.reduce((a, b) => a + b, 0) / prevScores.length) : null;
-        const delta = avg !== null && prevAvg !== null ? avg - prevAvg : null;
-        return { branch, avg, count: scores.length, delta };
-      })
-      .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1));
-  }, [records, branches, scoreWeekStart, scoreWeekEnd, prevScoreWeekStart, prevScoreWeekEnd]);
-
-  const branchZoneScores = useMemo(() => {
+  const zoneScoresInRange = (start: Date, end: Date) => {
     const map: Record<string, Record<string, number[]>> = {};
     records
-      .filter(r => { const d = new Date(r.createdAt); return d >= scoreWeekStart && d <= scoreWeekEnd; })
+      .filter(r => { const d = new Date(r.createdAt); return d >= start && d <= end; })
       .forEach(r => {
         const items = (r.items as Record<string, { status: string }>) || {};
         if (Object.keys(items).length === 0) return;
@@ -1497,7 +1495,209 @@ function CleaningManager() {
         (byZone[r.zone] ??= []).push(calcCleaningScore(items));
       });
     return map;
-  }, [records, scoreWeekStart, scoreWeekEnd]);
+  };
+
+  const branchZoneScores = useMemo(
+    () => zoneScoresInRange(scoreWeekStart, scoreWeekEnd),
+    [records, scoreWeekStart, scoreWeekEnd],
+  );
+
+  const branchScores = useMemo(() => {
+    return branches
+      .map(branch => {
+        const zonesDone = Object.keys(branchZoneScores[branch] || {}).length;
+        // A branch with no check-in this week is 0%, not "기록 없음".
+        const rate = cleaningAchievementRate(branchZoneScores[branch]);
+        return { branch, rate, zonesDone };
+      })
+      .sort((a, b) => b.rate - a.rate);
+  }, [branches, branchZoneScores]);
+
+  // Excel export in the team's "VM 체크리스트 주간별 진행률" form. Each zone cell shows how far a
+  // branch got that week: green circle = every item of the zone done, orange triangle = some items
+  // done, blank = nothing done. A branch's total is every item across the 5 zones (공통 6 + 4 zones
+  // x 7), and a zone still being filled in counts its finished items so far (see drafts below).
+  // 주차별 통합 참여율 = zones with a circle or triangle that week / 5 zones, per branch (0% when none). Weeks run
+  // from 10월 3주차 to the selected week.
+  // Colours of the % cells (conditional formatting): under 30% (0% included) red, 30% to under 80% orange, 80%+ green.
+  const handleExportAchievementXlsx = async () => {
+    try {
+      const { downloadXlsx } = await import('@/lib/xlsx-lite');
+      const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+      const mondayKey = (d: Date) => { const m = getMondayOfWeek(d); return `${m.getFullYear()}-${m.getMonth() + 1}-${m.getDate()}`; };
+      // Same week names as the app's week navigator (getMonthWeekLabel), e.g. 11/2 = 11월 1주차.
+      const weekInfo = (monday: Date) => { const w = getMonthWeekLabel(monday); return { year: w.year, month: w.month, n: w.week }; };
+      const lastMonday = getMondayOfWeek(scoreWeekStart);
+      // Every week from 10월 3주차 (week of 2026-10-12) up to the selected one, oldest first.
+      const FIRST_SHOWN_MONDAY = new Date(2026, 9, 12);
+      const shown: Date[] = [];
+      for (let mon = FIRST_SHOWN_MONDAY; mon <= lastMonday; mon = addDays(mon, 7)) shown.push(mon);
+      if (shown.length === 0) shown.push(lastMonday);
+      const cur = weekInfo(lastMonday);
+
+      const ZONE_ORDER = ['농산', '수산', '축산', '공산', '공통'];
+      // Items per zone: what the zone's most recent submission contained (fallback: today's lists).
+      const zoneTotal: Record<string, number> = { 공통: 6, 농산: 7, 수산: 7, 축산: 7, 공산: 7 };
+      const latest: Record<string, { t: number; n: number }> = {};
+      // branch|monday -> zone -> items handed in that week
+      const sub: Record<string, Record<string, number>> = {};
+      records.forEach(r => {
+        const n = Object.keys((r.items as Record<string, unknown>) || {}).length;
+        if (n === 0) return;
+        const t = new Date(r.createdAt).getTime();
+        if (!latest[r.zone] || t > latest[r.zone].t) latest[r.zone] = { t, n };
+        const byZone = (sub[`${r.branch}|${mondayKey(new Date(r.createdAt))}`] ??= {});
+        byZone[r.zone] = Math.max(byZone[r.zone] ?? 0, n);
+      });
+      // Zones still being filled in (not submitted yet) count the items done so far — checked AND
+      // with both before/after photos, the same bar a submit needs — in the week of the draft's
+      // last change. Each branch+zone keeps only its latest draft, so older weeks can't be rebuilt.
+      const draftsRes = await fetch('/api/cleaning-drafts');
+      const drafts: { branch: string; zone: string; items: Record<string, any> | null; updatedAt: string }[] =
+        draftsRes.ok ? await draftsRes.json() : [];
+      const hasPhoto = (d: any, slot: 'before' | 'after') => (d?.[`${slot}Photos`]?.length ?? 0) > 0 || !!d?.[`${slot}PhotoUrl`];
+      drafts.forEach(d => {
+        const done = Object.values(d.items || {}).filter(i => i?.status && hasPhoto(i, 'before') && hasPhoto(i, 'after')).length;
+        if (done === 0) return;
+        const byZone = (sub[`${d.branch}|${mondayKey(new Date(d.updatedAt))}`] ??= {});
+        byZone[d.zone] = Math.max(byZone[d.zone] ?? 0, done);
+      });
+      ZONE_ORDER.forEach(z => { if (latest[z]) zoneTotal[z] = latest[z].n; });
+
+      const SYM = { all: '●', part: '▲' };
+      const zoneSymbol = (b: string, zone: string, mon: Date): string | null => {
+        const done = Math.min(sub[`${b}|${mondayKey(mon)}`]?.[zone] ?? 0, zoneTotal[zone]);
+        return done >= zoneTotal[zone] ? SYM.all : done > 0 ? SYM.part : null;
+      };
+      const weekRate = (b: string, mon: Date) =>
+        ZONE_ORDER.filter(z => zoneSymbol(b, z, mon) !== null).length / ZONE_ORDER.length;
+
+      // Row order the team uses in its form.
+      const BRANCH_ORDER = ['강남', '강서', '야탑', '불광', '송파', '부천', '평촌', '분당', '신구로', '구의', '유성', '일산', '수성', '광명', '쇼핑', '산본', '동수원', '해운대', '부산대', '괴정', '인천', '고잔', '중계', '청주', '김포'];
+      const rowsOrder = [...BRANCH_ORDER.filter(b => branches.includes(b)), ...branches.filter(b => !BRANCH_ORDER.includes(b))];
+
+      const FIRST = 7; // first branch row
+      const LAST = FIRST + rowsOrder.length - 1;
+      const letter = (i: number) => { let n = i + 1, s = ''; while (n > 0) { s = String.fromCharCode(65 + ((n - 1) % 26)) + s; n = Math.floor((n - 1) / 26); } return s; };
+
+      const medL = { l: 'medium' as const, r: 'thin' as const, t: 'thin' as const, b: 'thin' as const };
+      const T = { bold: true, border: true } as const;
+      const styles = [
+        {},
+        { ...T, size: 14, color: 'FFFFFF', fill: '0070C0' },                                  // 1 title bar
+        { ...T, font: 'Arial Unicode MS', size: 14, fill: 'D9D9D9', border: medL },            // 2 구분
+        { ...T, size: 12, fill: 'D9D9D9' },                                                    // 3 zone header
+        { ...T, size: 10, color: 'FFFFFF', fill: '424450' },                                   // 4 week header
+        { ...T, font: 'Arial Unicode MS', size: 12, color: 'FFFFFF', fill: '424450' },         // 5 통합 참여율 title
+        { ...T, font: 'Arial Unicode MS', size: 12, fill: 'F2F2F2', border: medL },            // 6 점포명
+        { ...T, size: 12, fill: 'F2F2F2', numFmt: 'percent' as const },                        // 7 average
+        { ...T, font: 'Arial', size: 12, fill: 'D9D9D9', border: medL },                       // 8 branch name
+        { ...T, font: 'Arial', size: 12, fill: 'D9D9D9' },                                     // 9 manager
+        { ...T, size: 12, numFmt: 'percent' as const },                                        // 10 percent cell
+        { ...T, size: 12 },                                                                    // 11 blank zone cell
+        { ...T, font: 'Segoe UI Symbol', size: 14, color: '00B050' },                          // 12 ● all items done
+        { ...T, font: 'Segoe UI Symbol', size: 14, color: 'FFC000' },                          // 13 ▲ some items done
+        { size: 10, align: 'left' as const, wrap: false },                                     // 14 legend note
+      ];
+      const S = { title: 1, corner: 2, zone: 3, head: 4, groupTitle: 5, avgLabel: 6, avg: 7, name: 8, mgr: 9, pct: 10, blank: 11, symAll: 12, symPart: 13, note: 14 };
+
+      type Col = { kind: 'zone'; zone: string; mon: Date } | { kind: 'week'; mon: Date };
+      const nW = shown.length;
+      const cols: Col[] = [
+        ...ZONE_ORDER.flatMap((zone): Col[] => shown.map(mon => ({ kind: 'zone', zone, mon }))),
+        ...shown.map((mon): Col => ({ kind: 'week', mon })),
+      ];
+      const colLetter = (i: number) => letter(2 + i); // A = branch name, B = 점장 (left blank)
+      const lastCol = colLetter(cols.length - 1);
+      const took = (b: string, c: Col) => c.kind === 'zone' && zoneSymbol(b, c.zone, c.mon) !== null;
+
+      type Cell = { v?: string | number | null; s?: number; f?: string };
+      const width = 2 + cols.length;
+      const fillRow = (cells: Cell[], s: number): Cell[] => Array.from({ length: width }, (_, i) => cells[i] ?? { s });
+      const rTitle1: Cell[] = fillRow([], 0);
+      const rTitle2: Cell[] = fillRow([{ v: 'VM 체크리스트 주간별 진행률', s: S.title }], S.title);
+      const rTitle3: Cell[] = fillRow([], S.title);
+      const zoneRow: Cell[] = [{ v: '구분', s: S.corner }, { s: S.corner }, ...cols.map((c, i): Cell => {
+        if (c.kind === 'zone') return i % nW === 0 ? { v: c.zone, s: S.zone } : { s: S.zone };
+        return i === ZONE_ORDER.length * nW ? { v: '주차별 통합 참여율', s: S.groupTitle } : { s: S.groupTitle };
+      })];
+      const headRow: Cell[] = [{ s: S.corner }, { s: S.corner }, ...cols.map((c): Cell => {
+        const w = weekInfo(c.mon);
+        return { v: `${w.month}월\n${w.n}주차`, s: S.head };
+      })];
+      const avgRow: Cell[] = [{ v: '점포명', s: S.avgLabel }, { s: S.avgLabel }, ...cols.map((c, i): Cell => {
+        const col = colLetter(i);
+        const rng = `${col}${FIRST}:${col}${LAST}`;
+        if (c.kind === 'zone') {
+          // share of branches that took part (circle or triangle) in this zone and week
+          const n = rowsOrder.filter(b => took(b, c)).length;
+          return {
+            f: `IFERROR((COUNTIF(${rng},"${SYM.all}")+COUNTIF(${rng},"${SYM.part}"))/ROWS(${rng}),"-")`,
+            v: rowsOrder.length > 0 ? n / rowsOrder.length : '-',
+            s: S.avg,
+          };
+        }
+        const rates = rowsOrder.map(b => weekRate(b, c.mon));
+        return { f: `IFERROR(AVERAGE(${rng}),"-")`, v: rates.length > 0 ? rates.reduce((a, v) => a + v, 0) / rates.length : '-', s: S.avg };
+      })];
+      const branchRows: Cell[][] = rowsOrder.map((b, bi) => {
+        const r = FIRST + bi;
+        return [
+          { v: `${b} 킴스`, s: S.name },
+          { s: S.mgr }, // 점장 이름: not stored in the app, fill in on the sheet
+          ...cols.map((c, ci): Cell => {
+            if (c.kind === 'zone') {
+              const v = zoneSymbol(b, c.zone, c.mon);
+              return { v, s: v === SYM.all ? S.symAll : v === SYM.part ? S.symPart : S.blank };
+            }
+            // this week's integrated rate: the week's cell of each zone block
+            const wi = ci - ZONE_ORDER.length * nW;
+            const cells = ZONE_ORDER.map((_, zi) => `${colLetter(zi * nW + wi)}${r}`);
+            return {
+              f: `(${cells.map(x => `(${x}="${SYM.all}")+(${x}="${SYM.part}")`).join('+')})/${ZONE_ORDER.length}`,
+              v: weekRate(b, c.mon),
+              s: S.pct,
+            };
+          }),
+        ];
+      });
+      // Legend under the table
+      const legend: Cell[][] = [
+        [],
+        [{ v: `${SYM.all} 전체 완료`, s: S.symAll }],
+        [{ v: `${SYM.part} 일부 완료`, s: S.symPart }],
+        [{ v: `주차별 통합 참여율 = (${SYM.all} + ${SYM.part} 구역 수) ÷ ${ZONE_ORDER.length}개 구역. 빈칸은 미실시예요.`, s: S.note }],
+      ];
+
+      const merges = [
+        `A2:${lastCol}3`, 'A4:B5',
+        ...ZONE_ORDER.map((_, g) => `${colLetter(g * nW)}4:${colLetter(g * nW + nW - 1)}4`),
+        ...(nW > 1 ? [`${colLetter(ZONE_ORDER.length * nW)}4:${lastCol}4`] : []),
+      ];
+      const rowHeights: Record<number, number> = { 1: 10.2, 2: 17.4, 3: 7.8, 4: 19.8, 5: 31.2, 6: 30 };
+      for (let r = FIRST; r <= LAST; r++) rowHeights[r] = 19.95;
+
+      downloadXlsx({
+        name: '주간별 진행',
+        styles,
+        rows: [rTitle1, rTitle2, rTitle3, zoneRow, headRow, avgRow, ...branchRows, ...legend],
+        merges,
+        colWidths: [15.4, 9, ...cols.map(c => (c.kind === 'zone' ? 9 : 10.5))],
+        rowHeights,
+        conditionalFormats: [{
+          ref: `C6:${lastCol}${LAST}`,
+          rules: [
+            { formula: 'AND(ISNUMBER(C6),C6<0.295)', fill: 'FF0000' },
+            { formula: 'AND(ISNUMBER(C6),C6>=0.295,C6<0.795)', fill: 'FFC000' },
+            { formula: 'AND(ISNUMBER(C6),C6>=0.795)', fill: '00B050' },
+          ],
+        }],
+      }, `VM체크리스트_주간별_진행_${cur.year}년${cur.month}월${cur.n}주차.xlsx`);
+    } catch (err: any) {
+      console.error('achievement export failed', err);
+      toast({ title: '엑셀 만들기 실패', description: err?.message, variant: 'destructive' });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -1538,12 +1738,23 @@ function CleaningManager() {
         >
           모니터링 피드백
         </button>
+        <button
+          onClick={() => setCleaningSubTab('guide')}
+          className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+            cleaningSubTab === 'guide' ? 'bg-primary text-white shadow-md' : 'bg-muted text-muted-foreground hover:text-secondary'
+          }`}
+          data-testid="tab-cleaning-guide"
+        >
+          매뉴얼 가이드
+        </button>
       </div>
 
       {cleaningSubTab === 'photos' ? (
         <CleaningPhotoReview records={records} branches={branches} />
       ) : cleaningSubTab === 'monitoring' ? (
         <CleaningMonitoringManager />
+      ) : cleaningSubTab === 'guide' ? (
+        <CleaningGuideManager />
       ) : (
         <div className="space-y-4">
       {/* Week navigator */}
@@ -1562,16 +1773,26 @@ function CleaningManager() {
       {/* Branch score table */}
       <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
         <div className="px-4 py-3 bg-emerald-50 border-b border-border flex items-center justify-between">
-          <span className="font-black text-emerald-700 text-base">지점별 청소 점수</span>
-          <span className="text-xs text-muted-foreground font-medium">전주 대비</span>
+          <span className="font-black text-emerald-700 text-base">지점별 청소 달성율</span>
+          <button
+            type="button"
+            onClick={handleExportAchievementXlsx}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-white text-emerald-700 text-xs font-bold active:scale-95 transition-all"
+            data-testid="btn-cleaning-achievement-export"
+          >
+            <Download className="w-3.5 h-3.5" /> 엑셀
+          </button>
         </div>
+        <p className="px-4 py-2 text-[11px] text-muted-foreground bg-emerald-50/40 border-b border-border/50">
+          5개 구역(공통·농산·축산·수산·공산)이 100%예요. 구역을 점검 완료할 때마다 20%씩 올라가고, 이상없음/문제있음 결과는 달성율에 영향을 주지 않아요.
+        </p>
         {branchScores.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground text-sm">청소 점검 기록이 없습니다.</div>
         ) : (
           <div className="divide-y divide-border/50">
-            {branchScores.map(({ branch, avg, count, delta }, i) => {
+            {branchScores.map(({ branch, rate, zonesDone }, i) => {
               const isExpanded = expandedBranch === branch;
-              const grade = avg !== null ? computeAbsoluteGrade(avg) : null;
+              const grade = computeAbsoluteGrade(rate);
               return (
                 <div key={branch}>
                   <button
@@ -1588,25 +1809,16 @@ function CleaningManager() {
                         <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                       )}
                       <span className="text-sm font-bold text-secondary truncate">{branch}점</span>
-                      <span className="text-xs text-muted-foreground">{count}건</span>
+                      <span className={`text-xs font-bold ${zonesDone === CLEANING_ZONES.length ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {zonesDone}/{CLEANING_ZONES.length}구역
+                      </span>
                     </div>
-                    {avg !== null ? (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-right">
-                          <div className={`px-3 py-1 rounded-xl border text-sm font-black ${scoreColor(avg)}`}>{avg}점</div>
-                          {delta !== null && delta !== 0 && (
-                            <div className={`text-[10px] font-bold mt-0.5 ${delta > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                              {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
-                            </div>
-                          )}
-                        </div>
-                        {grade && (
-                          <span className={`px-2 py-1 rounded-lg border text-xs font-black ${gradeColor(grade)}`}>{grade}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">기록 없음</span>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className={`px-3 py-1 rounded-xl border text-sm font-black ${achievementColor(rate)}`}>{rate}%</div>
+                      {grade && (
+                        <span className={`px-2 py-1 rounded-lg border text-xs font-black ${gradeColor(grade)}`}>{grade}</span>
+                      )}
+                    </div>
                   </button>
                   {isExpanded && (
                     <div className="grid grid-cols-5 gap-1.5 px-4 pb-3 bg-gray-50/60">
@@ -1619,7 +1831,7 @@ function CleaningManager() {
                             {zoneAvg !== null ? (
                               <span className={`inline-block px-1.5 py-0.5 rounded-lg border text-xs font-black ${scoreColor(zoneAvg)}`}>{zoneAvg}</span>
                             ) : (
-                              <span className="text-[11px] text-muted-foreground">-</span>
+                              <span className="text-[11px] font-bold text-red-500">미점검</span>
                             )}
                           </div>
                         );
@@ -1636,7 +1848,7 @@ function CleaningManager() {
       {/* Weekly trend chart */}
       <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="font-black text-secondary text-base">주간 점수 추이</span>
+          <span className="font-black text-secondary text-base">주간 달성율 추이</span>
           <select
             value={selectedBranch}
             onChange={e => setSelectedBranch(e.target.value)}
@@ -1653,7 +1865,7 @@ function CleaningManager() {
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: any) => (v == null ? '기록 없음' : `${v}점`)} />
+              <Tooltip formatter={(v: any) => (v == null ? '기록 없음' : `${v}%`)} />
               <Line type="monotone" dataKey="score" stroke="#006341" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
@@ -1722,6 +1934,23 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
         </select>
       </div>
 
+      <button
+        type="button"
+        onClick={() => {
+          const m = weekStart.getMonth() + 1;
+          const y = weekStart.getFullYear();
+          window.open(
+            `/admin/cleaning-report?branch=${encodeURIComponent(branch || '전체')}&year=${y}&month=${m}`,
+            '_blank',
+          );
+        }}
+        disabled={!branch}
+        className="w-full py-2.5 rounded-xl border-2 border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
+        data-testid="btn-cleaning-report-pdf"
+      >
+        <FileText className="w-4 h-4" /> {weekStart.getMonth() + 1}월 PDF 내보내기 (사진+데이터)
+      </button>
+
       <div className="flex items-center gap-3 bg-muted rounded-xl px-3 py-2 justify-between">
         <button onClick={goPrevWeek} className="active:scale-95 transition-all" data-testid="btn-cleaning-photo-prev-week">
           <ChevronLeft className="w-4 h-4 text-muted-foreground" />
@@ -1757,9 +1986,9 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
                 </div>
                 <div className="divide-y divide-border/50">
                   {Object.entries(items).map(([name, data]: [string, any]) => {
-                    const before = data?.beforePhotoUrl ?? data?.photoUrl ?? null;
-                    const after = data?.afterPhotoUrl ?? null;
-                    const hasPhoto = !!(before || after);
+                    const before = getCleaningPhotos(data, 'before');
+                    const after = getCleaningPhotos(data, 'after');
+                    const hasPhoto = before.length > 0 || after.length > 0;
                     return (
                       <div key={name} className="p-3.5 space-y-2">
                         <div className="flex items-center justify-between gap-2">
@@ -1770,17 +1999,25 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
                         </div>
                         {hasPhoto ? (
                           <div className="grid grid-cols-2 gap-2">
-                            {before ? (
-                              <PhotoThumbnail src={before} className="block">
-                                <img src={before} alt={`${name} 전`} className="w-full h-28 object-cover rounded-xl border border-border" />
-                              </PhotoThumbnail>
+                            {before.length > 0 ? (
+                              <div className="space-y-1.5">
+                                {before.map((p, i) => (
+                                  <PhotoThumbnail key={p.url + i} src={p.url} className="block">
+                                    <img src={p.url} alt={`${name} 전 ${i + 1}`} className="w-full h-28 object-cover rounded-xl border border-border" />
+                                  </PhotoThumbnail>
+                                ))}
+                              </div>
                             ) : (
                               <div className="w-full h-28 rounded-xl border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">전 사진 없음</div>
                             )}
-                            {after ? (
-                              <PhotoThumbnail src={after} className="block">
-                                <img src={after} alt={`${name} 후`} className="w-full h-28 object-cover rounded-xl border border-border" />
-                              </PhotoThumbnail>
+                            {after.length > 0 ? (
+                              <div className="space-y-1.5">
+                                {after.map((p, i) => (
+                                  <PhotoThumbnail key={p.url + i} src={p.url} className="block">
+                                    <img src={p.url} alt={`${name} 후 ${i + 1}`} className="w-full h-28 object-cover rounded-xl border border-border" />
+                                  </PhotoThumbnail>
+                                ))}
+                              </div>
                             ) : (
                               <div className="w-full h-28 rounded-xl border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">후 사진 없음</div>
                             )}
@@ -1797,6 +2034,162 @@ function CleaningPhotoReview({ records, branches }: { records: any[]; branches: 
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Admin editor for each cleaning item's 매뉴얼 가이드: BEST / WORST example photos (+ optional
+// caption) per zone, shown under that item on the store's 청소 점검 screen. Saves right away.
+function CleaningGuideManager() {
+  const { toast } = useToast();
+  const [zone, setZone] = useState(CLEANING_ZONES[0]);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const { data: guides = [], isLoading } = useCleaningItemGuides();
+  const saveMutation = useSaveCleaningItemGuide();
+  // Read the query cache (kept current by the save hook) rather than this render's `guides`, so a
+  // save that runs after a slow upload merges into the latest row (e.g. the other side saved meanwhile).
+  const guideOf = (item: string) =>
+    (queryClient.getQueryData<CleaningItemGuide[]>(["/api/cleaning-guides"]) ?? guides).find(g => g.zone === zone && g.item === item);
+
+  const save = async (item: string, patch: Partial<Pick<CleaningItemGuide, 'bestPhotos' | 'worstPhotos' | 'bestNote' | 'worstNote'>>) => {
+    const g = guideOf(item);
+    try {
+      await saveMutation.mutateAsync({
+        zone,
+        item,
+        bestPhotos: g?.bestPhotos ?? [],
+        worstPhotos: g?.worstPhotos ?? [],
+        bestNote: g?.bestNote ?? null,
+        worstNote: g?.worstNote ?? null,
+        ...patch,
+      });
+      return true;
+    } catch (err: any) {
+      console.error('cleaning guide save failed', err);
+      toast({ title: '저장 실패', description: err?.message || '다시 시도해주세요.', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const handleAddPhotos = async (item: string, side: 'best' | 'worst', fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList); // snapshot before any await — the input gets cleared right after this call
+    setUploadingKey(`${item}|${side}`);
+    try {
+      const { uploadFile } = await import("@/lib/upload");
+      const results = await Promise.allSettled(files.map(f => uploadFile(f, { compress: true })));
+      const uploaded = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled').map(r => r.value);
+      const failedCount = results.length - uploaded.length;
+      if (uploaded.length > 0) {
+        const g = guideOf(item);
+        const key = side === 'best' ? 'bestPhotos' : 'worstPhotos';
+        if (await save(item, { [key]: [...(g?.[key] ?? []), ...uploaded] })) {
+          toast({ title: `${side === 'best' ? 'BEST' : 'WORST'} 사진 ${uploaded.length}장 저장됨` });
+        }
+      }
+      if (failedCount > 0) {
+        results.forEach(r => { if (r.status === 'rejected') console.error('cleaning guide photo upload failed', r.reason); });
+        toast({ title: `사진 ${failedCount}장 업로드 실패`, description: '다시 시도해주세요.', variant: 'destructive' });
+      }
+    } finally {
+      setUploadingKey(null);
+    }
+  };
+
+  const handleRemovePhoto = (item: string, side: 'best' | 'worst', idx: number) => {
+    const key = side === 'best' ? 'bestPhotos' : 'worstPhotos';
+    const list = [...(guideOf(item)?.[key] ?? [])];
+    list.splice(idx, 1);
+    save(item, { [key]: list });
+  };
+
+  const renderSide = (item: string, side: 'best' | 'worst') => {
+    const g = guideOf(item);
+    const photos = (side === 'best' ? g?.bestPhotos : g?.worstPhotos) ?? [];
+    const note = (side === 'best' ? g?.bestNote : g?.worstNote) ?? '';
+    const uploading = uploadingKey === `${item}|${side}`;
+    return (
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className={`text-center text-xs font-black py-1 rounded-md ${side === 'best' ? 'bg-white text-black border-2 border-black' : 'bg-zinc-600 text-white'}`}>
+          {side === 'best' ? 'BEST' : 'WORST'}
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {photos.map((url, idx) => (
+            <div key={url + idx} className="relative">
+              <PhotoThumbnail src={url} className="w-full">
+                <img src={url} className="w-full aspect-square object-cover rounded-lg border border-border" alt={`${item} ${side} ${idx + 1}`} />
+              </PhotoThumbnail>
+              <button
+                type="button"
+                onClick={() => handleRemovePhoto(item, side, idx)}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                aria-label="사진 삭제"
+                data-testid={`btn-cleaning-guide-remove-${side}-${idx}`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+          <label className={`aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground cursor-pointer ${uploading ? 'opacity-60 pointer-events-none' : 'hover:border-primary hover:text-primary'}`}>
+            {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+            <span className="text-[10px] font-bold">{uploading ? '업로드 중' : '사진 추가'}</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={e => { handleAddPhotos(item, side, e.target.files); e.target.value = ''; }}
+              data-testid={`input-cleaning-guide-${side}`}
+            />
+          </label>
+        </div>
+        <textarea
+          key={`${zone}|${item}|${side}|${g?.updatedAt ?? ''}`}
+          defaultValue={note}
+          placeholder="설명 (선택)"
+          onBlur={e => { const v = e.target.value.trim(); if (v !== note) save(item, { [side === 'best' ? 'bestNote' : 'worstNote']: v || null }); }}
+          className="w-full p-2 rounded-lg border border-border text-xs resize-none h-16 focus:outline-none focus:border-primary"
+          data-testid={`textarea-cleaning-guide-${side}`}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground px-1">
+        항목별로 BEST / WORST 사진을 올리면 점포 청소 점검 화면의 해당 항목에 "매뉴얼 가이드"로 보여요. 사진과 설명은 바로 저장돼요.
+      </p>
+      <div className="flex gap-1.5 flex-wrap">
+        {CLEANING_ZONES.map(z => (
+          <button
+            key={z}
+            onClick={() => setZone(z)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${zone === z ? 'bg-secondary text-white' : 'bg-muted text-muted-foreground'}`}
+            data-testid={`btn-cleaning-guide-zone-${z}`}
+          >
+            {z}
+          </button>
+        ))}
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <div className="space-y-3">
+          {(ZONE_ITEMS[zone] || []).map((item, i) => (
+            <div key={item} className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-muted-foreground">{String(i + 1).padStart(2, '0')}</span>
+                <span className="font-bold text-secondary">{item}</span>
+              </div>
+              <div className="flex gap-3">
+                {renderSide(item, 'best')}
+                {renderSide(item, 'worst')}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -1823,7 +2216,12 @@ function CleaningMonitoringManager() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [items, setItems] = useState<MonitoringItem[]>([]);
   const [uploadingZone, setUploadingZone] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Mirror of `items` readable from async handlers (state captured at call time goes stale
+  // across the awaits in handleAddPhotos).
+  const itemsRef = useRef<MonitoringItem[]>([]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   const { data: feedbackList = [], isLoading } = useCleaningMonitoringFeedback({ branch, year, month });
   const existing = feedbackList[0];
@@ -1841,31 +2239,67 @@ function CleaningMonitoringManager() {
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList); // snapshot before any await — the input gets cleared right after this call
     setUploadingZone(zone);
+    setUploadProgress({ done: 0, total: files.length });
     try {
       const { uploadFile } = await import("@/lib/upload");
       // Upload each photo independently — with `multiple` select, one flaky/failed
       // photo must not discard the others that uploaded fine (previously used
       // Promise.all, which rejected the whole batch on a single failure).
-      const results = await Promise.allSettled(files.map(f => uploadFile(f)));
+      // Each upload also gets a deadline: the Firebase SDK silently retries a stalled
+      // upload for ~10 minutes, which looked like an endless spinner with no error.
+      const UPLOAD_TIMEOUT_MS = 90_000;
+      let done = 0;
+      const withDeadline = (f: File) =>
+        Promise.race([
+          uploadFile(f, { compress: true }),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error(`시간 초과 (${Math.round(f.size / 1024 / 1024 * 10) / 10}MB)`)), UPLOAD_TIMEOUT_MS)),
+        ]).finally(() => { done += 1; setUploadProgress({ done, total: files.length }); });
+      const results = await Promise.allSettled(files.map(withDeadline));
       const createdAt = new Date().toISOString();
       const uploaded = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled').map(r => r.value);
       const failedCount = results.length - uploaded.length;
       if (uploaded.length > 0) {
-        setItems(prev => [...prev, ...uploaded.map(url => ({ zone, photoUrl: url, comment: '', createdAt }))]);
+        const nextItems: MonitoringItem[] = [
+          ...itemsRef.current,
+          ...uploaded.map(url => ({ zone, photoUrl: url, comment: '', createdAt })),
+        ];
+        itemsRef.current = nextItems;
+        setItems(nextItems);
+        // Save right away. These photos used to live only in this page's state until
+        // 저장 was pressed, so anything that reloaded the page (the phone browser being
+        // discarded while the camera/gallery app was in front, a refresh) silently threw
+        // the uploaded photos away even though they were already in Firebase.
+        if (branch) {
+          try {
+            await saveMutation.mutateAsync({ branch, year, month, items: nextItems });
+            toast({ title: `사진 ${uploaded.length}장 저장됨` });
+          } catch (err: any) {
+            console.error('monitoring auto-save failed', err);
+            toast({
+              title: '사진은 올라갔지만 저장에 실패했어요',
+              description: '아래 "모니터링 피드백 저장" 버튼을 눌러주세요.',
+              variant: 'destructive',
+            });
+          }
+        }
       }
       if (failedCount > 0) {
         results.forEach(r => { if (r.status === 'rejected') console.error('monitoring photo upload failed', r.reason); });
+        const firstErr = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
+        const reason = firstErr?.reason?.code || firstErr?.reason?.message || '';
         toast({
           title: uploaded.length > 0 ? `사진 ${failedCount}장 업로드 실패` : '사진 업로드 실패',
-          description: uploaded.length > 0 ? `${uploaded.length}장은 업로드되었습니다. 실패한 사진은 다시 시도해주세요.` : undefined,
+          description: `${uploaded.length > 0 ? `${uploaded.length}장은 업로드되었습니다. ` : ''}${reason ? `원인: ${reason}` : '다시 시도해주세요.'}`,
           variant: 'destructive',
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('monitoring photo upload failed', err);
-      toast({ title: '사진 업로드 실패', variant: 'destructive' });
+      toast({ title: '사진 업로드 실패', description: err?.code || err?.message, variant: 'destructive' });
     } finally {
       setUploadingZone(null);
+      setUploadProgress(null);
     }
   };
 
@@ -2004,24 +2438,44 @@ function CleaningMonitoringManager() {
                     </div>
                   ))}
 
-                  <button
-                    type="button"
-                    onClick={() => fileInputRefs.current[zone]?.click()}
-                    disabled={uploadingZone === zone}
-                    className="w-full py-3 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
-                    data-testid={`btn-monitoring-add-photo-${zone}`}
-                  >
-                    {uploadingZone === zone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    {zone} 사진 추가하기
-                  </button>
-                  <input
-                    ref={el => { fileInputRefs.current[zone] = el; }}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={e => { handleAddPhotos(zone, e.target.files); e.target.value = ''; }}
-                  />
+                  {/* Separate 촬영 / 보관함 buttons, each with its own input: a single input
+                      with `multiple` makes Samsung Internet jump straight to the camera with no
+                      gallery option (same problem fixed on the staff cleaning page). */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {([['camera', '촬영', Camera], ['library', '보관함', ImageIcon]] as const).map(([mode, label, Icon]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => fileInputRefs.current[`${zone}:${mode}`]?.click()}
+                        disabled={uploadingZone === zone}
+                        className="py-3 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-primary/5 disabled:opacity-50"
+                        data-testid={`btn-monitoring-add-photo-${zone}-${mode}`}
+                      >
+                        {uploadingZone === zone ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
+                        {zone} {label}
+                      </button>
+                    ))}
+                  </div>
+                  {uploadingZone === zone && uploadProgress && (
+                    <p className="text-xs font-bold text-primary text-center">
+                      업로드 중 {uploadProgress.done}/{uploadProgress.total}장
+                    </p>
+                  )}
+                  {/* 보관함 allows picking several photos at once. It lists explicit image types
+                      instead of image/*, since `multiple` + image/* is the combination that sends
+                      Samsung Internet to the camera. */}
+                  {(['camera', 'library'] as const).map(mode => (
+                    <input
+                      key={mode}
+                      ref={el => { fileInputRefs.current[`${zone}:${mode}`] = el; }}
+                      type="file"
+                      {...(mode === 'camera'
+                        ? { accept: 'image/*', capture: 'environment' as const }
+                        : { accept: 'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif', multiple: true })}
+                      className="hidden"
+                      onChange={e => { handleAddPhotos(zone, e.target.files); e.target.value = ''; }}
+                    />
+                  ))}
                 </div>
               );
             })}

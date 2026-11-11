@@ -10,13 +10,23 @@ const COMPRESS_SKIP_UNDER_BYTES = 800 * 1024; // already small enough — not wo
 // canvas taint, etc.) just falls back to the original file — this must never block an upload.
 // Opt-in per call site (see uploadFile's `compress` param) rather than automatic for every
 // upload — some callers (guide videos/attachments, PDFs) must never be touched.
+// Formats every browser can display in an <img>. Anything else (HEIC/HEIF from a Galaxy with
+// "고효율 사진" on, DNG/ProRAW, TIFF...) uploads fine but then shows as a broken image on
+// Android/desktop, so those MUST be converted — "return the original on failure" would just
+// store a photo nobody can see.
+const WEB_VIEWABLE = /^image\/(jpeg|png|webp|gif)$/i;
+const WEB_VIEWABLE_EXT = /\.(jpe?g|png|webp|gif)$/i;
+const MAX_UNCONVERTED_BYTES = 25 * 1024 * 1024; // beyond this a failed re-encode would just time out on mobile data
+
 export async function compressImage(file: File): Promise<File> {
-  if (!file.type.startsWith("image/")) return file;
+  const looksLikeImage = file.type.startsWith("image/") || /\.(heic|heif|dng|tiff?|jpe?g|png|webp|gif)$/i.test(file.name);
+  if (!looksLikeImage) return file;
+  const viewable = WEB_VIEWABLE.test(file.type) || (!file.type && WEB_VIEWABLE_EXT.test(file.name));
   try {
     const bitmap = await createImageBitmap(file);
     const longEdge = Math.max(bitmap.width, bitmap.height);
     const scale = Math.min(1, COMPRESS_MAX_DIMENSION / longEdge);
-    if (scale >= 1 && file.size < COMPRESS_SKIP_UNDER_BYTES) {
+    if (viewable && scale >= 1 && file.size < COMPRESS_SKIP_UNDER_BYTES) {
       bitmap.close?.();
       return file;
     }
@@ -27,15 +37,23 @@ export async function compressImage(file: File): Promise<File> {
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
-    if (!ctx) { bitmap.close?.(); return file; }
+    if (!ctx) { bitmap.close?.(); throw new Error("canvas unavailable"); }
     ctx.drawImage(bitmap, 0, 0, width, height);
     bitmap.close?.();
 
     const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", COMPRESS_QUALITY));
-    if (!blob || blob.size >= file.size) return file; // compression didn't actually help
+    if (!blob) throw new Error("encode failed");
+    // Only keep the original when it is already displayable and the re-encode didn't shrink it.
+    if (viewable && blob.size >= file.size) return file;
     const compressedName = file.name.replace(/\.\w+$/, "") + ".jpg";
     return new File([blob], compressedName, { type: "image/jpeg" });
   } catch {
+    if (!viewable) {
+      throw new Error("이 사진 형식(HEIC 등)은 변환할 수 없어요. 갤럭시는 카메라 설정에서 '고효율 사진(HEIF)'을 끄고 다시 찍어주세요.");
+    }
+    if (file.size > MAX_UNCONVERTED_BYTES) {
+      throw new Error(`사진 용량이 너무 커요 (${Math.round(file.size / 1024 / 1024)}MB). 더 작은 사진을 선택해주세요.`);
+    }
     return file;
   }
 }

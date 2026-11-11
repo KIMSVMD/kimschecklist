@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, cleaningMonitoringFeedback, cleaningDrafts, branchAccessCodes, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply, type CleaningMonitoringFeedback, type InsertCleaningMonitoringFeedback, type CleaningDraft, type InsertCleaningDraft } from "../shared/schema";
+import { checklists, guides, products, cleaningInspections, cleaningReplies, checklistReplies, staffScoreNotifications, cleaningMonitoringFeedback, cleaningDrafts, cleaningItemGuides, branchAccessCodes, type Checklist, type InsertChecklist, type Guide, type InsertGuide, type Product, type InsertProduct, type CleaningInspection, type InsertCleaning, type CleaningReply, type InsertCleaningReply, type ChecklistReply, type InsertChecklistReply, type CleaningMonitoringFeedback, type InsertCleaningMonitoringFeedback, type CleaningDraft, type InsertCleaningDraft, type CleaningItemGuide, type InsertCleaningItemGuide } from "../shared/schema";
 import { desc, eq, asc, gte, and, sql, isNotNull } from "drizzle-orm";
 
 function filterGuidesByDate(rows: Guide[], year?: number, month?: number): Guide[] {
@@ -82,6 +82,8 @@ export interface IStorage {
   getCleaningDrafts(branch?: string): Promise<CleaningDraft[]>;
   upsertCleaningDraft(data: InsertCleaningDraft): Promise<CleaningDraft>;
   deleteCleaningDraft(branch: string, zone: string): Promise<void>;
+  getCleaningItemGuides(): Promise<CleaningItemGuide[]>;
+  upsertCleaningItemGuide(data: InsertCleaningItemGuide): Promise<CleaningItemGuide>;
   verifyBranchAccessCode(branch: string, code: string): Promise<boolean>;
   findBranchByAccessCode(code: string): Promise<string | null>;
   upsertCleaningInspection(data: InsertCleaning): Promise<{ record: CleaningInspection; created: boolean }>;
@@ -256,6 +258,14 @@ export class DatabaseStorage implements IStorage {
     for (const row of rows) {
       const items = (row.items as Record<string, any>) || {};
       for (const [itemName, data] of Object.entries(items)) {
+        // Current shape: arrays of photos (beforePhotos/afterPhotos). Legacy rows
+        // (before multi-photo support) only have the singular beforePhotoHash/afterPhotoHash.
+        if (data?.beforePhotos?.some((p: any) => p?.hash === hash)) {
+          return { branch: row.branch, zone: row.zone, item: itemName, slot: "before", createdAt: row.createdAt };
+        }
+        if (data?.afterPhotos?.some((p: any) => p?.hash === hash)) {
+          return { branch: row.branch, zone: row.zone, item: itemName, slot: "after", createdAt: row.createdAt };
+        }
         if (data?.beforePhotoHash === hash) {
           return { branch: row.branch, zone: row.zone, item: itemName, slot: "before", createdAt: row.createdAt };
         }
@@ -340,6 +350,27 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCleaningDraft(branch: string, zone: string): Promise<void> {
     await db.delete(cleaningDrafts).where(and(eq(cleaningDrafts.branch, branch), eq(cleaningDrafts.zone, zone)));
+  }
+
+  async getCleaningItemGuides(): Promise<CleaningItemGuide[]> {
+    return await db.select().from(cleaningItemGuides);
+  }
+
+  async upsertCleaningItemGuide(data: InsertCleaningItemGuide): Promise<CleaningItemGuide> {
+    const existing = await db.select().from(cleaningItemGuides)
+      .where(and(eq(cleaningItemGuides.zone, data.zone), eq(cleaningItemGuides.item, data.item)))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(cleaningItemGuides)
+        .set({ bestPhotos: data.bestPhotos, worstPhotos: data.worstPhotos, bestNote: data.bestNote, worstNote: data.worstNote, updatedAt: new Date() })
+        .where(eq(cleaningItemGuides.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [row] = await db.insert(cleaningItemGuides).values(data).returning();
+    return row;
   }
 
   async verifyBranchAccessCode(branch: string, code: string): Promise<boolean> {

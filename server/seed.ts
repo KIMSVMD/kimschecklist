@@ -187,6 +187,25 @@ export async function seedProductsIfEmpty() {
     console.error("[seed] Failed to ensure cleaning_drafts.staff_name column:", err);
   }
 
+  // 1b4. Ensure cleaning_item_guides table exists (BEST/WORST 매뉴얼 가이드 per zone + item)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS cleaning_item_guides (
+        id SERIAL PRIMARY KEY,
+        zone TEXT NOT NULL,
+        item TEXT NOT NULL,
+        best_photos TEXT[],
+        worst_photos TEXT[],
+        best_note TEXT,
+        worst_note TEXT,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(zone, item)
+      )
+    `);
+  } catch (err) {
+    console.error("[seed] Failed to ensure cleaning_item_guides table:", err);
+  }
+
   // 1c. Ensure branch_access_codes table exists and seed initial codes
   try {
     await db.execute(sql`

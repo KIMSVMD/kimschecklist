@@ -1348,15 +1348,20 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
   });
 
   // Issue list for selected date
-  const issues: { recordId: number; zone: string; item: string; memo?: string | null; beforePhotoUrl?: string | null; afterPhotoUrl?: string | null; time: string }[] = [];
+  const issues: { recordId: number; zone: string; item: string; memo?: string | null; beforePhotos: { url: string }[]; afterPhotos: { url: string }[]; time: string }[] = [];
   dayRecords.forEach(r => {
     if (r.items) {
       Object.entries(r.items as Record<string, any>).forEach(([item, data]) => {
         if (data.status === 'issue') {
+          const beforePhotos = data.beforePhotos?.length > 0
+            ? data.beforePhotos
+            : (data.beforePhotoUrl ?? data.photoUrl) ? [{ url: data.beforePhotoUrl ?? data.photoUrl }] : [];
+          const afterPhotos = data.afterPhotos?.length > 0
+            ? data.afterPhotos
+            : data.afterPhotoUrl ? [{ url: data.afterPhotoUrl }] : [];
           issues.push({
             recordId: r.id, zone: r.zone, item, memo: data.memo,
-            beforePhotoUrl: data.beforePhotoUrl ?? data.photoUrl ?? null,
-            afterPhotoUrl: data.afterPhotoUrl ?? null,
+            beforePhotos, afterPhotos,
             time: r.inspectionTime,
           });
         }
@@ -1553,18 +1558,18 @@ function CleaningTab({ highlightId, highlightDate, highlightBranch }: { highligh
                     className="bg-white rounded-2xl border-2 border-red-200 overflow-hidden shadow-sm"
                   >
                     <div className="flex gap-3 p-4">
-                      {(issue.beforePhotoUrl || issue.afterPhotoUrl) && (
-                        <div className="flex gap-1.5 shrink-0">
-                          {issue.beforePhotoUrl && (
-                            <PhotoThumbnail src={issue.beforePhotoUrl} className="w-20 h-20">
-                              <img src={issue.beforePhotoUrl} className="w-20 h-20 rounded-xl object-cover border border-border" alt="청소 전" />
+                      {(issue.beforePhotos.length > 0 || issue.afterPhotos.length > 0) && (
+                        <div className="flex gap-1.5 shrink-0 overflow-x-auto max-w-[180px]">
+                          {issue.beforePhotos.map((p, pi) => (
+                            <PhotoThumbnail key={`before-${pi}`} src={p.url} className="w-20 h-20 shrink-0">
+                              <img src={p.url} className="w-20 h-20 rounded-xl object-cover border border-border" alt={`청소 전 ${pi + 1}`} />
                             </PhotoThumbnail>
-                          )}
-                          {issue.afterPhotoUrl && (
-                            <PhotoThumbnail src={issue.afterPhotoUrl} className="w-20 h-20">
-                              <img src={issue.afterPhotoUrl} className="w-20 h-20 rounded-xl object-cover border border-border" alt="청소 후" />
+                          ))}
+                          {issue.afterPhotos.map((p, pi) => (
+                            <PhotoThumbnail key={`after-${pi}`} src={p.url} className="w-20 h-20 shrink-0">
+                              <img src={p.url} className="w-20 h-20 rounded-xl object-cover border border-border" alt={`청소 후 ${pi + 1}`} />
                             </PhotoThumbnail>
-                          )}
+                          ))}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
