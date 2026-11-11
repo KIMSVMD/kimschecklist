@@ -1517,9 +1517,9 @@ function CleaningManager() {
   // branch got that week: green circle = every item of the zone done, orange triangle = some items
   // done, blank = nothing done. A branch's total is every item across the 5 zones (공통 6 + 4 zones
   // x 7), and a zone still being filled in counts its finished items so far (see drafts below).
-  // 주차별 통합 참여율 = zones with a circle or triangle that week / 5 zones, per branch. Weeks run
+  // 주차별 통합 참여율 = zones with a circle or triangle that week / 5 zones, per branch (0% when none). Weeks run
   // from 10월 3주차 to the selected week.
-  // Colours of the % cells (conditional formatting): 0% white, under 30% red, 30% to under 80% orange, 80%+ green.
+  // Colours of the % cells (conditional formatting): under 30% (0% included) red, 30% to under 80% orange, 80%+ green.
   const handleExportAchievementXlsx = async () => {
     try {
       const { downloadXlsx } = await import('@/lib/xlsx-lite');
@@ -1687,8 +1687,7 @@ function CleaningManager() {
         conditionalFormats: [{
           ref: `C6:${lastCol}${LAST}`,
           rules: [
-            { formula: 'AND(ISNUMBER(C6),C6=0)', fill: 'FFFFFF', fontColor: 'FFFFFF' },
-            { formula: 'AND(ISNUMBER(C6),C6>0,C6<0.295)', fill: 'FF0000' },
+            { formula: 'AND(ISNUMBER(C6),C6<0.295)', fill: 'FF0000' },
             { formula: 'AND(ISNUMBER(C6),C6>=0.295,C6<0.795)', fill: 'FFC000' },
             { formula: 'AND(ISNUMBER(C6),C6>=0.795)', fill: '00B050' },
           ],
