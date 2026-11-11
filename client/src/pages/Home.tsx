@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import logoKimsClub from "@assets/logo-danji.png";
 import {
-  ClipboardCheck, ClipboardList,
+  ClipboardCheck, ClipboardList, BarChart3,
   BookOpen, X, ChevronDown, ChevronUp,
   Home as HomeIcon, ChevronLeft, ChevronRight, RotateCcw,
 } from "lucide-react";
@@ -181,7 +181,8 @@ export default function Home() {
           </div>
 
           {/* Cards row */}
-          <div className="flex flex-row gap-[15px] mb-[20px] md:mb-[27px] w-full md:w-auto justify-center">
+          {/* Phone: the two cards side by side with 매출 대시보드 as a wide card below; desktop: one row of three */}
+          <div className="grid grid-cols-2 md:flex md:flex-row gap-[15px] mb-[20px] md:mb-[27px] w-full md:w-auto justify-center">
             {/* Green card */}
             <Link href="/checklist/new" data-testid="link-new-checklist" className="flex-1 md:flex-none">
               <motion.div
@@ -221,6 +222,28 @@ export default function Home() {
                 <div className="flex flex-col items-center" style={{ gap: '3px' }}>
                   <p className="md:text-[25px] md:leading-[30px] text-[20px] leading-[26px] text-center font-bold" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em', color: '#006341', margin: 0 }}>점검 월별<br className="md:hidden" /> 피드백</p>
                   <p className="md:text-[16px] md:leading-[19px] text-[13px] leading-[17px] text-center" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: '-0.04em', color: '#000000', margin: 0 }}>수정 및 삭제 가능</p>
+                </div>
+              </motion.div>
+            </Link>
+
+            {/* Sales dashboard card */}
+            <Link href="/sales-dashboard" data-testid="link-sales-dashboard" className="col-span-2 md:col-span-1 md:flex-none">
+              <motion.div
+                whileTap={{ scale: 0.97 }}
+                className="flex flex-row md:flex-col items-center justify-center cursor-pointer w-full md:w-[198px] md:h-[198px] h-[90px]"
+                style={{
+                  background: '#FFFFFF',
+                  borderRadius: '20px',
+                  gap: '14px',
+                  padding: '13px 20px',
+                  boxSizing: 'border-box',
+                  filter: 'drop-shadow(0px 0px 6px rgba(0,0,0,0.25))',
+                }}
+              >
+                <BarChart3 className="md:w-[36px] md:h-[36px] w-8 h-8" style={{ color: '#006341' }} strokeWidth={2} />
+                <div className="flex flex-col items-start md:items-center" style={{ gap: '3px' }}>
+                  <p className="md:text-[25px] md:leading-[30px] text-[20px] leading-[26px] md:text-center font-bold" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", letterSpacing: '-0.04em', color: '#006341', margin: 0 }}>매출 대시보드</p>
+                  <p className="md:text-[16px] md:leading-[19px] text-[13px] leading-[17px] md:text-center" style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: '-0.04em', color: '#000000', margin: 0 }}>매출 현황 확인</p>
                 </div>
               </motion.div>
             </Link>

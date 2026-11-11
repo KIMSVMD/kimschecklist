@@ -18,6 +18,7 @@ import QualityBulkEdit from "./pages/QualityBulkEdit";
 import CleaningChecklist from "./pages/CleaningChecklist";
 import CleaningReport from "./pages/CleaningReport";
 import GuidesPage from "./pages/GuidesPage";
+import SalesDashboard from "./pages/SalesDashboard";
 
 function Router() {
   return (
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/checklist/edit/:id" component={EditChecklist} />
       <Route path="/checklist/quality-edit/:id" component={QualityBulkEdit} />
       <Route path="/staff-dashboard" component={StaffDashboard} />
+      <Route path="/sales-dashboard" component={SalesDashboard} />
       <Route path="/cleaning/new" component={CleaningChecklist} />
       <Route path="/admin/cleaning-report" component={CleaningReport} />
       <Route path="/dashboard" component={Dashboard} />
