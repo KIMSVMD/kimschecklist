@@ -1519,7 +1519,10 @@ function CleaningManager() {
   // lower it). A zone still being filled in counts its finished items so far (see drafts below). A branch that did nothing in a week is left blank (white) for that
   // week; only participating branches show progress. 월 총 달성률 has a column per week of the month so far (items done / all items) plus a 합계 of
   // items done / (all items x weeks so far). Each zone and the 완료 항목 block have a column per week from 10월 3주차 on; 완료 항목 shows "done/total" counts.
-  // Colours (conditional formatting): 0% blank/white, under 30% red, 30% to under 80% orange, 80%+ green.
+  // Zone cells show participation as symbols instead of percentages: green circle = every item of
+  // the zone done, orange triangle = some done, red X = none. 총 참여율 (next to the branch name) =
+  // circles + triangles over all zone cells (X is not counted as taking part).
+  // Colours of the % cells (conditional formatting): under 30% red, 30% to under 80% orange, 80%+ green.
   const handleExportAchievementXlsx = async () => {
     try {
       const { downloadXlsx } = await import('@/lib/xlsx-lite');
@@ -1610,8 +1613,13 @@ function CleaningManager() {
         { ...T, size: 14, numFmt: 'percent' as const },                                        // 11 monthly cell
         { ...T, size: 11 },                                                                    // 12 item count
         { ...T, size: 12, fill: 'F2F2F2' },                                                    // 13 count column, 점포명 row
+        { ...T, font: 'Segoe UI Symbol', size: 14, color: '00B050' },                          // 14 ● all items done
+        { ...T, font: 'Segoe UI Symbol', size: 14, color: 'FFC000' },                          // 15 ▲ some items done
+        { ...T, font: 'Segoe UI Symbol', size: 14, color: 'FF0000' },                          // 16 ✖ nothing done
+        { size: 10, align: 'left' as const, wrap: false },                                     // 17 legend note
       ];
-      const S = { title: 1, corner: 2, zone: 3, head: 4, groupTitle: 5, avgLabel: 6, avg: 7, name: 8, mgr: 9, cell: 10, month: 11, count: 12, countAvg: 13 };
+      const SYM = { all: '●', part: '▲', none: '✖' };
+      const S = { title: 1, corner: 2, zone: 3, head: 4, groupTitle: 5, avgLabel: 6, avg: 7, name: 8, mgr: 9, cell: 10, month: 11, count: 12, countAvg: 13, symAll: 14, symPart: 15, symNone: 16, note: 17 };
 
       type Col =
         | { kind: 'zone'; zone: string; mon: Date }
@@ -1638,10 +1646,13 @@ function CleaningManager() {
       ];
       const isPercent = (c: Col) => c.kind === 'zone' || c.kind === 'monthWeek' || c.kind === 'monthTotal';
       const percentCols = cols.filter(isPercent).length;
+      const zoneCols = cols.filter(c => c.kind === 'zone');
+      const lastZoneCol = letter(1 + zoneCols.length);
+      const isIn = (v: unknown) => v === SYM.all || v === SYM.part; // a red X does not count as taking part
       const valueOf = (b: string, c: Col): number | string | null => {
         if (c.kind === 'zone') {
-          const s = subOf(b, c.mon);
-          return s ? Math.min(1, (s[c.zone] ?? 0) / zoneTotal[c.zone]) : null;
+          const done = Math.min(subOf(b, c.mon)?.[c.zone] ?? 0, zoneTotal[c.zone]);
+          return done >= zoneTotal[c.zone] ? SYM.all : done > 0 ? SYM.part : SYM.none;
         }
         if (c.kind === 'monthWeek') return c.mon && subOf(b, c.mon) ? itemsDone(b, c.mon) / totalItems : null;
         if (c.kind === 'monthTotal') { const st = monthStat(b, c.y, c.m); return st ? st.done / st.total : null; }
@@ -1671,36 +1682,64 @@ function CleaningManager() {
         c.kind === 'zone' ? c.zone
         : c.kind === 'monthWeek' || c.kind === 'monthTotal' ? `${c.m}월 총 달성률`
         : '완료 항목(개)';
-      const zoneRow: Cell[] = [{ v: '구분', s: S.corner }, { s: S.corner }, ...cols.map((c, i): Cell => {
+      const zoneRow: Cell[] = [{ v: '구분', s: S.corner }, { v: '총\n참여율', s: S.zone }, ...cols.map((c, i): Cell => {
         const g = groups.find(x => x.from <= i && i <= x.to)!;
         const s = c.kind === 'zone' ? S.zone : S.groupTitle;
         return i === g.from ? { v: groupTitle(c), s } : { s };
       })];
-      const headRow: Cell[] = [{ s: S.corner }, { s: S.corner }, ...cols.map((c): Cell => {
+      const headRow: Cell[] = [{ s: S.corner }, { s: S.zone }, ...cols.map((c): Cell => {
         if (c.kind === 'zone' || c.kind === 'countWeek') { const w = weekInfo(c.mon); return { v: `${w.month}월\n${w.n}주차`, s: S.head }; }
         if (c.kind === 'monthWeek') return { v: c.mon ? `${weekInfo(c.mon).n}주차` : '1주차', s: S.head };
         if (c.kind === 'monthTotal') return { v: '합계', s: S.head };
         return { v: `${c.m}월\n누적`, s: S.head };
       })];
-      const avgRow: Cell[] = [{ v: '점포명', s: S.avgLabel }, { s: S.avgLabel }, ...cols.map((c, i): Cell => {
+      const totalCol = rowsOrder.map(b => zoneCols.filter(c => isIn(valueOf(b, c))).length / Math.max(zoneCols.length, 1));
+      const avgRow: Cell[] = [{ v: '점포명', s: S.avgLabel }, { f: `IFERROR(AVERAGE(B${FIRST}:B${LAST}),"-")`, v: totalCol.length > 0 ? totalCol.reduce((a, v) => a + v, 0) / totalCol.length : '-', s: S.avg }, ...cols.map((c, i): Cell => {
         if (!isPercent(c)) return { s: S.countAvg };
         const col = letter(2 + i);
+        if (c.kind === 'zone') {
+          // share of branches that took part (circle or triangle) in this zone and week
+          const rng = `${col}${FIRST}:${col}${LAST}`;
+          const took = rowsOrder.filter(b => isIn(valueOf(b, c))).length;
+          return {
+            f: `IFERROR((COUNTIF(${rng},"${SYM.all}")+COUNTIF(${rng},"${SYM.part}"))/ROWS(${rng}),"-")`,
+            v: rowsOrder.length > 0 ? took / rowsOrder.length : '-',
+            s: S.avg,
+          };
+        }
         // Blank cells (branches that did not take part) are skipped by AVERAGE.
         const nums = rowsOrder.map(b => valueOf(b, c)).filter((v): v is number => typeof v === 'number');
         const cached = nums.length > 0 ? nums.reduce((a, v) => a + v, 0) / nums.length : '-';
         return { f: `IFERROR(AVERAGE(${col}${FIRST}:${col}${LAST}),"-")`, v: cached, s: S.avg };
       })];
-      const branchRows: Cell[][] = rowsOrder.map(b => [
-        { v: `${b} 킴스`, s: S.name },
-        { s: S.mgr }, // 점장 이름: not stored in the app, fill in on the sheet
-        ...cols.map((c): Cell => ({
-          v: valueOf(b, c),
-          s: c.kind === 'zone' || c.kind === 'monthWeek' ? S.cell : c.kind === 'monthTotal' ? S.month : S.count,
-        })),
-      ]);
+      const branchRows: Cell[][] = rowsOrder.map((b, bi) => {
+        const r = FIRST + bi;
+        const rng = `C${r}:${lastZoneCol}${r}`;
+        return [
+          { v: `${b} 킴스`, s: S.name },
+          {
+            f: `IFERROR((COUNTIF(${rng},"${SYM.all}")+COUNTIF(${rng},"${SYM.part}"))/COLUMNS(${rng}),0)`,
+            v: totalCol[bi],
+            s: S.cell,
+          }, // 총 참여율
+          ...cols.map((c): Cell => {
+            const v = valueOf(b, c);
+            if (c.kind === 'zone') return { v, s: v === SYM.all ? S.symAll : v === SYM.part ? S.symPart : S.symNone };
+            return { v, s: c.kind === 'monthWeek' ? S.cell : c.kind === 'monthTotal' ? S.month : S.count };
+          }),
+        ];
+      });
+      // Legend under the table
+      const legend: Cell[][] = [
+        [],
+        [{ v: `${SYM.all} 전체 완료`, s: S.symAll }],
+        [{ v: `${SYM.part} 일부 완료`, s: S.symPart }],
+        [{ v: `${SYM.none} 미실시`, s: S.symNone }],
+        [{ v: '총 참여율 = (● + ▲ 칸 수) ÷ 전체 칸 수. ✖는 참여로 보지 않아요.', s: S.note }],
+      ];
 
       const merges = [
-        `A2:${letter(width - 1)}3`, 'A4:B5',
+        `A2:${letter(width - 1)}3`, 'A4:A5', 'B4:B5',
         ...groups.filter(g => g.to > g.from).map(g => `${letter(2 + g.from)}4:${letter(2 + g.to)}4`),
       ];
       const rowHeights: Record<number, number> = { 1: 10.2, 2: 17.4, 3: 7.8, 4: 19.8, 5: 31.2, 6: 30 };
@@ -1709,17 +1748,16 @@ function CleaningManager() {
       downloadXlsx({
         name: '주간별 진행',
         styles,
-        rows: [rTitle1, rTitle2, rTitle3, zoneRow, headRow, avgRow, ...branchRows],
+        rows: [rTitle1, rTitle2, rTitle3, zoneRow, headRow, avgRow, ...branchRows, ...legend],
         merges,
-        colWidths: [15.4, 9, ...cols.map(c => (c.kind === 'zone' || c.kind === 'monthWeek' ? 9 : c.kind === 'monthTotal' ? 10.5 : 11))],
+        colWidths: [15.4, 10, ...cols.map(c => (c.kind === 'zone' || c.kind === 'monthWeek' ? 9 : c.kind === 'monthTotal' ? 10.5 : 11))],
         rowHeights,
         conditionalFormats: [{
-          ref: `C6:${letter(1 + percentCols)}${LAST}`,
+          ref: `B6:${letter(1 + percentCols)}${LAST}`,
           rules: [
-            { formula: 'AND(ISNUMBER(C6),C6=0)', fill: 'FFFFFF', fontColor: 'FFFFFF' },
-            { formula: 'AND(ISNUMBER(C6),C6>0,C6<0.295)', fill: 'FF0000' },
-            { formula: 'AND(ISNUMBER(C6),C6>=0.295,C6<0.795)', fill: 'FFC000' },
-            { formula: 'AND(ISNUMBER(C6),C6>=0.795)', fill: '00B050' },
+            { formula: 'AND(ISNUMBER(B6),B6<0.295)', fill: 'FF0000' },
+            { formula: 'AND(ISNUMBER(B6),B6>=0.295,B6<0.795)', fill: 'FFC000' },
+            { formula: 'AND(ISNUMBER(B6),B6>=0.795)', fill: '00B050' },
           ],
         }],
       }, `VM체크리스트_주간별_진행_${cur.year}년${cur.month}월${weekInfo(lastMonday).n}주차.xlsx`);
