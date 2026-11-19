@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import logoKimsClub from "@assets/logo-danji.png";
+const logoKimsClub = "/logo-danji.png";
 import {
   ClipboardCheck, ClipboardList,
   BookOpen, X, ChevronDown, ChevronUp,

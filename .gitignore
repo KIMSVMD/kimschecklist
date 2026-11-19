@@ -10,7 +10,15 @@ vite.config.ts.bak
 .vercel
 .local/
 .config/
-uploads/
+/uploads/
 restore-neon.cjs
 restore-neon.mjs
 *.log
+
+# Next.js / NoA
+.next
+.open-next
+next-env.d.ts
+deploy.zip
+*.tsbuildinfo
+.noa

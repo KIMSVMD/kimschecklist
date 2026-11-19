@@ -1,26 +1,13 @@
-import type { Express, Request, Response, NextFunction } from "express";
-import { createServer, type Server } from "http";
+import type { MiniApp, Request, Response, NextFunction } from "./http-shim";
 import { storage } from "./storage";
 import { db } from "./db";
 import { api } from "../shared/routes";
 import { insertGuideSchema, insertProductSchema, insertCleaningSchema, insertCleaningMonitoringFeedbackSchema, insertCleaningDraftSchema, insertCleaningItemGuideSchema, staffScoreNotifications } from "../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
-import path from "path";
-import fs from "fs";
-import express from "express";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "fallback-secret";
-// Keep /uploads/ static serving for any older records
-const uploadDir = path.join(process.cwd(), "uploads");
-try {
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-} catch (_e) {
-  // read-only filesystem (e.g. Vercel) - skip
-}
 
 function verifyAdminToken(req: Request): boolean {
   const authHeader = req.headers.authorization;
@@ -40,11 +27,8 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   res.status(401).json({ message: "관리자 권한이 필요합니다." });
 }
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
-  app.use("/uploads", express.static(uploadDir));
+// Older records' /uploads/ photos are served as static files from public/uploads.
+export function registerRoutes(app: MiniApp): void {
 
   // Admin auth routes
   app.post(api.admin.login.path, (req, res) => {
@@ -902,5 +886,4 @@ export async function registerRoutes(
     }
   });
 
-  return httpServer;
 }
