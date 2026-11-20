@@ -1,7 +1,8 @@
 // One-time DB setup (NoA guardrail: no table creation while the app runs).
 // Run once against Vibe Base with the owner connection, e.g.
 //   DATABASE_URL="<owner url>" npm run db:push      (creates every table from shared/schema.ts)
-//   DATABASE_URL="<owner url>" npm run db:migrate   (extra columns/tables + default products and branch codes)
+//   node script/vb-grant-rw.cjs                     (Vibe Base: give the app's rw role access + RLS policy)
+//   DATABASE_URL="<owner url>" npm run db:migrate   (only for a fresh start: default products and branch codes)
 import { pool } from "../server/db";
 import { seedProductsIfEmpty, seedQualityProductsIfEmpty } from "../server/seed";
 
