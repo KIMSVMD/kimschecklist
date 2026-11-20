@@ -1,13 +1,31 @@
 {
-  "include": ["next-env.d.ts", "src/**/*", "client/src/**/*", "shared/**/*", "server/**/*", "script/**/*.ts", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", ".next", ".open-next", "**/*.test.ts"],
+  "include": [
+    "next-env.d.ts",
+    "src/**/*",
+    "client/src/**/*",
+    "shared/**/*",
+    "server/**/*",
+    "script/**/*.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    ".open-next",
+    "**/*.test.ts"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "noEmit": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
-    "lib": ["esnext", "dom", "dom.iterable"],
+    "lib": [
+      "esnext",
+      "dom",
+      "dom.iterable"
+    ],
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -16,11 +34,21 @@
     "isolatedModules": true,
     "incremental": true,
     "baseUrl": ".",
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./client/src/*"],
-      "@shared/*": ["./shared/*"],
-      "@assets/*": ["./attached_assets/*"]
+      "@/*": [
+        "./client/src/*"
+      ],
+      "@shared/*": [
+        "./shared/*"
+      ],
+      "@assets/*": [
+        "./attached_assets/*"
+      ]
     }
   }
 }

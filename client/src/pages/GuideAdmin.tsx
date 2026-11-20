@@ -105,6 +105,7 @@ type GuideFormData = {
   items: string[];
   itemWeights: Record<string, number>;
   existingImageUrls: string[];
+  imageUrls?: string[];
   newImageFiles: File[];
   videoFile?: File | null;
   videoUrl?: string;

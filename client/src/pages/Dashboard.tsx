@@ -48,7 +48,7 @@ function AdminScoreInput({
       const sv = staffItems[k];
       return [k, (sv === 'ok' || sv === 'excellent') ? 'ok' : 'notok'];
     })
-  );
+  ) as Record<string, 'ok' | 'notok'>;
 
   const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok'>>(initSel);
 
@@ -190,7 +190,7 @@ function AdminAdScoreInput({
       const sv = staffAdItems[k];
       return [k, (sv === 'ok' || sv === 'excellent') ? 'ok' : 'notok'];
     })
-  );
+  ) as Record<string, 'ok' | 'notok'>;
 
   const [adminSel, setAdminSel] = useState<Record<string, 'ok' | 'notok'>>(initSel);
   const okCount = Object.values(adminSel).filter(v => v === 'ok').length;
@@ -1763,7 +1763,7 @@ function RankingTab() {
     '인천',,'고잔','김포',           // 소형 수도권
     '부산대','청주',                       // 소형 지방
   ];
-  SORTED_BRANCHES.forEach((b, i) => { STORE_TYPE_ORDER[b] = i; });
+  SORTED_BRANCHES.forEach((b, i) => { if (b) STORE_TYPE_ORDER[b] = i; });
 
   const { data: agriAll, isLoading } = useChecklists({ category: rankCategory });
 
@@ -2067,7 +2067,7 @@ export default function Dashboard() {
         {/* Tab switcher */}
         <div className="flex px-4 md:px-[50px] border-b border-border items-center">
           {(['ranking', 'vm', 'cleaning', 'activity'] as const).map((tab) => {
-            const cfg: Record<string, { label: string; icon: JSX.Element }> = {
+            const cfg: Record<string, { label: string; icon: React.JSX.Element }> = {
               ranking: { label: '점별 순위', icon: <Trophy className="w-4 h-4" /> },
               vm:      { label: '점검',     icon: <BarChart3 className="w-4 h-4" /> },
               cleaning:{ label: '청소',     icon: <Droplets className="w-4 h-4" /> },

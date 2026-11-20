@@ -83,7 +83,7 @@ function GuideDetail({ guide, onClose }: { guide: Guide; onClose: () => void }) 
 
   const dateStr = (() => {
     if (!guide.updatedAt) return '';
-    const dt = new Date(guide.updatedAt as string);
+    const dt = new Date(guide.updatedAt);
     return `등록일: ${dt.getFullYear()}. ${dt.getMonth() + 1}. ${dt.getDate()}.`;
   })();
 

@@ -149,6 +149,8 @@ type GuidePayload = {
   points: string[];
   items: string[];
   imageUrl?: string | null;
+  // Other guide fields the server also accepts (imageUrls, videoUrl, itemWeights, validFrom..., etc.)
+  [key: string]: unknown;
 };
 
 export function useCreateGuide() {

@@ -110,13 +110,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createChecklist(insertChecklist: InsertChecklist): Promise<Checklist> {
-    const [checklist] = await db.insert(checklists).values(insertChecklist).returning();
+    const [checklist] = await db.insert(checklists).values(insertChecklist as typeof checklists.$inferInsert).returning();
     return checklist;
   }
 
   async updateChecklist(id: number, data: Partial<InsertChecklist>): Promise<Checklist | undefined> {
     const [checklist] = await db.update(checklists)
-      .set(data)
+      .set(data as Partial<typeof checklists.$inferInsert>)
       .where(eq(checklists.id, id))
       .returning();
     return checklist;
@@ -300,13 +300,13 @@ export class DatabaseStorage implements IStorage {
 
     if (existing.length > 0) {
       const [updated] = await db.update(cleaningMonitoringFeedback)
-        .set({ items: data.items })
+        .set({ items: data.items as typeof cleaningMonitoringFeedback.$inferInsert["items"] })
         .where(eq(cleaningMonitoringFeedback.id, existing[0].id))
         .returning();
       return updated;
     }
 
-    const [row] = await db.insert(cleaningMonitoringFeedback).values(data).returning();
+    const [row] = await db.insert(cleaningMonitoringFeedback).values(data as typeof cleaningMonitoringFeedback.$inferInsert).returning();
     return row;
   }
 
@@ -338,13 +338,13 @@ export class DatabaseStorage implements IStorage {
 
     if (existing.length > 0) {
       const [updated] = await db.update(cleaningDrafts)
-        .set({ items: data.items, inspectionTime: data.inspectionTime, updatedAt: new Date() })
+        .set({ items: data.items as typeof cleaningDrafts.$inferInsert["items"], inspectionTime: data.inspectionTime, updatedAt: new Date() })
         .where(eq(cleaningDrafts.id, existing[0].id))
         .returning();
       return updated;
     }
 
-    const [row] = await db.insert(cleaningDrafts).values(data).returning();
+    const [row] = await db.insert(cleaningDrafts).values(data as typeof cleaningDrafts.$inferInsert).returning();
     return row;
   }
 
@@ -404,13 +404,13 @@ export class DatabaseStorage implements IStorage {
 
     if (existing.length > 0) {
       const [updated] = await db.update(cleaningInspections)
-        .set({ items: data.items, overallStatus: data.overallStatus })
+        .set({ items: data.items as typeof cleaningInspections.$inferInsert["items"], overallStatus: data.overallStatus })
         .where(eq(cleaningInspections.id, existing[0].id))
         .returning();
       return { record: updated, created: false };
     }
 
-    const [row] = await db.insert(cleaningInspections).values(data).returning();
+    const [row] = await db.insert(cleaningInspections).values(data as typeof cleaningInspections.$inferInsert).returning();
     return { record: row, created: true };
   }
 

@@ -835,8 +835,8 @@ export default function StaffDashboard() {
                         {isScore ? (
                           <div className="flex items-center gap-2">
                             <span className={`text-base font-black px-3 py-1 rounded-xl border ${
-                              parseInt(n.newStatus) >= 90 ? 'text-blue-600 bg-blue-50 border-blue-200' :
-                              parseInt(n.newStatus) >= 70 ? 'text-amber-600 bg-amber-50 border-amber-200' :
+                              parseInt(n.newStatus ?? '') >= 90 ? 'text-blue-600 bg-blue-50 border-blue-200' :
+                              parseInt(n.newStatus ?? '') >= 70 ? 'text-amber-600 bg-amber-50 border-amber-200' :
                               'text-primary bg-red-50 border-red-200'
                             }`}>
                               ★ {n.newStatus}점
@@ -886,7 +886,7 @@ export default function StaffDashboard() {
                   '중계',
                   '인천',,'고잔','김포',
                   '부산대','청주',
-                ].forEach((b, i) => { storeOrder[b] = i; });
+                ].forEach((b, i) => { if (b) storeOrder[b] = i; });
                 const gradeList = rawRanking.filter(r => r.status === 'scored').map(r => ({ ...r, grade: getGrade(r.avg) }));
                 const sortedGrade = gradeList.sort((a, b) => {
                   const ga = a.grade ?? 'C', gb = b.grade ?? 'C';
