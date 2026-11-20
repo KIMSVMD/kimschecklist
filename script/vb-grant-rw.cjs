@@ -3,10 +3,10 @@
 const fs = require("fs");
 const path = require("path");
 const pg = require("pg");
-const { vibeBaseUrl } = require("./vb-url.cjs");
+const { vibeBaseUrl, credDir } = require("./vb-url.cjs");
 
 (async () => {
-  const rwUser = fs.readFileSync(path.join(__dirname, "..", ".env.vibebase.local"), "utf8").match(/^VIBE_BASE_PG_USER=(.+)$/m)[1].trim().replace(/^"|"$/g, "");
+  const rwUser = fs.readFileSync(path.join(credDir, ".env.vibebase.local"), "utf8").match(/^VIBE_BASE_PG_USER=(.+)$/m)[1].trim().replace(/^"|"$/g, "");
   if (!/^[a-z0-9_]+$/.test(rwUser)) throw new Error("unexpected rw role name");
   const sql = fs.readFileSync(path.join(__dirname, "vb-grant-rw.sql"), "utf8")
     .replaceAll(":rw_name", rwUser).replaceAll(":rw", `"${rwUser}"`);

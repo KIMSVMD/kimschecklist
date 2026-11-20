@@ -9,11 +9,10 @@ const OUT = path.join(ROOT, "deploy.zip");
 
 const EXCLUDE_DIRS = new Set([
   "node_modules", ".next", ".open-next", ".turbo", ".cache", ".swc", ".git", ".github", ".claude", ".noa",
-  "coverage", "dist", "out", "attached_assets", "migrations",
+  "coverage", "dist", "out", "migrations",
 ]);
 const EXCLUDE_FILES = new Set([
-  "deploy.zip", "backup.sql", "deplay", "Custom subdomain", "github-upload.mjs", "push-to-github.sh",
-  "migrate-render-to-neon.mjs", "sync-schema.mjs", "replit.md", "next-env.d.ts",
+  "deploy.zip", "next-env.d.ts",
 ]);
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 

@@ -1,9 +1,10 @@
 // Local helper (not used by the app): builds a Vibe Base connection URL from the credential files
-// that `noa vibe-base credentials` wrote, without printing the password.
-//   node script/vb-url.cjs owner|rw   -> prints nothing; sets nothing. Use via require() from other scripts.
+// that `noa vibe-base credentials` wrote (.env.vibebase.local = rw, .env.vb-owner.json = owner),
+// without printing the password. Use via require() from other scripts.
 const fs = require("fs");
 const path = require("path");
-const ROOT = path.resolve(__dirname, "..");
+// Credential files live OUTSIDE the project folder (noa deploy uploads everything in it).
+const ROOT = process.env.VB_CRED_DIR || path.resolve(__dirname, "..", "..", "noa-secrets");
 
 function readJson(file) {
   const raw = fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -22,4 +23,4 @@ function vibeBaseUrl(role) {
   const e = readEnv(".env.vibebase.local");
   return `postgresql://${encodeURIComponent(e.VIBE_BASE_PG_USER)}:${encodeURIComponent(e.VIBE_BASE_PG_PASSWORD)}@${e.VIBE_BASE_PROXY_ENDPOINT}:5432/${e.VIBE_BASE_DATABASE_NAME}`;
 }
-module.exports = { vibeBaseUrl };
+module.exports = { vibeBaseUrl, credDir: ROOT };
